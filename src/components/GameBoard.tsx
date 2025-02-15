@@ -6,7 +6,7 @@ const GameBoard = () => {
       <div className="w-full h-full flex justify-between">
         {/* Left Player Area */}
         <div className="w-1/3 h-full border border-gray-600 p-2">
-          <div style={{ marginTop: '200px' }}>
+          <div style={{ marginTop: '400px' }}>
             <div className="text-white mb-4">Left Player Camps</div>
             <div className="flex justify-between">
               <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
@@ -36,7 +36,7 @@ const GameBoard = () => {
 
         {/* Right Player Area */}
         <div className="w-1/3 h-full border border-gray-600 p-2">
-          <div style={{ marginTop: '200px' }}>
+          <div style={{ marginTop: '400px' }}>
             <div className="text-white mb-4">Right Player Camps</div>
             <div className="flex justify-between">
               <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
