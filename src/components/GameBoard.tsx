@@ -2,7 +2,12 @@ import React from 'react';
 
 const GameBoard = () => {
   return (
-    <div className='w-full h-screen bg-gray-800 p-4'>
+    <div
+      className='w-full h-screen p-4'
+      style={{
+        backgroundColor: '#340454',
+      }}
+    >
       <div className='w-full h-full flex justify-between'>
         {/* Left Player Area */}
         <div className='w-1/3 h-full border border-gray-600 p-2'>
@@ -15,17 +20,17 @@ const GameBoard = () => {
             <div className='flex justify-start gap-2 mb-8 ml-4'>
               <div className='w-24 h-32 border-2 border-gray-400 rounded bg-gray-700'>
                 <div className='text-white text-center mt-12'>
-                  Event 3
+                  3
                 </div>
               </div>
               <div className='w-24 h-32 border-2 border-gray-400 rounded bg-gray-700'>
                 <div className='text-white text-center mt-12'>
-                  Event 2
+                  2
                 </div>
               </div>
               <div className='w-24 h-32 border-2 border-gray-400 rounded bg-gray-700'>
                 <div className='text-white text-center mt-12'>
-                  Event 1
+                  1
                 </div>
               </div>
             </div>
@@ -135,17 +140,17 @@ const GameBoard = () => {
             <div className='flex justify-end gap-2 mb-8 mr-4'>
               <div className='w-24 h-32 border-2 border-gray-400 rounded bg-gray-700'>
                 <div className='text-white text-center mt-12'>
-                  Event 1
+                  1
                 </div>
               </div>
               <div className='w-24 h-32 border-2 border-gray-400 rounded bg-gray-700'>
                 <div className='text-white text-center mt-12'>
-                  Event 2
+                  2
                 </div>
               </div>
               <div className='w-24 h-32 border-2 border-gray-400 rounded bg-gray-700'>
                 <div className='text-white text-center mt-12'>
-                  Event 3
+                  3
                 </div>
               </div>
             </div>
