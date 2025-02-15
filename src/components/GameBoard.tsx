@@ -131,18 +131,38 @@ const GameBoard = () => {
               </div>
             </div>
 
-            {/* Bottom section with water counters */}
+            {/* Bottom section with water counters and special cards */}
             <div className='flex justify-between mb-8'>
-              {/* Left player water counter */}
-              <div className='flex items-center'>
+              {/* Left player section */}
+              <div className='flex items-center gap-2'>
+                <div className='w-16 h-20 border border-gray-400 rounded bg-blue-800'>
+                  <div className='text-white text-center text-xs mt-6'>
+                    Water Silo
+                  </div>
+                </div>
+                <div className='w-16 h-20 border border-gray-400 rounded bg-red-800'>
+                  <div className='text-white text-center text-xs mt-6'>
+                    Raiders
+                  </div>
+                </div>
                 <div className='bg-blue-600 rounded-full p-4 text-white font-bold text-xl'>
                   💧 3
                 </div>
               </div>
-              {/* Right player water counter */}
-              <div className='flex items-center'>
+              {/* Right player section */}
+              <div className='flex items-center gap-2'>
                 <div className='bg-blue-600 rounded-full p-4 text-white font-bold text-xl'>
                   💧 3
+                </div>
+                <div className='w-16 h-20 border border-gray-400 rounded bg-blue-800'>
+                  <div className='text-white text-center text-xs mt-6'>
+                    Water Silo
+                  </div>
+                </div>
+                <div className='w-16 h-20 border border-gray-400 rounded bg-red-800'>
+                  <div className='text-white text-center text-xs mt-6'>
+                    Raiders
+                  </div>
                 </div>
               </div>
             </div>
