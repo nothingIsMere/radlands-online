@@ -10,7 +10,7 @@ const GameBoard = () => {
     >
       <div className='w-full h-full flex justify-between'>
         {/* Left Player Area */}
-        <div className='w-1/3 h-full border border-gray-600 p-2'>
+        <div className='w-1/3 h-full border border-gray-600 p-2 relative'>
           <div
             style={{
               marginTop: '50px',
@@ -90,6 +90,26 @@ const GameBoard = () => {
                   </div>
                 </div>
               </div>
+              <div className='absolute bottom-4 left-4 right-4'>
+                <div className='border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32'>
+                  <div className='text-white mb-2'>
+                    Hand
+                  </div>
+                  <div className='flex flex-wrap gap-2'>
+                    {/* Example cards - we'll make these dynamic later */}
+                    <div className='w-16 h-24 border border-gray-400 rounded bg-gray-600'>
+                      <div className='text-white text-center text-xs mt-8'>
+                        Card
+                      </div>
+                    </div>
+                    <div className='w-16 h-24 border border-gray-400 rounded bg-gray-600'>
+                      <div className='text-white text-center text-xs mt-8'>
+                        Card
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -115,13 +135,13 @@ const GameBoard = () => {
             <div className='flex justify-between mb-8'>
               {/* Left player water counter */}
               <div className='flex items-center'>
-                <div className='bg-blue-600 rounded-lg p-4 text-white font-bold text-xl'>
+                <div className='bg-blue-600 rounded-full p-4 text-white font-bold text-xl'>
                   💧 3
                 </div>
               </div>
               {/* Right player water counter */}
               <div className='flex items-center'>
-                <div className='bg-blue-600 rounded-lg p-4 text-white font-bold text-xl'>
+                <div className='bg-blue-600 rounded-full p-4 text-white font-bold text-xl'>
                   💧 3
                 </div>
               </div>
@@ -130,7 +150,7 @@ const GameBoard = () => {
         </div>
 
         {/* Right Player Area */}
-        <div className='w-1/3 h-full border border-gray-600 p-2'>
+        <div className='w-1/3 h-full border border-gray-600 p-2 relative'>
           <div
             style={{
               marginTop: '50px',
@@ -207,6 +227,25 @@ const GameBoard = () => {
                 <div className='w-24 h-32 border-2 border-gray-400 rounded bg-gray-700'>
                   <div className='text-white text-center mt-12'>
                     Camp 3
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className='absolute bottom-4 left-4 right-4'>
+            <div className='border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32'>
+              <div className='text-white mb-2'>
+                Hand
+              </div>
+              <div className='flex flex-wrap gap-2'>
+                <div className='w-16 h-24 border border-gray-400 rounded bg-gray-600'>
+                  <div className='text-white text-center text-xs mt-8'>
+                    Card
+                  </div>
+                </div>
+                <div className='w-16 h-24 border border-gray-400 rounded bg-gray-600'>
+                  <div className='text-white text-center text-xs mt-8'>
+                    Card
                   </div>
                 </div>
               </div>
