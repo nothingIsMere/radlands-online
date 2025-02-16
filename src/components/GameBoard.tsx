@@ -14,7 +14,7 @@ const testCard: Card = {
 console.log('Test card:', testCard);
 
 const GameBoard = () => {
-  const [firstSlotCard, setFirstSlotCard] = useState<Card | null>(null);
+  const [personSlots, setPersonSlots] = useState<(Card | null)[]>([null, null]);
   const [handCards, setHandCards] = useState<Card[]>([testCard]);
 
   return (
@@ -53,30 +53,26 @@ const GameBoard = () => {
                   onDragOver={(e) => {
                     e.preventDefault();
                   }}
-                  // Find this:
-                  onDrop={(e) => {
-                    setFirstSlotCard(testCard);
-                    setHandCards([]);
-                  }}
-                  // Replace with:
                   onDrop={(e) => {
                     e.preventDefault();
                     const cardId = e.dataTransfer.getData('cardId');
                     const draggedCard = handCards.find((card) => card.id === cardId);
 
                     if (draggedCard) {
-                      setFirstSlotCard(draggedCard);
+                      const newSlots = [...personSlots];
+                      newSlots[0] = draggedCard;
+                      setPersonSlots(newSlots);
                       setHandCards(handCards.filter((card) => card.id !== cardId));
                     }
                   }}
                 >
-                  {firstSlotCard ? (
+                  {personSlots[0] ? (
                     <div className="text-white text-center text-xs mt-4">
-                      {firstSlotCard.name}
+                      {personSlots[0].name}
                       <br />
-                      {firstSlotCard.type}
+                      {personSlots[0].type}
                       <br />
-                      {firstSlotCard.id}
+                      {personSlots[0].id}
                     </div>
                   ) : (
                     <div className="text-white text-center mt-12">Person 1</div>
