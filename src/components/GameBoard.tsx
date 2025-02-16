@@ -4,19 +4,27 @@ import { Card } from '@/types/game';
 import React, { useState } from 'react';
 import PersonSlot from '@/components/PersonSlot';
 
-// Add this test card
-const testCard: Card = {
-  id: 'test-1',
-  name: 'Test Person',
-  type: 'person',
-};
-
-// Log it to make sure it works
-console.log('Test card:', testCard);
+const testCards: Card[] = [
+  {
+    id: 'test-1',
+    name: 'Scout',
+    type: 'person',
+  },
+  {
+    id: 'test-2',
+    name: 'Warrior',
+    type: 'person',
+  },
+  {
+    id: 'test-3',
+    name: 'Mechanic',
+    type: 'person',
+  },
+];
 
 const GameBoard = () => {
   const [personSlots, setPersonSlots] = useState<(Card | null)[]>([null, null, null, null, null, null]);
-  const [handCards, setHandCards] = useState<Card[]>([testCard]);
+  const [handCards, setHandCards] = useState<Card[]>(testCards);
 
   return (
     <div
