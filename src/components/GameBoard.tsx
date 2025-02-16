@@ -62,12 +62,28 @@ const drawDeckCards: Card[] = [
   },
 ];
 
+const leftWaterSiloCard: Card = {
+  id: 'watersilo-left',
+  name: 'Water Silo',
+  type: 'person',
+  owner: 'left',
+};
+
+const rightWaterSiloCard: Card = {
+  id: 'watersilo-right',
+  name: 'Water Silo',
+  type: 'person',
+  owner: 'right',
+};
+
 const GameBoard = () => {
   const [personSlots, setPersonSlots] = useState<(Card | null)[]>([null, null, null, null, null, null]);
   const [eventSlots, setEventSlots] = useState<(Card | null)[]>([null, null, null]);
   const [handCards, setHandCards] = useState<Card[]>([...testCards, ...testEventCards]);
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
   const [discardPile, setDiscardPile] = useState<Card[]>([]);
+  const [leftPlayerWater, setLeftPlayerWater] = useState<number>(3);
+  const [leftWaterSiloInHand, setLeftWaterSiloInHand] = useState<boolean>(false);
 
   return (
     <div
@@ -284,8 +300,31 @@ const GameBoard = () => {
             <div className="flex justify-between mb-8">
               {/* Left player section */}
               <div className="flex items-center gap-2">
-                <div className="w-16 h-20 border border-gray-400 rounded bg-blue-800">
-                  <div className="text-white text-center text-xs mt-6">Water Silo</div>
+                <div
+                  className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
+    ${!leftWaterSiloInHand && leftPlayerWater >= 1 ? 'cursor-pointer' : 'opacity-50'}`}
+                  onClick={() => {
+                    if (!leftWaterSiloInHand && leftPlayerWater >= 1) {
+                      setLeftWaterSiloInHand(true);
+                      setLeftPlayerWater(leftPlayerWater - 1);
+                      setHandCards([...handCards, leftWaterSiloCard]);
+                    }
+                  }}
+                >
+                  <div className="text-white text-center text-xs mt-6">
+                    Water Silo
+                    {!leftWaterSiloInHand ? (
+                      <>
+                        <br />
+                        (1 water)
+                      </>
+                    ) : (
+                      <>
+                        <br />
+                        (in hand)
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
                   <div className="text-white text-center text-xs mt-6">Raiders</div>

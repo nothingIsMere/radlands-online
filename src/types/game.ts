@@ -2,7 +2,9 @@ interface Card {
   id: string;
   name: string;
   type: 'person' | 'event' | 'camp';
-  startingQueuePosition?: number;  // Optional since person/camp cards don't need it
+  startingQueuePosition?: number;
+  isReady?: boolean;
+  owner?: 'left' | 'right';  // Added this line
 }
 
 interface PlayerState {

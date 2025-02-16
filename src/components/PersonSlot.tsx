@@ -26,7 +26,7 @@ const PersonSlot = ({ index, card, personSlots, setPersonSlots, handCards, setHa
 
         if (draggedCard && draggedCard.type === 'person' && !card) {
           const newSlots = [...personSlots];
-          newSlots[index] = draggedCard;
+          newSlots[index] = { ...draggedCard, isReady: false };
           setPersonSlots(newSlots);
           setHandCards(handCards.filter((card) => card.id !== cardId));
         }
@@ -34,7 +34,8 @@ const PersonSlot = ({ index, card, personSlots, setPersonSlots, handCards, setHa
     >
       {card ? (
         <div
-          className="text-white text-center text-xs mt-4"
+          className={`text-white text-center text-xs mt-4 
+      ${card.isReady ? 'border-2 border-green-500' : 'border-2 border-red-500'}`}
           draggable="true"
           onDragStart={(e) => {
             e.dataTransfer.setData('cardId', card.id);
@@ -47,6 +48,8 @@ const PersonSlot = ({ index, card, personSlots, setPersonSlots, handCards, setHa
           {card.type}
           <br />
           {card.id}
+          <br />
+          {card.isReady ? 'Ready' : 'Not Ready'}
         </div>
       ) : (
         <div className="text-white text-center mt-12">Person {index + 1}</div>
