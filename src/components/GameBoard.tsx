@@ -93,12 +93,22 @@ const GameBoard = () => {
               </div>
               {/* Column 3 */}
               <div className="flex flex-col">
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4">
-                  <div className="text-white text-center mt-12">Person 5</div>
-                </div>
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8">
-                  <div className="text-white text-center mt-12">Person 6</div>
-                </div>
+                <PersonSlot
+                  index={4}
+                  card={personSlots[4]}
+                  personSlots={personSlots}
+                  setPersonSlots={setPersonSlots}
+                  handCards={handCards}
+                  setHandCards={setHandCards}
+                />
+                <PersonSlot
+                  index={5}
+                  card={personSlots[5]}
+                  personSlots={personSlots}
+                  setPersonSlots={setPersonSlots}
+                  handCards={handCards}
+                  setHandCards={setHandCards}
+                />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 3</div>
                 </div>
