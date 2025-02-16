@@ -28,11 +28,19 @@ const testEventCards: Card[] = [
     id: 'event-1',
     name: 'Raid',
     type: 'event',
+    startingQueuePosition: 1,
   },
   {
     id: 'event-2',
     name: 'Ambush',
     type: 'event',
+    startingQueuePosition: 2,
+  },
+  {
+    id: 'event-3',
+    name: 'Attack',
+    type: 'event',
+    startingQueuePosition: 1,
   },
 ];
 
@@ -59,6 +67,7 @@ const GameBoard = () => {
   const [eventSlots, setEventSlots] = useState<(Card | null)[]>([null, null, null]);
   const [handCards, setHandCards] = useState<Card[]>([...testCards, ...testEventCards]);
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
+  const [discardPile, setDiscardPile] = useState<Card[]>([]);
 
   return (
     <div
@@ -207,6 +216,8 @@ const GameBoard = () => {
                           <br />
                           {card.type}
                           <br />
+                          {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
+                          <br />
                           {card.id}
                         </div>
                       </div>
@@ -248,8 +259,24 @@ const GameBoard = () => {
                   )}
                 </div>
               </div>
-              <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                <div className="text-white text-center mt-12">Discard Pile</div>
+              <div
+                className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const cardId = e.dataTransfer.getData('cardId');
+                  const discardedCard = handCards.find((card) => card.id === cardId);
+
+                  if (discardedCard) {
+                    setDiscardPile([...discardPile, discardedCard]);
+                    setHandCards(handCards.filter((card) => card.id !== cardId));
+                  }
+                }}
+              >
+                <div className="text-white text-center mt-12">
+                  Discard Pile
+                  <br />({discardPile.length} cards)
+                </div>
               </div>
             </div>
 

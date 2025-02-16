@@ -24,7 +24,22 @@ const EventSlot = ({ index, card, eventSlots, setEventSlots, handCards, setHandC
         const cardId = e.dataTransfer.getData('cardId');
         const draggedCard = handCards.find((card) => card.id === cardId);
 
-        if (draggedCard && draggedCard.type === 'event' && !card) {
+        if (!draggedCard || draggedCard.type !== 'event' || !draggedCard.startingQueuePosition || card) {
+          return;
+        }
+
+        const slotNumber = 3 - index; // Convert index (0,1,2) to slot number (3,2,1)
+        const startPos = draggedCard.startingQueuePosition;
+
+        // Check if this is a valid slot and if any earlier valid slots are empty
+        if (slotNumber >= startPos) {
+          for (let i = startPos; i < slotNumber; i++) {
+            if (!eventSlots[3 - i]) {
+              // if any earlier valid slot is empty
+              return; // can't place here, must use earlier slot
+            }
+          }
+
           const newSlots = [...eventSlots];
           newSlots[index] = draggedCard;
           setEventSlots(newSlots);

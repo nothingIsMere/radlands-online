@@ -1,11 +1,10 @@
-// Keep the existing Card interface
 interface Card {
   id: string;
   name: string;
   type: 'person' | 'event' | 'camp';
+  startingQueuePosition?: number;  // Optional since person/camp cards don't need it
 }
 
-// Add this new interface
 interface PlayerState {
   hand: Card[];
   personSlots: (Card | null)[];  // null means empty slot
