@@ -149,32 +149,38 @@ const GameBoard = () => {
                     Hand
                   </div>
                   <div className='flex flex-wrap gap-2'>
-                    {/* Example cards - we'll make these dynamic later */}
-                    <div
-                      className='w-16 h-24 border border-gray-400 rounded bg-gray-600'
-                      draggable='true'
-                      onDragStart={(
-                        e
-                      ) => {
-                        console.log(
-                          'Started dragging'
-                        ); // We'll find a better way to show this
-                      }}
-                    >
-                      <div className='text-white text-center text-xs mt-4'>
-                        {
-                          testCard.name
-                        }
-                        <br />
-                        {
-                          testCard.type
-                        }
-                        <br />
-                        {
-                          testCard.id
-                        }
-                      </div>
-                    </div>
+                    {handCards.map(
+                      (card) => (
+                        <div
+                          key={
+                            card.id
+                          }
+                          className='w-16 h-24 border border-gray-400 rounded bg-gray-600'
+                          draggable='true'
+                          onDragStart={(
+                            e
+                          ) => {
+                            console.log(
+                              'Started dragging'
+                            );
+                          }}
+                        >
+                          <div className='text-white text-center text-xs mt-4'>
+                            {
+                              card.name
+                            }
+                            <br />
+                            {
+                              card.type
+                            }
+                            <br />
+                            {
+                              card.id
+                            }
+                          </div>
+                        </div>
+                      )
+                    )}
                     <div className='w-16 h-24 border border-gray-400 rounded bg-gray-600'>
                       <div className='text-white text-center text-xs mt-8'>
                         Card
