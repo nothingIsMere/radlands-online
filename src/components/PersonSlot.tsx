@@ -24,7 +24,7 @@ const PersonSlot = ({ index, card, personSlots, setPersonSlots, handCards, setHa
         const cardId = e.dataTransfer.getData('cardId');
         const draggedCard = handCards.find((card) => card.id === cardId);
 
-        if (draggedCard && draggedCard.type === 'person') {
+        if (draggedCard && draggedCard.type === 'person' && !card) {
           const newSlots = [...personSlots];
           newSlots[index] = draggedCard;
           setPersonSlots(newSlots);
