@@ -78,8 +78,35 @@ const GameBoard = () => {
                     <div className="text-white text-center mt-12">Person 1</div>
                   )}
                 </div>
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8">
-                  <div className="text-white text-center mt-12">Person 2</div>
+                <div
+                  className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const cardId = e.dataTransfer.getData('cardId');
+                    const draggedCard = handCards.find((card) => card.id === cardId);
+
+                    if (draggedCard) {
+                      const newSlots = [...personSlots];
+                      newSlots[1] = draggedCard;
+                      setPersonSlots(newSlots);
+                      setHandCards(handCards.filter((card) => card.id !== cardId));
+                    }
+                  }}
+                >
+                  {personSlots[1] ? (
+                    <div className="text-white text-center text-xs mt-4">
+                      {personSlots[1].name}
+                      <br />
+                      {personSlots[1].type}
+                      <br />
+                      {personSlots[1].id}
+                    </div>
+                  ) : (
+                    <div className="text-white text-center mt-12">Person 2</div>
+                  )}
                 </div>
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 1</div>
