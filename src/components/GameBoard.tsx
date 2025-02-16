@@ -15,7 +15,7 @@ const testCard: Card = {
 console.log('Test card:', testCard);
 
 const GameBoard = () => {
-  const [personSlots, setPersonSlots] = useState<(Card | null)[]>([null, null]);
+  const [personSlots, setPersonSlots] = useState<(Card | null)[]>([null, null, null, null, null, null]);
   const [handCards, setHandCards] = useState<Card[]>([testCard]);
 
   return (
@@ -71,12 +71,22 @@ const GameBoard = () => {
               </div>
               {/* Column 2 */}
               <div className="flex flex-col">
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4">
-                  <div className="text-white text-center mt-12">Person 3</div>
-                </div>
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8">
-                  <div className="text-white text-center mt-12">Person 4</div>
-                </div>
+                <PersonSlot
+                  index={2}
+                  card={personSlots[2]}
+                  personSlots={personSlots}
+                  setPersonSlots={setPersonSlots}
+                  handCards={handCards}
+                  setHandCards={setHandCards}
+                />
+                <PersonSlot
+                  index={3}
+                  card={personSlots[3]}
+                  personSlots={personSlots}
+                  setPersonSlots={setPersonSlots}
+                  handCards={handCards}
+                  setHandCards={setHandCards}
+                />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 2</div>
                 </div>
