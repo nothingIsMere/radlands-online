@@ -36,10 +36,29 @@ const testEventCards: Card[] = [
   },
 ];
 
+const drawDeckCards: Card[] = [
+  {
+    id: 'deck-1',
+    name: 'Scavenger',
+    type: 'person',
+  },
+  {
+    id: 'deck-2',
+    name: 'Saboteur',
+    type: 'person',
+  },
+  {
+    id: 'deck-3',
+    name: 'Assault',
+    type: 'event',
+  },
+];
+
 const GameBoard = () => {
   const [personSlots, setPersonSlots] = useState<(Card | null)[]>([null, null, null, null, null, null]);
   const [eventSlots, setEventSlots] = useState<(Card | null)[]>([null, null, null]);
   const [handCards, setHandCards] = useState<Card[]>([...testCards, ...testEventCards]);
+  const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
 
   return (
     <div
@@ -207,8 +226,27 @@ const GameBoard = () => {
           <div className="h-full flex flex-col justify-between">
             {/* Top section with deck and discard */}
             <div className="flex flex-col items-center mt-8">
-              <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8">
-                <div className="text-white text-center mt-12">Draw Deck</div>
+              <div
+                className={`w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8 
+    ${drawDeck.length > 0 ? 'cursor-pointer' : 'opacity-50'}`}
+                onClick={() => {
+                  if (drawDeck.length > 0) {
+                    const drawnCard = drawDeck[0];
+                    setDrawDeck(drawDeck.slice(1));
+                    setHandCards([...handCards, drawnCard]);
+                  }
+                }}
+              >
+                <div className="text-white text-center mt-12">
+                  {drawDeck.length > 0 ? (
+                    <>
+                      Draw Deck
+                      <br />({drawDeck.length} cards)
+                    </>
+                  ) : (
+                    'Empty Deck'
+                  )}
+                </div>
               </div>
               <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                 <div className="text-white text-center mt-12">Discard Pile</div>
