@@ -1,6 +1,31 @@
-import React from 'react';
+'use client';
+
+import { Card } from '@/types/game';
+import React, {
+  useState,
+} from 'react';
+
+// Add this test card
+const testCard: Card = {
+  id: 'test-1',
+  name: 'Test Person',
+  type: 'person',
+};
+
+// Log it to make sure it works
+console.log(
+  'Test card:',
+  testCard
+);
 
 const GameBoard = () => {
+  const [
+    firstSlotCard,
+    setFirstSlotCard,
+  ] = useState<Card | null>(null);
+  const [handCards, setHandCards] =
+    useState<Card[]>([testCard]);
+
   return (
     <div
       className='w-full h-screen p-4'
@@ -38,10 +63,38 @@ const GameBoard = () => {
             <div className='flex justify-between'>
               {/* Column 1 */}
               <div className='flex flex-col'>
-                <div className='w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4'>
-                  <div className='text-white text-center mt-12'>
-                    Person 1
-                  </div>
+                <div
+                  className='w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4'
+                  onDragOver={(
+                    e
+                  ) => {
+                    e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    setFirstSlotCard(
+                      testCard
+                    );
+                  }}
+                >
+                  {firstSlotCard ? (
+                    <div className='text-white text-center text-xs mt-4'>
+                      {
+                        firstSlotCard.name
+                      }
+                      <br />
+                      {
+                        firstSlotCard.type
+                      }
+                      <br />
+                      {
+                        firstSlotCard.id
+                      }
+                    </div>
+                  ) : (
+                    <div className='text-white text-center mt-12'>
+                      Person 1
+                    </div>
+                  )}
                 </div>
                 <div className='w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8'>
                   <div className='text-white text-center mt-12'>
@@ -97,9 +150,29 @@ const GameBoard = () => {
                   </div>
                   <div className='flex flex-wrap gap-2'>
                     {/* Example cards - we'll make these dynamic later */}
-                    <div className='w-16 h-24 border border-gray-400 rounded bg-gray-600'>
-                      <div className='text-white text-center text-xs mt-8'>
-                        Card
+                    <div
+                      className='w-16 h-24 border border-gray-400 rounded bg-gray-600'
+                      draggable='true'
+                      onDragStart={(
+                        e
+                      ) => {
+                        console.log(
+                          'Started dragging'
+                        ); // We'll find a better way to show this
+                      }}
+                    >
+                      <div className='text-white text-center text-xs mt-4'>
+                        {
+                          testCard.name
+                        }
+                        <br />
+                        {
+                          testCard.type
+                        }
+                        <br />
+                        {
+                          testCard.id
+                        }
                       </div>
                     </div>
                     <div className='w-16 h-24 border border-gray-400 rounded bg-gray-600'>
