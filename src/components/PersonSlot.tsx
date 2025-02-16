@@ -33,7 +33,15 @@ const PersonSlot = ({ index, card, personSlots, setPersonSlots, handCards, setHa
       }}
     >
       {card ? (
-        <div className="text-white text-center text-xs mt-4">
+        <div
+          className="text-white text-center text-xs mt-4"
+          draggable="true"
+          onDragStart={(e) => {
+            e.dataTransfer.setData('cardId', card.id);
+            e.dataTransfer.setData('sourceType', 'personSlot');
+            e.dataTransfer.setData('sourceIndex', index.toString());
+          }}
+        >
           {card.name}
           <br />
           {card.type}

@@ -154,7 +154,26 @@ const GameBoard = () => {
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
                   <div className="text-white mb-2">Hand</div>
-                  <div className="flex flex-wrap gap-2">
+                  <div
+                    className="flex flex-wrap gap-2"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const cardId = e.dataTransfer.getData('cardId');
+                      const sourceType = e.dataTransfer.getData('sourceType');
+                      const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
+
+                      if (sourceType === 'personSlot') {
+                        const card = personSlots[sourceIndex];
+                        if (card) {
+                          setHandCards([...handCards, card]);
+                          const newPersonSlots = [...personSlots];
+                          newPersonSlots[sourceIndex] = null;
+                          setPersonSlots(newPersonSlots);
+                        }
+                      }
+                    }}
+                  >
                     {handCards.map((card) => (
                       <div
                         key={card.id}
