@@ -53,9 +53,21 @@ const GameBoard = () => {
                   onDragOver={(e) => {
                     e.preventDefault();
                   }}
+                  // Find this:
                   onDrop={(e) => {
                     setFirstSlotCard(testCard);
-                    setHandCards([]); // This will empty the hand
+                    setHandCards([]);
+                  }}
+                  // Replace with:
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const cardId = e.dataTransfer.getData('cardId');
+                    const draggedCard = handCards.find((card) => card.id === cardId);
+
+                    if (draggedCard) {
+                      setFirstSlotCard(draggedCard);
+                      setHandCards(handCards.filter((card) => card.id !== cardId));
+                    }
                   }}
                 >
                   {firstSlotCard ? (
@@ -111,7 +123,7 @@ const GameBoard = () => {
                         className="w-16 h-24 border border-gray-400 rounded bg-gray-600"
                         draggable="true"
                         onDragStart={(e) => {
-                          console.log('Started dragging');
+                          e.dataTransfer.setData('cardId', card.id);
                         }}
                       >
                         <div className="text-white text-center text-xs mt-4">
