@@ -310,6 +310,22 @@ const GameBoard = () => {
                       setHandCards([...handCards, leftWaterSiloCard]);
                     }
                   }}
+                  onDragOver={(e) => {
+                    if (leftWaterSiloInHand) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const cardId = e.dataTransfer.getData('cardId');
+                    const droppedCard = handCards.find((card) => card.id === cardId);
+
+                    if (droppedCard && droppedCard.id === leftWaterSiloCard.id) {
+                      setLeftWaterSiloInHand(false);
+                      setLeftPlayerWater(leftPlayerWater + 1);
+                      setHandCards(handCards.filter((card) => card.id !== cardId));
+                    }
+                  }}
                 >
                   <div className="text-white text-center text-xs mt-6">
                     Water Silo
@@ -329,7 +345,7 @@ const GameBoard = () => {
                 <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
                   <div className="text-white text-center text-xs mt-6">Raiders</div>
                 </div>
-                <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">💧 3</div>
+                <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">💧 {leftPlayerWater}</div>
               </div>
               {/* Right player section */}
               <div className="flex items-center gap-2">
