@@ -5,6 +5,14 @@ import React, { useState } from 'react';
 import PersonSlot from '@/components/PersonSlot';
 import EventSlot from '@/components/EventSlot';
 
+interface PlayerState {
+  handCards: Card[];
+  personSlots: (Card | null)[];
+  eventSlots: (Card | null)[];
+  waterSiloInHand: boolean;
+  waterCount: number;
+}
+
 const testCards: Card[] = [
   {
     id: 'test-1',
@@ -77,6 +85,24 @@ const rightWaterSiloCard: Card = {
 };
 
 const GameBoard = () => {
+  const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
+    handCards: [...testCards, ...testEventCards],
+    personSlots: [null, null, null, null, null, null],
+    eventSlots: [null, null, null],
+    waterSiloInHand: false,
+    waterCount: 3,
+  });
+
+  /* Temporarily commented out while testing left player
+const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
+  handCards: [...rightTestCards],
+  personSlots: [null, null, null, null, null, null],
+  eventSlots: [null, null, null],
+  waterSiloInHand: false,
+  waterCount: 3
+});
+*/
+
   const [personSlots, setPersonSlots] = useState<(Card | null)[]>([null, null, null, null, null, null]);
   const [eventSlots, setEventSlots] = useState<(Card | null)[]>([null, null, null]);
   const [handCards, setHandCards] = useState<Card[]>([...testCards, ...testEventCards]);
@@ -198,27 +224,8 @@ const GameBoard = () => {
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
                   <div className="text-white mb-2">Hand</div>
-                  <div
-                    className="flex flex-wrap gap-2"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const cardId = e.dataTransfer.getData('cardId');
-                      const sourceType = e.dataTransfer.getData('sourceType');
-                      const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
-
-                      if (sourceType === 'personSlot') {
-                        const card = personSlots[sourceIndex];
-                        if (card) {
-                          setHandCards([...handCards, card]);
-                          const newPersonSlots = [...personSlots];
-                          newPersonSlots[sourceIndex] = null;
-                          setPersonSlots(newPersonSlots);
-                        }
-                      }
-                    }}
-                  >
-                    {handCards.map((card) => (
+                  <div className="flex flex-wrap gap-2">
+                    {leftPlayerState.handCards.map((card) => (
                       <div
                         key={card.id}
                         className="w-16 h-24 border border-gray-400 rounded bg-gray-600"
@@ -302,28 +309,34 @@ const GameBoard = () => {
               <div className="flex items-center gap-2">
                 <div
                   className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
-    ${!leftWaterSiloInHand && leftPlayerWater >= 1 ? 'cursor-pointer' : 'opacity-50'}`}
+    ${!leftPlayerState.waterSiloInHand && leftPlayerState.waterCount >= 1 ? 'cursor-pointer' : 'opacity-50'}`}
                   onClick={() => {
-                    if (!leftWaterSiloInHand && leftPlayerWater >= 1) {
-                      setLeftWaterSiloInHand(true);
-                      setLeftPlayerWater(leftPlayerWater - 1);
-                      setHandCards([...handCards, leftWaterSiloCard]);
+                    if (!leftPlayerState.waterSiloInHand && leftPlayerState.waterCount >= 1) {
+                      setLeftPlayerState((prev) => ({
+                        ...prev,
+                        waterSiloInHand: true,
+                        waterCount: prev.waterCount - 1,
+                        handCards: [...prev.handCards, leftWaterSiloCard],
+                      }));
                     }
                   }}
                   onDragOver={(e) => {
-                    if (leftWaterSiloInHand) {
+                    if (leftPlayerState.waterSiloInHand) {
                       e.preventDefault();
                     }
                   }}
                   onDrop={(e) => {
                     e.preventDefault();
                     const cardId = e.dataTransfer.getData('cardId');
-                    const droppedCard = handCards.find((card) => card.id === cardId);
+                    const droppedCard = leftPlayerState.handCards.find((card) => card.id === cardId);
 
                     if (droppedCard && droppedCard.id === leftWaterSiloCard.id) {
-                      setLeftWaterSiloInHand(false);
-                      setLeftPlayerWater(leftPlayerWater + 1);
-                      setHandCards(handCards.filter((card) => card.id !== cardId));
+                      setLeftPlayerState((prev) => ({
+                        ...prev,
+                        waterSiloInHand: false,
+                        waterCount: prev.waterCount + 1,
+                        handCards: prev.handCards.filter((card) => card.id !== cardId),
+                      }));
                     }
                   }}
                 >
@@ -345,7 +358,9 @@ const GameBoard = () => {
                 <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
                   <div className="text-white text-center text-xs mt-6">Raiders</div>
                 </div>
-                <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">💧 {leftPlayerWater}</div>
+                <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
+                  💧 {leftPlayerState.waterCount}
+                </div>
               </div>
               {/* Right player section */}
               <div className="flex items-center gap-2">
