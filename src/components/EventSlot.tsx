@@ -24,7 +24,7 @@ const EventSlot = ({ index, card, eventSlots, setEventSlots, handCards, setHandC
         const cardId = e.dataTransfer.getData('cardId');
         const draggedCard = handCards.find((card) => card.id === cardId);
 
-        if (draggedCard && draggedCard.type === 'event') {
+        if (draggedCard && draggedCard.type === 'event' && !card) {
           const newSlots = [...eventSlots];
           newSlots[index] = draggedCard;
           setEventSlots(newSlots);
