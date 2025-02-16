@@ -2,6 +2,7 @@
 
 import { Card } from '@/types/game';
 import React, { useState } from 'react';
+import PersonSlot from '@/components/PersonSlot';
 
 // Add this test card
 const testCard: Card = {
@@ -48,66 +49,22 @@ const GameBoard = () => {
             <div className="flex justify-between">
               {/* Column 1 */}
               <div className="flex flex-col">
-                <div
-                  className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4"
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const cardId = e.dataTransfer.getData('cardId');
-                    const draggedCard = handCards.find((card) => card.id === cardId);
-
-                    if (draggedCard) {
-                      const newSlots = [...personSlots];
-                      newSlots[0] = draggedCard;
-                      setPersonSlots(newSlots);
-                      setHandCards(handCards.filter((card) => card.id !== cardId));
-                    }
-                  }}
-                >
-                  {personSlots[0] ? (
-                    <div className="text-white text-center text-xs mt-4">
-                      {personSlots[0].name}
-                      <br />
-                      {personSlots[0].type}
-                      <br />
-                      {personSlots[0].id}
-                    </div>
-                  ) : (
-                    <div className="text-white text-center mt-12">Person 1</div>
-                  )}
-                </div>
-                <div
-                  className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8"
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const cardId = e.dataTransfer.getData('cardId');
-                    const draggedCard = handCards.find((card) => card.id === cardId);
-
-                    if (draggedCard) {
-                      const newSlots = [...personSlots];
-                      newSlots[1] = draggedCard;
-                      setPersonSlots(newSlots);
-                      setHandCards(handCards.filter((card) => card.id !== cardId));
-                    }
-                  }}
-                >
-                  {personSlots[1] ? (
-                    <div className="text-white text-center text-xs mt-4">
-                      {personSlots[1].name}
-                      <br />
-                      {personSlots[1].type}
-                      <br />
-                      {personSlots[1].id}
-                    </div>
-                  ) : (
-                    <div className="text-white text-center mt-12">Person 2</div>
-                  )}
-                </div>
+                <PersonSlot
+                  index={0}
+                  card={personSlots[0]}
+                  personSlots={personSlots}
+                  setPersonSlots={setPersonSlots}
+                  handCards={handCards}
+                  setHandCards={setHandCards}
+                />
+                <PersonSlot
+                  index={1}
+                  card={personSlots[1]}
+                  personSlots={personSlots}
+                  setPersonSlots={setPersonSlots}
+                  handCards={handCards}
+                  setHandCards={setHandCards}
+                />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 1</div>
                 </div>

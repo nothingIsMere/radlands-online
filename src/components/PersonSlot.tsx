@@ -6,12 +6,13 @@ import { Card } from '@/types/game';
 interface PersonSlotProps {
   index: number;
   card: Card | null;
+  personSlots: (Card | null)[];
   setPersonSlots: React.Dispatch<React.SetStateAction<(Card | null)[]>>;
   handCards: Card[];
   setHandCards: React.Dispatch<React.SetStateAction<Card[]>>;
 }
 
-const PersonSlot = ({ index, card, setPersonSlots, handCards, setHandCards }: PersonSlotProps) => {
+const PersonSlot = ({ index, card, personSlots, setPersonSlots, handCards, setHandCards }: PersonSlotProps) => {
   return (
     <div
       className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4"
@@ -24,7 +25,8 @@ const PersonSlot = ({ index, card, setPersonSlots, handCards, setHandCards }: Pe
         const draggedCard = handCards.find((card) => card.id === cardId);
 
         if (draggedCard) {
-          const newSlots = [...Array(2)].map((_, i) => (i === index ? draggedCard : null));
+          const newSlots = [...personSlots];
+          newSlots[index] = draggedCard;
           setPersonSlots(newSlots);
           setHandCards(handCards.filter((card) => card.id !== cardId));
         }
