@@ -3,6 +3,7 @@
 import { Card } from '@/types/game';
 import React, { useState } from 'react';
 import PersonSlot from '@/components/PersonSlot';
+import EventSlot from '@/components/EventSlot';
 
 const testCards: Card[] = [
   {
@@ -22,9 +23,23 @@ const testCards: Card[] = [
   },
 ];
 
+const testEventCards: Card[] = [
+  {
+    id: 'event-1',
+    name: 'Raid',
+    type: 'event',
+  },
+  {
+    id: 'event-2',
+    name: 'Ambush',
+    type: 'event',
+  },
+];
+
 const GameBoard = () => {
   const [personSlots, setPersonSlots] = useState<(Card | null)[]>([null, null, null, null, null, null]);
-  const [handCards, setHandCards] = useState<Card[]>(testCards);
+  const [eventSlots, setEventSlots] = useState<(Card | null)[]>([null, null, null]);
+  const [handCards, setHandCards] = useState<Card[]>([...testCards, ...testEventCards]);
 
   return (
     <div
@@ -43,15 +58,30 @@ const GameBoard = () => {
           >
             {/* Event Queue */}
             <div className="flex justify-start gap-2 mb-8 ml-4">
-              <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                <div className="text-white text-center mt-12">3</div>
-              </div>
-              <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                <div className="text-white text-center mt-12">2</div>
-              </div>
-              <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                <div className="text-white text-center mt-12">1</div>
-              </div>
+              <EventSlot
+                index={0}
+                card={eventSlots[0]}
+                eventSlots={eventSlots}
+                setEventSlots={setEventSlots}
+                handCards={handCards}
+                setHandCards={setHandCards}
+              />
+              <EventSlot
+                index={1}
+                card={eventSlots[1]}
+                eventSlots={eventSlots}
+                setEventSlots={setEventSlots}
+                handCards={handCards}
+                setHandCards={setHandCards}
+              />
+              <EventSlot
+                index={2}
+                card={eventSlots[2]}
+                eventSlots={eventSlots}
+                setEventSlots={setEventSlots}
+                handCards={handCards}
+                setHandCards={setHandCards}
+              />
             </div>
             {/* Three columns of cards */}
             <div className="flex justify-between">
