@@ -130,29 +130,24 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
             <div className="flex justify-start gap-2 mb-8 ml-4">
               <EventSlot
                 index={0}
-                card={eventSlots[0]}
-                eventSlots={eventSlots}
-                setEventSlots={setEventSlots}
-                handCards={handCards}
-                setHandCards={setHandCards}
+                card={leftPlayerState.eventSlots[0]}
+                playerState={leftPlayerState}
+                setPlayerState={setLeftPlayerState}
               />
               <EventSlot
                 index={1}
-                card={eventSlots[1]}
-                eventSlots={eventSlots}
-                setEventSlots={setEventSlots}
-                handCards={handCards}
-                setHandCards={setHandCards}
+                card={leftPlayerState.eventSlots[1]}
+                playerState={leftPlayerState}
+                setPlayerState={setLeftPlayerState}
               />
               <EventSlot
                 index={2}
-                card={eventSlots[2]}
-                eventSlots={eventSlots}
-                setEventSlots={setEventSlots}
-                handCards={handCards}
-                setHandCards={setHandCards}
+                card={leftPlayerState.eventSlots[2]}
+                playerState={leftPlayerState}
+                setPlayerState={setLeftPlayerState}
               />
             </div>
+
             {/* Three columns of cards */}
             <div className="flex justify-between">
               {/* Column 1 */}
@@ -275,7 +270,10 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
                   if (drawDeck.length > 0) {
                     const drawnCard = drawDeck[0];
                     setDrawDeck(drawDeck.slice(1));
-                    setHandCards([...handCards, drawnCard]);
+                    setLeftPlayerState((prev) => ({
+                      ...prev,
+                      handCards: [...prev.handCards, drawnCard],
+                    }));
                   }
                 }}
               >
@@ -291,23 +289,19 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
                 </div>
               </div>
               <div
-                className="flex flex-wrap gap-2"
+                className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
                   const cardId = e.dataTransfer.getData('cardId');
-                  const sourceType = e.dataTransfer.getData('sourceType');
-                  const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
+                  const discardedCard = leftPlayerState.handCards.find((card) => card.id === cardId);
 
-                  if (sourceType === 'personSlot') {
-                    const card = leftPlayerState.personSlots[sourceIndex];
-                    if (card) {
-                      setLeftPlayerState((prev) => ({
-                        ...prev,
-                        handCards: [...prev.handCards, card],
-                        personSlots: prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot)),
-                      }));
-                    }
+                  if (discardedCard) {
+                    setDiscardPile([...discardPile, discardedCard]);
+                    setLeftPlayerState((prev) => ({
+                      ...prev,
+                      handCards: prev.handCards.filter((card) => card.id !== cardId),
+                    }));
                   }
                 }}
               >
