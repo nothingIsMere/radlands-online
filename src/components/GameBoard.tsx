@@ -395,9 +395,41 @@ const GameBoard = () => {
               </div>
               {/* Right player section */}
               <div className="flex items-center gap-2">
-                <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">💧 3</div>
-                <div className="w-16 h-20 border border-gray-400 rounded bg-blue-800">
-                  <div className="text-white text-center text-xs mt-6">Water Silo</div>
+                <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
+                  💧 {rightPlayerState.waterCount}
+                </div>
+                <div
+                  className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
+    ${
+      !rightPlayerState.waterSiloInHand && rightPlayerState.waterCount >= 1
+        ? 'cursor-pointer hover:brightness-110'
+        : 'opacity-50'
+    }`}
+                  onClick={() => {
+                    if (!rightPlayerState.waterSiloInHand && rightPlayerState.waterCount >= 1) {
+                      setRightPlayerState((prev) => ({
+                        ...prev,
+                        waterSiloInHand: true,
+                        waterCount: prev.waterCount - 1,
+                        handCards: [...prev.handCards, rightWaterSiloCard],
+                      }));
+                    }
+                  }}
+                >
+                  <div className="text-white text-center text-xs mt-6">
+                    Water Silo
+                    {!rightPlayerState.waterSiloInHand ? (
+                      <>
+                        <br />
+                        (1 water)
+                      </>
+                    ) : (
+                      <>
+                        <br />
+                        (in hand)
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
                   <div className="text-white text-center text-xs mt-6">Raiders</div>
@@ -511,10 +543,21 @@ const GameBoard = () => {
                 {rightPlayerState.handCards.map((card) => (
                   <div
                     key={card.id}
-                    className="w-16 h-24 border border-gray-400 rounded bg-gray-600"
+                    className={`w-16 h-24 border border-gray-400 rounded bg-gray-600
+      ${card.id === rightWaterSiloCard.id ? 'cursor-pointer hover:brightness-110' : ''}`}
                     draggable="true"
                     onDragStart={(e) => {
                       e.dataTransfer.setData('cardId', card.id);
+                    }}
+                    onClick={() => {
+                      if (card.id === rightWaterSiloCard.id) {
+                        setRightPlayerState((prev) => ({
+                          ...prev,
+                          waterSiloInHand: false,
+                          waterCount: prev.waterCount + 1,
+                          handCards: prev.handCards.filter((c) => c.id !== rightWaterSiloCard.id),
+                        }));
+                      }
                     }}
                   >
                     <div className="text-white text-center text-xs mt-4">
