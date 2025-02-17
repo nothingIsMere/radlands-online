@@ -105,7 +105,6 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
 
   const [personSlots, setPersonSlots] = useState<(Card | null)[]>([null, null, null, null, null, null]);
   const [eventSlots, setEventSlots] = useState<(Card | null)[]>([null, null, null]);
-  const [handCards, setHandCards] = useState<Card[]>([...testCards, ...testEventCards]);
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
   const [discardPile, setDiscardPile] = useState<Card[]>([]);
   const [leftPlayerWater, setLeftPlayerWater] = useState<number>(3);
