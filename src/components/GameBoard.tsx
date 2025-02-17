@@ -103,12 +103,8 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
 });
 */
 
-  const [personSlots, setPersonSlots] = useState<(Card | null)[]>([null, null, null, null, null, null]);
-  const [eventSlots, setEventSlots] = useState<(Card | null)[]>([null, null, null]);
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
   const [discardPile, setDiscardPile] = useState<Card[]>([]);
-  const [leftPlayerWater, setLeftPlayerWater] = useState<number>(3);
-  const [leftWaterSiloInHand, setLeftWaterSiloInHand] = useState<boolean>(false);
 
   return (
     <div
@@ -230,10 +226,21 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
                     {leftPlayerState.handCards.map((card) => (
                       <div
                         key={card.id}
-                        className="w-16 h-24 border border-gray-400 rounded bg-gray-600"
+                        className={`w-16 h-24 border border-gray-400 rounded bg-gray-600
+      ${card.id === leftWaterSiloCard.id ? 'cursor-pointer hover:brightness-110' : ''}`}
                         draggable="true"
                         onDragStart={(e) => {
                           e.dataTransfer.setData('cardId', card.id);
+                        }}
+                        onClick={() => {
+                          if (card.id === leftWaterSiloCard.id) {
+                            setLeftPlayerState((prev) => ({
+                              ...prev,
+                              waterSiloInHand: false,
+                              waterCount: prev.waterCount + 1,
+                              handCards: prev.handCards.filter((c) => c.id !== leftWaterSiloCard.id),
+                            }));
+                          }
                         }}
                       >
                         <div className="text-white text-center text-xs mt-4">
@@ -350,7 +357,7 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
                 >
                   <div className="text-white text-center text-xs mt-6">
                     Water Silo
-                    {!leftWaterSiloInHand ? (
+                    {!leftPlayerState.waterSiloInHand ? (
                       <>
                         <br />
                         (1 water)
