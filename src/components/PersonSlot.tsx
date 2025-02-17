@@ -38,8 +38,7 @@ const PersonSlot = ({ index, card, playerState, setPlayerState }: PersonSlotProp
     >
       {card ? (
         <div
-          className={`text-white text-center text-xs mt-4 
-      ${card.isReady ? 'border-2 border-green-500' : 'border-2 border-red-500'}`}
+          className="w-full h-full"
           draggable="true"
           onDragStart={(e) => {
             e.dataTransfer.setData('cardId', card.id);
@@ -47,13 +46,18 @@ const PersonSlot = ({ index, card, playerState, setPlayerState }: PersonSlotProp
             e.dataTransfer.setData('sourceIndex', index.toString());
           }}
         >
-          {card.name}
-          <br />
-          {card.type}
-          <br />
-          {card.id}
-          <br />
-          {card.isReady ? 'Ready' : 'Not Ready'}
+          <div
+            className={`text-white text-center text-xs mt-4 
+      ${card.isReady ? 'border-2 border-green-500' : 'border-2 border-red-500'}`}
+          >
+            {card.name}
+            <br />
+            {card.type}
+            <br />
+            {card.id}
+            <br />
+            {card.isReady ? 'Ready' : 'Not Ready'}
+          </div>
         </div>
       ) : (
         <div className="text-white text-center mt-12">Person {index + 1}</div>

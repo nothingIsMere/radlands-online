@@ -31,6 +31,24 @@ const testCards: Card[] = [
   },
 ];
 
+const rightTestCards: Card[] = [
+  {
+    id: 'right-1',
+    name: 'Medic',
+    type: 'person',
+  },
+  {
+    id: 'right-2',
+    name: 'Defender',
+    type: 'person',
+  },
+  {
+    id: 'right-3',
+    name: 'Bomber',
+    type: 'person',
+  },
+];
+
 const testEventCards: Card[] = [
   {
     id: 'event-1',
@@ -93,15 +111,13 @@ const GameBoard = () => {
     waterCount: 3,
   });
 
-  /* Temporarily commented out while testing left player
-const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
-  handCards: [...rightTestCards],
-  personSlots: [null, null, null, null, null, null],
-  eventSlots: [null, null, null],
-  waterSiloInHand: false,
-  waterCount: 3
-});
-*/
+  const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
+    handCards: [...rightTestCards],
+    personSlots: [null, null, null, null, null, null],
+    eventSlots: [null, null, null],
+    waterSiloInHand: false,
+    waterCount: 3,
+  });
 
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
   const [discardPile, setDiscardPile] = useState<Card[]>([]);
@@ -414,38 +430,56 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
             <div className="flex justify-between">
               {/* Column 1 */}
               <div className="flex flex-col">
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4">
-                  <div className="text-white text-center mt-12">Person 1</div>
-                </div>
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8">
-                  <div className="text-white text-center mt-12">Person 2</div>
-                </div>
+                <PersonSlot
+                  index={0}
+                  card={rightPlayerState.personSlots[0]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
+                />
+                <PersonSlot
+                  index={1}
+                  card={rightPlayerState.personSlots[1]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
+                />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 1</div>
                 </div>
               </div>
               {/* Column 2 */}
               <div className="flex flex-col">
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4">
-                  <div className="text-white text-center mt-12">Person 3</div>
-                </div>
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8">
-                  <div className="text-white text-center mt-12">Person 4</div>
-                </div>
+                <PersonSlot
+                  index={2}
+                  card={rightPlayerState.personSlots[2]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
+                />
+                <PersonSlot
+                  index={3}
+                  card={rightPlayerState.personSlots[3]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
+                />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                  <div className="text-white text-center mt-12">Camp 2</div>
+                  <div className="text-white text-center mt-12">Camp 1</div>
                 </div>
               </div>
               {/* Column 3 */}
               <div className="flex flex-col">
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4">
-                  <div className="text-white text-center mt-12">Person 5</div>
-                </div>
-                <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8">
-                  <div className="text-white text-center mt-12">Person 6</div>
-                </div>
+                <PersonSlot
+                  index={4}
+                  card={rightPlayerState.personSlots[4]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
+                />
+                <PersonSlot
+                  index={5}
+                  card={rightPlayerState.personSlots[5]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
+                />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                  <div className="text-white text-center mt-12">Camp 3</div>
+                  <div className="text-white text-center mt-12">Camp 1</div>
                 </div>
               </div>
             </div>
@@ -453,10 +487,47 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
           <div className="absolute bottom-4 left-4 right-4">
             <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
               <div className="text-white mb-2">Hand</div>
-              <div className="flex flex-wrap gap-2">
-                <div className="w-16 h-24 border border-gray-400 rounded bg-gray-600">
-                  <div className="text-white text-center text-xs mt-8">Card</div>
-                </div>
+              <div
+                className="flex flex-wrap gap-2"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const cardId = e.dataTransfer.getData('cardId');
+                  const sourceType = e.dataTransfer.getData('sourceType');
+                  const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
+
+                  if (sourceType === 'personSlot') {
+                    const card = rightPlayerState.personSlots[sourceIndex];
+                    if (card) {
+                      setRightPlayerState((prev) => ({
+                        ...prev,
+                        handCards: [...prev.handCards, card],
+                        personSlots: prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot)),
+                      }));
+                    }
+                  }
+                }}
+              >
+                {rightPlayerState.handCards.map((card) => (
+                  <div
+                    key={card.id}
+                    className="w-16 h-24 border border-gray-400 rounded bg-gray-600"
+                    draggable="true"
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('cardId', card.id);
+                    }}
+                  >
+                    <div className="text-white text-center text-xs mt-4">
+                      {card.name}
+                      <br />
+                      {card.type}
+                      <br />
+                      {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
+                      <br />
+                      {card.id}
+                    </div>
+                  </div>
+                ))}
                 <div className="w-16 h-24 border border-gray-400 rounded bg-gray-600">
                   <div className="text-white text-center text-xs mt-8">Card</div>
                 </div>
