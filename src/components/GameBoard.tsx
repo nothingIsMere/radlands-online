@@ -159,19 +159,15 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
               <div className="flex flex-col">
                 <PersonSlot
                   index={0}
-                  card={personSlots[0]}
-                  personSlots={personSlots}
-                  setPersonSlots={setPersonSlots}
-                  handCards={handCards}
-                  setHandCards={setHandCards}
+                  card={leftPlayerState.personSlots[0]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
                 />
                 <PersonSlot
                   index={1}
-                  card={personSlots[1]}
-                  personSlots={personSlots}
-                  setPersonSlots={setPersonSlots}
-                  handCards={handCards}
-                  setHandCards={setHandCards}
+                  card={leftPlayerState.personSlots[1]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 1</div>
@@ -181,19 +177,15 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
               <div className="flex flex-col">
                 <PersonSlot
                   index={2}
-                  card={personSlots[2]}
-                  personSlots={personSlots}
-                  setPersonSlots={setPersonSlots}
-                  handCards={handCards}
-                  setHandCards={setHandCards}
+                  card={leftPlayerState.personSlots[2]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
                 />
                 <PersonSlot
                   index={3}
-                  card={personSlots[3]}
-                  personSlots={personSlots}
-                  setPersonSlots={setPersonSlots}
-                  handCards={handCards}
-                  setHandCards={setHandCards}
+                  card={leftPlayerState.personSlots[3]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 2</div>
@@ -203,19 +195,15 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
               <div className="flex flex-col">
                 <PersonSlot
                   index={4}
-                  card={personSlots[4]}
-                  personSlots={personSlots}
-                  setPersonSlots={setPersonSlots}
-                  handCards={handCards}
-                  setHandCards={setHandCards}
+                  card={leftPlayerState.personSlots[4]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
                 />
                 <PersonSlot
                   index={5}
-                  card={personSlots[5]}
-                  personSlots={personSlots}
-                  setPersonSlots={setPersonSlots}
-                  handCards={handCards}
-                  setHandCards={setHandCards}
+                  card={leftPlayerState.personSlots[5]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 3</div>
@@ -224,7 +212,27 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
                   <div className="text-white mb-2">Hand</div>
-                  <div className="flex flex-wrap gap-2">
+                  <div
+                    className="flex flex-wrap gap-2"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const cardId = e.dataTransfer.getData('cardId');
+                      const sourceType = e.dataTransfer.getData('sourceType');
+                      const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
+
+                      if (sourceType === 'personSlot') {
+                        const card = leftPlayerState.personSlots[sourceIndex];
+                        if (card) {
+                          setLeftPlayerState((prev) => ({
+                            ...prev,
+                            handCards: [...prev.handCards, card],
+                            personSlots: prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot)),
+                          }));
+                        }
+                      }
+                    }}
+                  >
                     {leftPlayerState.handCards.map((card) => (
                       <div
                         key={card.id}
@@ -283,16 +291,23 @@ const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
                 </div>
               </div>
               <div
-                className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700"
+                className="flex flex-wrap gap-2"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
                   const cardId = e.dataTransfer.getData('cardId');
-                  const discardedCard = handCards.find((card) => card.id === cardId);
+                  const sourceType = e.dataTransfer.getData('sourceType');
+                  const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
 
-                  if (discardedCard) {
-                    setDiscardPile([...discardPile, discardedCard]);
-                    setHandCards(handCards.filter((card) => card.id !== cardId));
+                  if (sourceType === 'personSlot') {
+                    const card = leftPlayerState.personSlots[sourceIndex];
+                    if (card) {
+                      setLeftPlayerState((prev) => ({
+                        ...prev,
+                        handCards: [...prev.handCards, card],
+                        personSlots: prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot)),
+                      }));
+                    }
                   }
                 }}
               >

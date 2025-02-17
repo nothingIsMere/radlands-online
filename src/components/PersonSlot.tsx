@@ -6,29 +6,33 @@ import { Card } from '@/types/game';
 interface PersonSlotProps {
   index: number;
   card: Card | null;
-  personSlots: (Card | null)[];
-  setPersonSlots: React.Dispatch<React.SetStateAction<(Card | null)[]>>;
-  handCards: Card[];
-  setHandCards: React.Dispatch<React.SetStateAction<Card[]>>;
+  playerState: PlayerState;
+  setPlayerState: React.Dispatch<React.SetStateAction<PlayerState>>;
 }
 
-const PersonSlot = ({ index, card, personSlots, setPersonSlots, handCards, setHandCards }: PersonSlotProps) => {
+const PersonSlot = ({ index, card, playerState, setPlayerState }: PersonSlotProps) => {
   return (
     <div
       className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4"
       onDragOver={(e) => {
         e.preventDefault();
       }}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('cardId', card?.id || '');
+        e.dataTransfer.setData('sourceType', 'personSlot');
+        e.dataTransfer.setData('sourceIndex', index.toString());
+      }}
       onDrop={(e) => {
         e.preventDefault();
         const cardId = e.dataTransfer.getData('cardId');
-        const draggedCard = handCards.find((card) => card.id === cardId);
+        const draggedCard = playerState.handCards.find((card) => card.id === cardId);
 
         if (draggedCard && draggedCard.type === 'person' && !card) {
-          const newSlots = [...personSlots];
-          newSlots[index] = { ...draggedCard, isReady: false };
-          setPersonSlots(newSlots);
-          setHandCards(handCards.filter((card) => card.id !== cardId));
+          setPlayerState((prev) => ({
+            ...prev,
+            personSlots: prev.personSlots.map((slot, i) => (i === index ? { ...draggedCard, isReady: false } : slot)),
+            handCards: prev.handCards.filter((card) => card.id !== cardId),
+          }));
         }
       }}
     >
