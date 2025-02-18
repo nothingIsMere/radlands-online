@@ -13,3 +13,12 @@ interface PlayerState {
 }
 
 export type { Card, PlayerState };
+
+export type Phase = 'events' | 'replenish' | 'actions';
+export type Player = 'left' | 'right';
+
+export interface GameState {
+  currentTurn: Player;
+  currentPhase: Phase;
+  isFirstTurn: boolean;
+}

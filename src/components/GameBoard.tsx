@@ -140,6 +140,12 @@ const GameBoard = () => {
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
   const [discardPile, setDiscardPile] = useState<Card[]>([]);
 
+  const [gameState, setGameState] = useState<GameState>({
+    currentTurn: 'left', // left player starts
+    currentPhase: 'events', // start with events phase
+    isFirstTurn: true,
+  });
+
   return (
     <div
       className="w-full h-screen p-4"
