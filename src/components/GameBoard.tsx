@@ -47,6 +47,24 @@ const rightTestCards: Card[] = [
     name: 'Bomber',
     type: 'person',
   },
+  {
+    id: 'right-event-1',
+    name: 'Charge',
+    type: 'event',
+    startingQueuePosition: 1,
+  },
+  {
+    id: 'right-event-2',
+    name: 'Barricade',
+    type: 'event',
+    startingQueuePosition: 2,
+  },
+  {
+    id: 'right-event-3',
+    name: 'Ambush',
+    type: 'event',
+    startingQueuePosition: 1,
+  },
 ];
 
 const testEventCards: Card[] = [
@@ -448,15 +466,24 @@ const GameBoard = () => {
           >
             {/* Event Queue */}
             <div className="flex justify-end gap-2 mb-8 mr-4">
-              <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                <div className="text-white text-center mt-12">1</div>
-              </div>
-              <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                <div className="text-white text-center mt-12">2</div>
-              </div>
-              <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                <div className="text-white text-center mt-12">3</div>
-              </div>
+              <EventSlot
+                index={0}
+                card={rightPlayerState.eventSlots[0]}
+                playerState={rightPlayerState}
+                setPlayerState={setRightPlayerState}
+              />
+              <EventSlot
+                index={1}
+                card={rightPlayerState.eventSlots[1]}
+                playerState={rightPlayerState}
+                setPlayerState={setRightPlayerState}
+              />
+              <EventSlot
+                index={2}
+                card={rightPlayerState.eventSlots[2]}
+                playerState={rightPlayerState}
+                setPlayerState={setRightPlayerState}
+              />
             </div>
             {/* Three columns of cards */}
             <div className="flex justify-between">
