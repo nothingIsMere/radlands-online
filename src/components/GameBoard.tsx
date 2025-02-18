@@ -307,6 +307,14 @@ const GameBoard = () => {
               </div>
             </div>
           </div>
+          {gameState.currentTurn !== 'left' && (
+            <div
+              className="absolute inset-0 bg-black opacity-30 z-50 cursor-not-allowed"
+              onClick={(e) => e.preventDefault()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => e.preventDefault()}
+            />
+          )}
         </div>
 
         {/* Center Area */}
