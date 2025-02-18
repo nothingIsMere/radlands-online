@@ -242,6 +242,8 @@ const GameBoard = () => {
                   <div className="text-white text-center mt-12">Camp 3</div>
                 </div>
               </div>
+
+              {/* Hand Area */}
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
                   <div
@@ -312,15 +314,8 @@ const GameBoard = () => {
           <div className="h-full flex flex-col justify-between">
             {/* Top section with deck and discard */}
             <div className="flex flex-col items-center mt-8">
-              {/* Turn and Phase Indicator */}
+              {/* Phase Indicator */}
               <div className="mb-8 text-center">
-                <div
-                  className={`text-xl font-bold mb-2 ${
-                    gameState.currentTurn === 'left' ? 'text-blue-400' : 'text-red-400'
-                  }`}
-                >
-                  {gameState.currentTurn === 'left' ? 'Left' : 'Right'} Player's Turn
-                </div>
                 <div className="text-white">
                   Phase: {gameState.currentPhase.charAt(0).toUpperCase() + gameState.currentPhase.slice(1)}
                 </div>
@@ -390,103 +385,58 @@ const GameBoard = () => {
             {/* Bottom section with water counters and special cards */}
             <div className="flex justify-between mb-8">
               {/* Left player section */}
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
-    ${!leftPlayerState.waterSiloInHand && leftPlayerState.waterCount >= 1 ? 'cursor-pointer' : 'opacity-50'}`}
-                  onClick={() => {
-                    if (!leftPlayerState.waterSiloInHand && leftPlayerState.waterCount >= 1) {
-                      setLeftPlayerState((prev) => ({
+              <div className="relative">
+                {gameState.currentTurn === 'left' && (
+                  <button
+                    className="absolute -top-20 left-0 right-0 bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded"
+                    onClick={() => {
+                      setGameState((prev) => ({
                         ...prev,
-                        waterSiloInHand: true,
-                        waterCount: prev.waterCount - 1,
-                        handCards: [...prev.handCards, leftWaterSiloCard],
+                        currentTurn: 'right',
                       }));
-                    }
-                  }}
-                  onDragOver={(e) => {
-                    if (leftPlayerState.waterSiloInHand) {
-                      e.preventDefault();
-                    }
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const cardId = e.dataTransfer.getData('cardId');
-                    const droppedCard = leftPlayerState.handCards.find((card) => card.id === cardId);
-
-                    if (droppedCard && droppedCard.id === leftWaterSiloCard.id) {
-                      setLeftPlayerState((prev) => ({
-                        ...prev,
-                        waterSiloInHand: false,
-                        waterCount: prev.waterCount + 1,
-                        handCards: prev.handCards.filter((card) => card.id !== cardId),
-                      }));
-                    }
-                  }}
-                >
-                  <div className="text-white text-center text-xs mt-6">
-                    Water Silo
-                    {!leftPlayerState.waterSiloInHand ? (
-                      <>
-                        <br />
-                        (1 water)
-                      </>
-                    ) : (
-                      <>
-                        <br />
-                        (in hand)
-                      </>
-                    )}
+                    }}
+                  >
+                    End Turn
+                  </button>
+                )}
+                <div className="flex items-center gap-2">
+                  <div className="w-16 h-20 border border-gray-400 rounded bg-blue-800">
+                    <div className="text-white text-center text-xs mt-6">Water Silo</div>
                   </div>
-                </div>
-                <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
-                  <div className="text-white text-center text-xs mt-6">Raiders</div>
-                </div>
-                <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
-                  💧 {leftPlayerState.waterCount}
+                  <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
+                    <div className="text-white text-center text-xs mt-6">Raiders</div>
+                  </div>
+                  <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
+                    💧 {leftPlayerState.waterCount}
+                  </div>
                 </div>
               </div>
 
               {/* Right player section */}
-              <div className="flex items-center gap-2">
-                <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
-                  💧 {rightPlayerState.waterCount}
-                </div>
-                <div
-                  className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
-    ${
-      !rightPlayerState.waterSiloInHand && rightPlayerState.waterCount >= 1
-        ? 'cursor-pointer hover:brightness-110'
-        : 'opacity-50'
-    }`}
-                  onClick={() => {
-                    if (!rightPlayerState.waterSiloInHand && rightPlayerState.waterCount >= 1) {
-                      setRightPlayerState((prev) => ({
+              <div className="relative">
+                {gameState.currentTurn === 'right' && (
+                  <button
+                    className="absolute -top-20 left-0 right-0 bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded"
+                    onClick={() => {
+                      setGameState((prev) => ({
                         ...prev,
-                        waterSiloInHand: true,
-                        waterCount: prev.waterCount - 1,
-                        handCards: [...prev.handCards, rightWaterSiloCard],
+                        currentTurn: 'left',
                       }));
-                    }
-                  }}
-                >
-                  <div className="text-white text-center text-xs mt-6">
-                    Water Silo
-                    {!rightPlayerState.waterSiloInHand ? (
-                      <>
-                        <br />
-                        (1 water)
-                      </>
-                    ) : (
-                      <>
-                        <br />
-                        (in hand)
-                      </>
-                    )}
+                    }}
+                  >
+                    End Turn
+                  </button>
+                )}
+                <div className="flex items-center gap-2">
+                  <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
+                    💧 {rightPlayerState.waterCount}
                   </div>
-                </div>
-                <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
-                  <div className="text-white text-center text-xs mt-6">Raiders</div>
+                  <div className="w-16 h-20 border border-gray-400 rounded bg-blue-800">
+                    <div className="text-white text-center text-xs mt-6">Water Silo</div>
+                  </div>
+                  <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
+                    <div className="text-white text-center text-xs mt-6">Raiders</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -559,7 +509,7 @@ const GameBoard = () => {
                   setPlayerState={setRightPlayerState}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                  <div className="text-white text-center mt-12">Camp 1</div>
+                  <div className="text-white text-center mt-12">Camp 2</div>
                 </div>
               </div>
               {/* Column 3 */}
@@ -577,11 +527,13 @@ const GameBoard = () => {
                   setPlayerState={setRightPlayerState}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
-                  <div className="text-white text-center mt-12">Camp 1</div>
+                  <div className="text-white text-center mt-12">Camp 3</div>
                 </div>
               </div>
             </div>
           </div>
+
+          {/*Hand Area*/}
           <div className="absolute bottom-4 left-4 right-4">
             <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
               <div
