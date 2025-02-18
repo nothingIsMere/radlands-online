@@ -411,12 +411,16 @@ const GameBoard = () => {
                   <div
                     className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
     ${
-      !leftPlayerState.waterSiloInHand && leftPlayerState.waterCount >= 1
+      !leftPlayerState.waterSiloInHand && leftPlayerState.waterCount >= 1 && gameState.currentTurn === 'left'
         ? 'cursor-pointer hover:brightness-110'
         : 'opacity-50'
     }`}
                     onClick={() => {
-                      if (!leftPlayerState.waterSiloInHand && leftPlayerState.waterCount >= 1) {
+                      if (
+                        !leftPlayerState.waterSiloInHand &&
+                        leftPlayerState.waterCount >= 1 &&
+                        gameState.currentTurn === 'left'
+                      ) {
                         setLeftPlayerState((prev) => ({
                           ...prev,
                           waterSiloInHand: true,
@@ -472,12 +476,16 @@ const GameBoard = () => {
                   <div
                     className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
     ${
-      !rightPlayerState.waterSiloInHand && rightPlayerState.waterCount >= 1
+      !rightPlayerState.waterSiloInHand && rightPlayerState.waterCount >= 1 && gameState.currentTurn === 'right'
         ? 'cursor-pointer hover:brightness-110'
         : 'opacity-50'
     }`}
                     onClick={() => {
-                      if (!rightPlayerState.waterSiloInHand && rightPlayerState.waterCount >= 1) {
+                      if (
+                        !rightPlayerState.waterSiloInHand &&
+                        rightPlayerState.waterCount >= 1 &&
+                        gameState.currentTurn === 'right'
+                      ) {
                         setRightPlayerState((prev) => ({
                           ...prev,
                           waterSiloInHand: true,
@@ -663,6 +671,14 @@ const GameBoard = () => {
               </div>
             </div>
           </div>
+          {gameState.currentTurn !== 'right' && (
+            <div
+              className="absolute inset-0 bg-black opacity-30 z-50 cursor-not-allowed"
+              onClick={(e) => e.preventDefault()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => e.preventDefault()}
+            />
+          )}
         </div>
       </div>
     </div>
