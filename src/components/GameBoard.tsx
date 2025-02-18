@@ -155,7 +155,10 @@ const GameBoard = () => {
     >
       <div className="w-full h-full flex justify-between">
         {/* Left Player Area */}
-        <div className="w-1/3 h-full border border-gray-600 p-2 relative">
+        <div
+          className={`w-1/3 h-full p-2 relative border-2 
+  ${gameState.currentTurn === 'left' ? 'border-white brightness-110' : 'border-gray-600'}`}
+        >
           <div
             style={{
               marginTop: '50px',
@@ -310,6 +313,20 @@ const GameBoard = () => {
           <div className="h-full flex flex-col justify-between">
             {/* Top section with deck and discard */}
             <div className="flex flex-col items-center mt-8">
+              {/* Turn and Phase Indicator */}
+              <div className="mb-8 text-center">
+                <div
+                  className={`text-xl font-bold mb-2 ${
+                    gameState.currentTurn === 'left' ? 'text-blue-400' : 'text-red-400'
+                  }`}
+                >
+                  {gameState.currentTurn === 'left' ? 'Left' : 'Right'} Player's Turn
+                </div>
+                <div className="text-white">
+                  Phase: {gameState.currentPhase.charAt(0).toUpperCase() + gameState.currentPhase.slice(1)}
+                </div>
+                {gameState.isFirstTurn && <div className="text-yellow-400 mt-2">First Turn</div>}
+              </div>
               <div
                 className={`w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8 
     ${drawDeck.length > 0 ? 'cursor-pointer' : 'opacity-50'}`}
@@ -478,7 +495,10 @@ const GameBoard = () => {
         </div>
 
         {/* Right Player Area */}
-        <div className="w-1/3 h-full border border-gray-600 p-2 relative">
+        <div
+          className={`w-1/3 h-full p-2 relative border-2
+  ${gameState.currentTurn === 'right' ? 'border-white brightness-110' : 'border-gray-600'}`}
+        >
           <div
             style={{
               marginTop: '50px',
