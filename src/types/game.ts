@@ -1,7 +1,7 @@
 interface Card {
   id: string;
   name: string;
-  type: 'person' | 'event' | 'camp';
+  type: 'person' | 'event' | 'camp' | 'watersilo';
   startingQueuePosition?: number;
   isReady?: boolean;
   owner?: 'left' | 'right';  // Added this line

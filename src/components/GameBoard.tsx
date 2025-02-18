@@ -109,14 +109,14 @@ const drawDeckCards: Card[] = [
 const leftWaterSiloCard: Card = {
   id: 'watersilo-left',
   name: 'Water Silo',
-  type: 'person',
+  type: 'watersilo',
   owner: 'left',
 };
 
 const rightWaterSiloCard: Card = {
   id: 'watersilo-right',
   name: 'Water Silo',
-  type: 'person',
+  type: 'watersilo',
   owner: 'right',
 };
 
