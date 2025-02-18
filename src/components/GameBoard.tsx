@@ -265,6 +265,7 @@ const GameBoard = () => {
                         draggable="true"
                         onDragStart={(e) => {
                           e.dataTransfer.setData('cardId', card.id);
+                          e.dataTransfer.setData('sourcePlayer', 'left');
                         }}
                         onClick={() => {
                           if (card.id === leftWaterSiloCard.id) {
@@ -334,14 +335,26 @@ const GameBoard = () => {
                 onDrop={(e) => {
                   e.preventDefault();
                   const cardId = e.dataTransfer.getData('cardId');
-                  const discardedCard = leftPlayerState.handCards.find((card) => card.id === cardId);
+                  const sourcePlayer = e.dataTransfer.getData('sourcePlayer');
 
-                  if (discardedCard) {
-                    setDiscardPile([...discardPile, discardedCard]);
-                    setLeftPlayerState((prev) => ({
-                      ...prev,
-                      handCards: prev.handCards.filter((card) => card.id !== cardId),
-                    }));
+                  if (sourcePlayer === 'left') {
+                    const discardedCard = leftPlayerState.handCards.find((card) => card.id === cardId);
+                    if (discardedCard) {
+                      setDiscardPile([...discardPile, discardedCard]);
+                      setLeftPlayerState((prev) => ({
+                        ...prev,
+                        handCards: prev.handCards.filter((card) => card.id !== cardId),
+                      }));
+                    }
+                  } else if (sourcePlayer === 'right') {
+                    const discardedCard = rightPlayerState.handCards.find((card) => card.id === cardId);
+                    if (discardedCard) {
+                      setDiscardPile([...discardPile, discardedCard]);
+                      setRightPlayerState((prev) => ({
+                        ...prev,
+                        handCards: prev.handCards.filter((card) => card.id !== cardId),
+                      }));
+                    }
                   }
                 }}
               >
@@ -411,6 +424,7 @@ const GameBoard = () => {
                   💧 {leftPlayerState.waterCount}
                 </div>
               </div>
+
               {/* Right player section */}
               <div className="flex items-center gap-2">
                 <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
@@ -575,6 +589,7 @@ const GameBoard = () => {
                     draggable="true"
                     onDragStart={(e) => {
                       e.dataTransfer.setData('cardId', card.id);
+                      e.dataTransfer.setData('sourcePlayer', 'right');
                     }}
                     onClick={() => {
                       if (card.id === rightWaterSiloCard.id) {
