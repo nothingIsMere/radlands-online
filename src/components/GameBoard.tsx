@@ -186,6 +186,69 @@ const GameBoard = () => {
               />
             </div>
 
+            {/* Hand Area */}
+            <div className="absolute bottom-4 left-4 right-4">
+              <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
+                <div
+                  className="flex flex-wrap gap-2"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const cardId = e.dataTransfer.getData('cardId');
+                    const sourceType = e.dataTransfer.getData('sourceType');
+                    const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
+
+                    if (sourceType === 'personSlot') {
+                      const card = leftPlayerState.personSlots[sourceIndex];
+                      if (card) {
+                        setLeftPlayerState((prev) => ({
+                          ...prev,
+                          handCards: [...prev.handCards, card],
+                          personSlots: prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot)),
+                        }));
+                      }
+                    }
+                  }}
+                >
+                  {leftPlayerState.handCards.map((card) => (
+                    <div
+                      key={card.id}
+                      className={`w-16 h-24 border border-gray-400 rounded bg-gray-600
+      ${card.id === leftWaterSiloCard.id ? 'cursor-pointer hover:brightness-110' : ''}`}
+                      draggable="true"
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('cardId', card.id);
+                        e.dataTransfer.setData('sourcePlayer', 'left');
+                      }}
+                      onClick={() => {
+                        if (card.id === leftWaterSiloCard.id) {
+                          setLeftPlayerState((prev) => ({
+                            ...prev,
+                            waterSiloInHand: false,
+                            waterCount: prev.waterCount + 1,
+                            handCards: prev.handCards.filter((c) => c.id !== leftWaterSiloCard.id),
+                          }));
+                        }
+                      }}
+                    >
+                      <div className="text-white text-center text-xs mt-4">
+                        {card.name}
+                        <br />
+                        {card.type}
+                        <br />
+                        {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
+                        <br />
+                        {card.id}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="w-16 h-24 border border-gray-400 rounded bg-gray-600">
+                    <div className="text-white text-center text-xs mt-8">Card</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Three columns of cards */}
             <div className="flex justify-between">
               {/* Column 1 */}
@@ -240,69 +303,6 @@ const GameBoard = () => {
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 3</div>
-                </div>
-              </div>
-
-              {/* Hand Area */}
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
-                  <div
-                    className="flex flex-wrap gap-2"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const cardId = e.dataTransfer.getData('cardId');
-                      const sourceType = e.dataTransfer.getData('sourceType');
-                      const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
-
-                      if (sourceType === 'personSlot') {
-                        const card = leftPlayerState.personSlots[sourceIndex];
-                        if (card) {
-                          setLeftPlayerState((prev) => ({
-                            ...prev,
-                            handCards: [...prev.handCards, card],
-                            personSlots: prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot)),
-                          }));
-                        }
-                      }
-                    }}
-                  >
-                    {leftPlayerState.handCards.map((card) => (
-                      <div
-                        key={card.id}
-                        className={`w-16 h-24 border border-gray-400 rounded bg-gray-600
-      ${card.id === leftWaterSiloCard.id ? 'cursor-pointer hover:brightness-110' : ''}`}
-                        draggable="true"
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('cardId', card.id);
-                          e.dataTransfer.setData('sourcePlayer', 'left');
-                        }}
-                        onClick={() => {
-                          if (card.id === leftWaterSiloCard.id) {
-                            setLeftPlayerState((prev) => ({
-                              ...prev,
-                              waterSiloInHand: false,
-                              waterCount: prev.waterCount + 1,
-                              handCards: prev.handCards.filter((c) => c.id !== leftWaterSiloCard.id),
-                            }));
-                          }
-                        }}
-                      >
-                        <div className="text-white text-center text-xs mt-4">
-                          {card.name}
-                          <br />
-                          {card.type}
-                          <br />
-                          {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
-                          <br />
-                          {card.id}
-                        </div>
-                      </div>
-                    ))}
-                    <div className="w-16 h-24 border border-gray-400 rounded bg-gray-600">
-                      <div className="text-white text-center text-xs mt-8">Card</div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -396,7 +396,7 @@ const GameBoard = () => {
                       }));
                     }}
                   >
-                    End Turn
+                    Done
                   </button>
                 )}
                 <div className="flex items-center gap-2">
@@ -424,7 +424,7 @@ const GameBoard = () => {
                       }));
                     }}
                   >
-                    End Turn
+                    Done
                   </button>
                 )}
                 <div className="flex items-center gap-2">
