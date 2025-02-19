@@ -133,9 +133,12 @@ const GameBoard = () => {
     startingQueuePosition: 3,
     owner: 'left',
   };
+
   const handleEventsPhase = () => {
-    // Since we're focusing on left player first:
-    const eventInSlot1 = leftPlayerState.eventSlots[2];
+    const currentPlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+    const setCurrentPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+    const eventInSlot1 = currentPlayerState.eventSlots[2];
     if (eventInSlot1) {
       alert(`${eventInSlot1.name} occurs`);
       // Move card to discard pile
@@ -143,7 +146,7 @@ const GameBoard = () => {
     }
 
     // Then advance remaining events
-    setLeftPlayerState((prev) => ({
+    setCurrentPlayerState((prev) => ({
       ...prev,
       eventSlots: [
         null, // Slot 3 becomes empty
@@ -158,7 +161,7 @@ const GameBoard = () => {
         ...prev,
         currentPhase: 'replenish',
       }));
-    }, 100); // Small delay to ensure events are processed first
+    }, 100);
   };
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
@@ -174,7 +177,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
     eventSlots: [null, null, null],
     waterSiloInHand: false,
-    waterCount: 3,
+    waterCount: 2,
   });
 
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
@@ -187,11 +190,13 @@ const GameBoard = () => {
   });
 
   const handleReplenishPhase = () => {
-    // For now, focusing on left player
+    const currentPlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+    const setCurrentPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
+
     // Draw top card from draw deck if available
     if (drawDeck.length > 0) {
       const topCard = drawDeck[drawDeck.length - 1];
-      setLeftPlayerState((prev) => ({
+      setCurrentPlayerState((prev) => ({
         ...prev,
         handCards: [...prev.handCards, topCard],
       }));
@@ -199,7 +204,7 @@ const GameBoard = () => {
     }
 
     // Reset water count to 3
-    setLeftPlayerState((prev) => ({
+    setCurrentPlayerState((prev) => ({
       ...prev,
       waterCount: 3,
     }));
@@ -210,7 +215,7 @@ const GameBoard = () => {
         ...prev,
         currentPhase: 'actions',
       }));
-    }, 100); // Small delay to ensure replenish effects are processed first
+    }, 100);
   };
 
   useEffect(() => {
@@ -219,7 +224,7 @@ const GameBoard = () => {
     } else if (gameState.currentPhase === 'replenish') {
       handleReplenishPhase();
     }
-  }, [gameState.currentPhase]);
+  }, [gameState.currentPhase, gameState.currentTurn]);
 
   return (
     <div
@@ -493,10 +498,15 @@ const GameBoard = () => {
                   <button
                     className="absolute -top-20 left-0 right-0 bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded"
                     onClick={() => {
+                      console.log('Done clicked, current turn:', gameState.currentTurn);
+                      console.log('Current phase:', gameState.currentPhase);
                       setGameState((prev) => ({
                         ...prev,
-                        currentTurn: 'right',
+                        currentTurn: prev.currentTurn === 'left' ? 'right' : 'left',
+                        currentPhase: 'events',
                       }));
+                      console.log('After state update - turn:', gameState.currentTurn);
+                      console.log('After state update - phase:', gameState.currentPhase);
                     }}
                   >
                     Done
@@ -557,7 +567,8 @@ const GameBoard = () => {
                     onClick={() => {
                       setGameState((prev) => ({
                         ...prev,
-                        currentTurn: 'left',
+                        currentTurn: prev.currentTurn === 'left' ? 'right' : 'left',
+                        currentPhase: 'events',
                       }));
                     }}
                   >

@@ -22,4 +22,4 @@ export interface GameState {
   currentTurn: Player;
   currentPhase: Phase;
   isFirstTurn: boolean;
-}
+ }
