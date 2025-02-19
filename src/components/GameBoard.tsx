@@ -133,33 +133,32 @@ const GameBoard = () => {
     startingQueuePosition: 3,
     owner: 'left',
   };
-
   const handleEventsPhase = () => {
-    // First handle event in slot 1 (index 2 in our array)
+    // Since we're focusing on left player first:
     const eventInSlot1 = leftPlayerState.eventSlots[2];
     if (eventInSlot1) {
-      alert('Event occurs');
+      alert(`${eventInSlot1.name} occurs`);
       // Move card to discard pile
       setDiscardPile((prev) => [...prev, eventInSlot1]);
     }
 
     // Then advance remaining events
-    const currentPlayer = gameState.currentTurn;
-    if (currentPlayer === 'left') {
-      setLeftPlayerState((prev) => ({
+    setLeftPlayerState((prev) => ({
+      ...prev,
+      eventSlots: [
+        null, // Slot 3 becomes empty
+        prev.eventSlots[0], // Slot 3's card moves to Slot 2
+        prev.eventSlots[1], // Slot 2's card moves to Slot 1
+      ],
+    }));
+
+    // After events are processed, move to Replenish phase
+    setTimeout(() => {
+      setGameState((prev) => ({
         ...prev,
-        eventSlots: [
-          null, // Slot 3 becomes empty
-          prev.eventSlots[0], // Slot 3's card moves to Slot 2
-          prev.eventSlots[1], // Slot 2's card moves to Slot 1
-        ],
+        currentPhase: 'replenish',
       }));
-    } else {
-      setRightPlayerState((prev) => ({
-        ...prev,
-        eventSlots: [null, prev.eventSlots[0], prev.eventSlots[1]],
-      }));
-    }
+    }, 100); // Small delay to ensure events are processed first
   };
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
@@ -167,7 +166,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
     eventSlots: [testEventInSlot3, testEventInSlot2, testEventInSlot1],
     waterSiloInHand: false,
-    waterCount: 3,
+    waterCount: 1,
   });
 
   const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
@@ -187,9 +186,30 @@ const GameBoard = () => {
     isFirstTurn: true,
   });
 
+  const handleReplenishPhase = () => {
+    // For now, focusing on left player
+    // Draw top card from draw deck if available
+    if (drawDeck.length > 0) {
+      const topCard = drawDeck[drawDeck.length - 1];
+      setLeftPlayerState((prev) => ({
+        ...prev,
+        handCards: [...prev.handCards, topCard],
+      }));
+      setDrawDeck((prev) => prev.slice(0, -1));
+    }
+
+    // Reset water count to 3
+    setLeftPlayerState((prev) => ({
+      ...prev,
+      waterCount: 3,
+    }));
+  };
+
   useEffect(() => {
     if (gameState.currentPhase === 'events') {
       handleEventsPhase();
+    } else if (gameState.currentPhase === 'replenish') {
+      handleReplenishPhase();
     }
   }, [gameState.currentPhase]);
 
