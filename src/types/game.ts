@@ -1,11 +1,14 @@
+type JunkEffect = 'extra_water' | 'draw_card' | 'raid' | 'injure' | 'gain_punk' | 'restore';
+
 interface Card {
-  id: string;
-  name: string;
-  type: 'person' | 'event' | 'camp' | 'watersilo';
-  startingQueuePosition?: number;
-  isReady?: boolean;
-  owner?: 'left' | 'right';  
-  isDamaged?: boolean;
+ id: string;
+ name: string;
+ type: 'person' | 'event' | 'camp' | 'watersilo';
+ startingQueuePosition?: number;
+ isReady?: boolean;
+ owner?: 'left' | 'right';
+ isDamaged?: boolean;
+ junkEffect?: JunkEffect;
 }
 
 interface PlayerState {

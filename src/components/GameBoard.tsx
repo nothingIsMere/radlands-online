@@ -20,6 +20,7 @@ const testCards: Card[] = [
     name: 'Scout',
     type: 'person',
     isDamaged: true,
+    junkEffect: 'extra_water',
   },
   {
     id: 'test-2',
@@ -110,29 +111,29 @@ const rightWaterSiloCard: Card = {
 };
 
 const GameBoard = () => {
-  const testEventInSlot1: Card = {
-    id: 'test-event-slot1',
-    name: 'Test Event 1',
-    type: 'event',
-    startingQueuePosition: 1,
-    owner: 'left',
-  };
+  // const testEventInSlot1: Card = {
+  //   id: 'test-event-slot1',
+  //   name: 'Test Event 1',
+  //   type: 'event',
+  //   startingQueuePosition: 1,
+  //   owner: 'left',
+  // };
 
-  const testEventInSlot2: Card = {
-    id: 'test-event-slot2',
-    name: 'Test Event 2',
-    type: 'event',
-    startingQueuePosition: 2,
-    owner: 'left',
-  };
+  // const testEventInSlot2: Card = {
+  //   id: 'test-event-slot2',
+  //   name: 'Test Event 2',
+  //   type: 'event',
+  //   startingQueuePosition: 2,
+  //   owner: 'left',
+  // };
 
-  const testEventInSlot3: Card = {
-    id: 'test-event-slot3',
-    name: 'Test Event 3',
-    type: 'event',
-    startingQueuePosition: 3,
-    owner: 'left',
-  };
+  // const testEventInSlot3: Card = {
+  //   id: 'test-event-slot3',
+  //   name: 'Test Event 3',
+  //   type: 'event',
+  //   startingQueuePosition: 3,
+  //   owner: 'left',
+  // };
 
   const handleEventsPhase = () => {
     const currentPlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -167,7 +168,8 @@ const GameBoard = () => {
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     handCards: [...testCards, ...testEventCards],
     personSlots: [null, null, null, null, null, null],
-    eventSlots: [testEventInSlot3, testEventInSlot2, testEventInSlot1],
+    // eventSlots: [testEventInSlot3, testEventInSlot2, testEventInSlot1],
+    eventSlots: [null, null, null],
     waterSiloInHand: false,
     waterCount: 1,
   });
@@ -318,13 +320,12 @@ const GameBoard = () => {
                         <br />
                         {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
                         <br />
+                        {card.junkEffect && `Junk: ${card.junkEffect}`}
+                        <br />
                         {card.id}
                       </div>
                     </div>
                   ))}
-                  <div className="w-16 h-24 border border-gray-400 rounded bg-gray-600">
-                    <div className="text-white text-center text-xs mt-8">Card</div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -427,35 +428,7 @@ const GameBoard = () => {
                   )}
                 </div>
               </div>
-              <div
-                className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const cardId = e.dataTransfer.getData('cardId');
-                  const sourcePlayer = e.dataTransfer.getData('sourcePlayer');
-
-                  if (sourcePlayer === 'left') {
-                    const discardedCard = leftPlayerState.handCards.find((card) => card.id === cardId);
-                    if (discardedCard) {
-                      setDiscardPile([...discardPile, discardedCard]);
-                      setLeftPlayerState((prev) => ({
-                        ...prev,
-                        handCards: prev.handCards.filter((card) => card.id !== cardId),
-                      }));
-                    }
-                  } else if (sourcePlayer === 'right') {
-                    const discardedCard = rightPlayerState.handCards.find((card) => card.id === cardId);
-                    if (discardedCard) {
-                      setDiscardPile([...discardPile, discardedCard]);
-                      setRightPlayerState((prev) => ({
-                        ...prev,
-                        handCards: prev.handCards.filter((card) => card.id !== cardId),
-                      }));
-                    }
-                  }
-                }}
-              >
+              <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                 <div className="text-white text-center mt-12">
                   Discard Pile
                   <br />({discardPile.length} cards)
@@ -771,9 +744,6 @@ const GameBoard = () => {
                     </div>
                   </div>
                 ))}
-                <div className="w-16 h-24 border border-gray-400 rounded bg-gray-600">
-                  <div className="text-white text-center text-xs mt-8">Card</div>
-                </div>
               </div>
             </div>
           </div>
