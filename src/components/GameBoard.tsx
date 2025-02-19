@@ -203,6 +203,14 @@ const GameBoard = () => {
       ...prev,
       waterCount: 3,
     }));
+
+    // After replenish is complete, move to Actions phase
+    setTimeout(() => {
+      setGameState((prev) => ({
+        ...prev,
+        currentPhase: 'actions',
+      }));
+    }, 100); // Small delay to ensure replenish effects are processed first
   };
 
   useEffect(() => {
