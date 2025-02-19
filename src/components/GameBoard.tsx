@@ -428,7 +428,53 @@ const GameBoard = () => {
                   )}
                 </div>
               </div>
-              <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
+              <div
+                className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const cardId = e.dataTransfer.getData('cardId');
+                  const sourcePlayer = e.dataTransfer.getData('sourcePlayer');
+
+                  // Get the appropriate player state and setter
+                  const playerState = sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
+                  const setPlayerState = sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+                  // Find the card
+                  const discardedCard = playerState.handCards.find((card) => card.id === cardId);
+
+                  if (discardedCard) {
+                    if (discardedCard.junkEffect) {
+                      const useJunkEffect = window.confirm(
+                        `Do you want to use this card's ${discardedCard.junkEffect} effect?`
+                      );
+
+                      if (useJunkEffect) {
+                        // Process junk effect based on type
+                        if (discardedCard.junkEffect === 'extra_water') {
+                          setPlayerState((prev) => ({
+                            ...prev,
+                            waterCount: prev.waterCount + 1,
+                            handCards: prev.handCards.filter((card) => card.id !== cardId),
+                          }));
+                        }
+                        // We'll add other junk effects here later
+                      }
+                    }
+
+                    // Always discard the card whether or not junk effect was used
+                    setDiscardPile((prev) => [...prev, discardedCard]);
+
+                    // Remove from player's hand if we haven't already (in the case of extra_water)
+                    if (!discardedCard.junkEffect || discardedCard.junkEffect !== 'extra_water') {
+                      setPlayerState((prev) => ({
+                        ...prev,
+                        handCards: prev.handCards.filter((card) => card.id !== cardId),
+                      }));
+                    }
+                  }
+                }}
+              >
                 <div className="text-white text-center mt-12">
                   Discard Pile
                   <br />({discardPile.length} cards)
