@@ -18,16 +18,19 @@ const testCards: Card[] = [
     id: 'test-1',
     name: 'Scout',
     type: 'person',
+    isDamaged: true,
   },
   {
     id: 'test-2',
     name: 'Warrior',
     type: 'person',
+    isDamaged: false,
   },
   {
     id: 'test-3',
     name: 'Mechanic',
     type: 'person',
+    isDamaged: false,
   },
 ];
 
@@ -36,34 +39,19 @@ const rightTestCards: Card[] = [
     id: 'right-1',
     name: 'Medic',
     type: 'person',
+    isDamaged: true,
   },
   {
     id: 'right-2',
     name: 'Defender',
     type: 'person',
+    isDamaged: false,
   },
   {
     id: 'right-3',
     name: 'Bomber',
     type: 'person',
-  },
-  {
-    id: 'right-event-1',
-    name: 'Charge',
-    type: 'event',
-    startingQueuePosition: 1,
-  },
-  {
-    id: 'right-event-2',
-    name: 'Barricade',
-    type: 'event',
-    startingQueuePosition: 2,
-  },
-  {
-    id: 'right-event-3',
-    name: 'Ambush',
-    type: 'event',
-    startingQueuePosition: 1,
+    isDamaged: false,
   },
 ];
 
@@ -121,10 +109,18 @@ const rightWaterSiloCard: Card = {
 };
 
 const GameBoard = () => {
+  const testEventInSlot1: Card = {
+    id: 'test-event-slot1',
+    name: 'Test Event',
+    type: 'event',
+    startingQueuePosition: 1,
+    owner: 'left',
+  };
+
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     handCards: [...testCards, ...testEventCards],
     personSlots: [null, null, null, null, null, null],
-    eventSlots: [null, null, null],
+    eventSlots: [null, null, testEventInSlot1],
     waterSiloInHand: false,
     waterCount: 3,
   });
@@ -322,13 +318,6 @@ const GameBoard = () => {
           <div className="h-full flex flex-col justify-between">
             {/* Top section with deck and discard */}
             <div className="flex flex-col items-center mt-8">
-              {/* Phase Indicator */}
-              <div className="mb-8 text-center">
-                <div className="text-white">
-                  Phase: {gameState.currentPhase.charAt(0).toUpperCase() + gameState.currentPhase.slice(1)}
-                </div>
-                {gameState.isFirstTurn && <div className="text-yellow-400 mt-2">First Turn</div>}
-              </div>
               <div
                 className={`w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8 
     ${drawDeck.length > 0 ? 'cursor-pointer' : 'opacity-50'}`}

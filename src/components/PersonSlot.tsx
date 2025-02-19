@@ -38,7 +38,14 @@ const PersonSlot = ({ index, card, playerState, setPlayerState }: PersonSlotProp
     >
       {card ? (
         <div
-          className="w-full h-full"
+          className={`text-white text-center text-xs mt-4 
+      ${
+        card.isDamaged
+          ? 'border-4 border-red-700 bg-red-900'
+          : card.isReady
+          ? 'border-2 border-green-500'
+          : 'border-2 border-red-500'
+      }`}
           draggable="true"
           onDragStart={(e) => {
             e.dataTransfer.setData('cardId', card.id);
