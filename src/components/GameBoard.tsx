@@ -390,6 +390,33 @@ const GameBoard = () => {
               </div>
             </div>
 
+            {/* Phase Tracker */}
+            <div className="flex justify-center mb-8">
+              <div className="flex space-x-8">
+                <div
+                  className={`text-lg ${
+                    gameState.currentPhase === 'events' ? 'text-purple-300 font-bold' : 'text-gray-400'
+                  }`}
+                >
+                  Events
+                </div>
+                <div
+                  className={`text-lg ${
+                    gameState.currentPhase === 'replenish' ? 'text-purple-300 font-bold' : 'text-gray-400'
+                  }`}
+                >
+                  Replenish
+                </div>
+                <div
+                  className={`text-lg ${
+                    gameState.currentPhase === 'actions' ? 'text-purple-300 font-bold' : 'text-gray-400'
+                  }`}
+                >
+                  Actions
+                </div>
+              </div>
+            </div>
+
             {/* Bottom section with water counters and special cards */}
             <div className="flex justify-between mb-8">
               {/* Left player section */}

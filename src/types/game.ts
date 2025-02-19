@@ -4,7 +4,8 @@ interface Card {
   type: 'person' | 'event' | 'camp' | 'watersilo';
   startingQueuePosition?: number;
   isReady?: boolean;
-  owner?: 'left' | 'right';  // Added this line
+  owner?: 'left' | 'right';  
+  isDamaged?: boolean;
 }
 
 interface PlayerState {
