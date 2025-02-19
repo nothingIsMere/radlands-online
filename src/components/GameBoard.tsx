@@ -4,6 +4,7 @@ import { Card } from '@/types/game';
 import React, { useState } from 'react';
 import PersonSlot from '@/components/PersonSlot';
 import EventSlot from '@/components/EventSlot';
+import { useEffect } from 'react';
 
 interface PlayerState {
   handCards: Card[];
@@ -111,16 +112,60 @@ const rightWaterSiloCard: Card = {
 const GameBoard = () => {
   const testEventInSlot1: Card = {
     id: 'test-event-slot1',
-    name: 'Test Event',
+    name: 'Test Event 1',
     type: 'event',
     startingQueuePosition: 1,
     owner: 'left',
   };
 
+  const testEventInSlot2: Card = {
+    id: 'test-event-slot2',
+    name: 'Test Event 2',
+    type: 'event',
+    startingQueuePosition: 2,
+    owner: 'left',
+  };
+
+  const testEventInSlot3: Card = {
+    id: 'test-event-slot3',
+    name: 'Test Event 3',
+    type: 'event',
+    startingQueuePosition: 3,
+    owner: 'left',
+  };
+
+  const handleEventsPhase = () => {
+    // First handle event in slot 1 (index 2 in our array)
+    const eventInSlot1 = leftPlayerState.eventSlots[2];
+    if (eventInSlot1) {
+      alert('Event occurs');
+      // Move card to discard pile
+      setDiscardPile((prev) => [...prev, eventInSlot1]);
+    }
+
+    // Then advance remaining events
+    const currentPlayer = gameState.currentTurn;
+    if (currentPlayer === 'left') {
+      setLeftPlayerState((prev) => ({
+        ...prev,
+        eventSlots: [
+          null, // Slot 3 becomes empty
+          prev.eventSlots[0], // Slot 3's card moves to Slot 2
+          prev.eventSlots[1], // Slot 2's card moves to Slot 1
+        ],
+      }));
+    } else {
+      setRightPlayerState((prev) => ({
+        ...prev,
+        eventSlots: [null, prev.eventSlots[0], prev.eventSlots[1]],
+      }));
+    }
+  };
+
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     handCards: [...testCards, ...testEventCards],
     personSlots: [null, null, null, null, null, null],
-    eventSlots: [null, null, testEventInSlot1],
+    eventSlots: [testEventInSlot3, testEventInSlot2, testEventInSlot1],
     waterSiloInHand: false,
     waterCount: 3,
   });
@@ -141,6 +186,12 @@ const GameBoard = () => {
     currentPhase: 'events', // start with events phase
     isFirstTurn: true,
   });
+
+  useEffect(() => {
+    if (gameState.currentPhase === 'events') {
+      handleEventsPhase();
+    }
+  }, [gameState.currentPhase]);
 
   return (
     <div
