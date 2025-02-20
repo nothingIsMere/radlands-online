@@ -550,7 +550,7 @@ const GameBoard = () => {
                                     setPlayerState((prev) => ({
                                       ...prev,
                                       eventSlots: [
-                                        null,
+                                        null, // Clear slot 3
                                         { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
                                         prev.eventSlots[2],
                                       ],
@@ -567,7 +567,7 @@ const GameBoard = () => {
                                       ...prev,
                                       eventSlots: [
                                         prev.eventSlots[0],
-                                        prev.eventSlots[1],
+                                        null, // Clear slot 2
                                         { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
                                       ],
                                       raidersLocation: 'event1',
