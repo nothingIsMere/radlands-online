@@ -8,14 +8,49 @@ interface PersonSlotProps {
   card: Card | null;
   playerState: PlayerState;
   setPlayerState: React.Dispatch<React.SetStateAction<PlayerState>>;
+  punkPlacementMode?: boolean;
+  punkCardToPlace?: Card | null;
+  setPunkPlacementMode?: (value: boolean) => void;
+  setPunkCardToPlace?: (value: Card | null) => void;
 }
 
-const PersonSlot = ({ index, card, playerState, setPlayerState }: PersonSlotProps) => {
+const PersonSlot = ({
+  index,
+  card,
+  playerState,
+  setPlayerState,
+  punkPlacementMode = false,
+  punkCardToPlace = null,
+  setPunkPlacementMode,
+  setPunkCardToPlace,
+}: PersonSlotProps) => {
   return (
     <div
-      className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-4"
+      className={`w-24 h-32 border-2 ${
+        punkPlacementMode && !card ? 'border-purple-400 animate-pulse cursor-pointer' : 'border-gray-400'
+      } rounded bg-gray-700 mb-4`}
       onDragOver={(e) => {
         e.preventDefault();
+      }}
+      onClick={() => {
+        if (punkPlacementMode && !card && punkCardToPlace) {
+          setPlayerState((prev) => ({
+            ...prev,
+            personSlots: prev.personSlots.map((slot, i) =>
+              i === index
+                ? {
+                    id: punkCardToPlace.id,
+                    name: 'Punk',
+                    type: 'person',
+                    isPunk: true,
+                    isReady: true, // Punks are always ready
+                  }
+                : slot
+            ),
+          }));
+          if (setPunkPlacementMode) setPunkPlacementMode(false);
+          if (setPunkCardToPlace) setPunkCardToPlace(null);
+        }
       }}
       onDragStart={(e) => {
         e.dataTransfer.setData('cardId', card?.id || '');
@@ -54,16 +89,22 @@ const PersonSlot = ({ index, card, playerState, setPlayerState }: PersonSlotProp
           }}
         >
           <div
-            className={`text-white text-center text-xs mt-4 
-      ${card.isReady ? 'border-2 border-green-500' : 'border-2 border-red-500'}`}
+            className={`text-white text-center text-xs mt-4
+  ${!card.isPunk && (card.isReady ? 'border-2 border-green-500' : 'border-2 border-red-500')}`}
           >
-            {card.name}
-            <br />
-            {card.type}
-            <br />
-            {card.id}
-            <br />
-            {card.isReady ? 'Ready' : 'Not Ready'}
+            {card.isPunk ? (
+              'Punk'
+            ) : (
+              <>
+                {card.name}
+                <br />
+                {card.type}
+                <br />
+                {card.id}
+                <br />
+                {card.isReady ? 'Ready' : 'Not Ready'}
+              </>
+            )}
           </div>
         </div>
       ) : (

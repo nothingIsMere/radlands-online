@@ -34,6 +34,7 @@ const testCards: Card[] = [
     name: 'Mechanic',
     type: 'person',
     isDamaged: false,
+    junkEffect: 'gain_punk',
   },
 ];
 
@@ -187,6 +188,8 @@ const GameBoard = () => {
   const [discardPile, setDiscardPile] = useState<Card[]>([]);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [cardToDiscard, setCardToDiscard] = useState<{ card: Card; sourcePlayer: string } | null>(null);
+  const [punkPlacementMode, setPunkPlacementMode] = useState(false);
+  const [punkCardToPlace, setPunkCardToPlace] = useState<Card | null>(null);
 
   const [gameState, setGameState] = useState<GameState>({
     currentTurn: 'left', // left player starts
@@ -342,12 +345,20 @@ const GameBoard = () => {
                   card={leftPlayerState.personSlots[0]}
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
                 />
                 <PersonSlot
                   index={1}
                   card={leftPlayerState.personSlots[1]}
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 1</div>
@@ -360,12 +371,20 @@ const GameBoard = () => {
                   card={leftPlayerState.personSlots[2]}
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
                 />
                 <PersonSlot
                   index={3}
                   card={leftPlayerState.personSlots[3]}
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 2</div>
@@ -378,12 +397,20 @@ const GameBoard = () => {
                   card={leftPlayerState.personSlots[4]}
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
                 />
                 <PersonSlot
                   index={5}
                   card={leftPlayerState.personSlots[5]}
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 3</div>
@@ -462,6 +489,43 @@ const GameBoard = () => {
                                   handCards: [...prev.handCards.filter((c) => c.id !== cardToDiscard.card.id), topCard],
                                 }));
                                 setDrawDeck((prev) => prev.slice(0, -1));
+                              }
+                            }
+                            if (cardToDiscard.card.junkEffect === 'extra_water') {
+                              const setPlayerState =
+                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                              setPlayerState((prev) => ({
+                                ...prev,
+                                waterCount: prev.waterCount + 1,
+                                handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                              }));
+                            } else if (cardToDiscard.card.junkEffect === 'draw_card') {
+                              const setPlayerState =
+                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                              const playerState =
+                                cardToDiscard.sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
+
+                              if (drawDeck.length > 0) {
+                                const topCard = drawDeck[drawDeck.length - 1];
+                                setPlayerState((prev) => ({
+                                  ...prev,
+                                  handCards: [...prev.handCards.filter((c) => c.id !== cardToDiscard.card.id), topCard],
+                                }));
+                                setDrawDeck((prev) => prev.slice(0, -1));
+                              }
+                            } else if (cardToDiscard.card.junkEffect === 'gain_punk') {
+                              if (drawDeck.length > 0) {
+                                const topCard = drawDeck[drawDeck.length - 1];
+                                setPunkCardToPlace(topCard);
+                                setPunkPlacementMode(true);
+                                setDrawDeck((prev) => prev.slice(0, -1));
+                                // Remove the junked card from hand
+                                const setPlayerState =
+                                  cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                                setPlayerState((prev) => ({
+                                  ...prev,
+                                  handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                }));
                               }
                             }
                             setDiscardPile((prev) => [...prev, cardToDiscard.card]);
