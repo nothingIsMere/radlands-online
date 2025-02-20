@@ -490,29 +490,6 @@ const GameBoard = () => {
                                 }));
                                 setDrawDeck((prev) => prev.slice(0, -1));
                               }
-                            }
-                            if (cardToDiscard.card.junkEffect === 'extra_water') {
-                              const setPlayerState =
-                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-                              setPlayerState((prev) => ({
-                                ...prev,
-                                waterCount: prev.waterCount + 1,
-                                handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                              }));
-                            } else if (cardToDiscard.card.junkEffect === 'draw_card') {
-                              const setPlayerState =
-                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-                              const playerState =
-                                cardToDiscard.sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
-
-                              if (drawDeck.length > 0) {
-                                const topCard = drawDeck[drawDeck.length - 1];
-                                setPlayerState((prev) => ({
-                                  ...prev,
-                                  handCards: [...prev.handCards.filter((c) => c.id !== cardToDiscard.card.id), topCard],
-                                }));
-                                setDrawDeck((prev) => prev.slice(0, -1));
-                              }
                             } else if (cardToDiscard.card.junkEffect === 'gain_punk') {
                               if (drawDeck.length > 0) {
                                 const topCard = drawDeck[drawDeck.length - 1];
