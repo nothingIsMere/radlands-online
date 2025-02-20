@@ -445,12 +445,12 @@ const GameBoard = () => {
 
                   if (discardedCard) {
                     if (discardedCard.junkEffect) {
-                      const useJunkEffect = window.confirm(
-                        `Do you want to use this card's ${discardedCard.junkEffect} effect?`
+                      const choice = window.confirm(
+                        `Would you like to:\n\n1. Use ${discardedCard.junkEffect} effect and discard\n2. Discard without using effect\n\nClick OK to use effect, Cancel to just discard\n\n(You can also click outside this prompt to cancel the discard entirely)`
                       );
 
-                      if (useJunkEffect) {
-                        // Process junk effect based on type
+                      if (choice) {
+                        // They chose to use the junk effect
                         if (discardedCard.junkEffect === 'extra_water') {
                           setPlayerState((prev) => ({
                             ...prev,
@@ -459,14 +459,19 @@ const GameBoard = () => {
                           }));
                         }
                         // We'll add other junk effects here later
+
+                        setDiscardPile((prev) => [...prev, discardedCard]);
+                      } else {
+                        // They chose to just discard without effect
+                        setDiscardPile((prev) => [...prev, discardedCard]);
+                        setPlayerState((prev) => ({
+                          ...prev,
+                          handCards: prev.handCards.filter((card) => card.id !== cardId),
+                        }));
                       }
-                    }
-
-                    // Always discard the card whether or not junk effect was used
-                    setDiscardPile((prev) => [...prev, discardedCard]);
-
-                    // Remove from player's hand if we haven't already (in the case of extra_water)
-                    if (!discardedCard.junkEffect || discardedCard.junkEffect !== 'extra_water') {
+                    } else {
+                      // Card has no junk effect, just discard it
+                      setDiscardPile((prev) => [...prev, discardedCard]);
                       setPlayerState((prev) => ({
                         ...prev,
                         handCards: prev.handCards.filter((card) => card.id !== cardId),
