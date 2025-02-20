@@ -12,6 +12,7 @@ interface PlayerState {
   eventSlots: (Card | null)[];
   waterSiloInHand: boolean;
   waterCount: number;
+  raidersLocation: 'default' | 'event1' | 'event2' | 'event3';
 }
 
 const testCards: Card[] = [
@@ -35,6 +36,13 @@ const testCards: Card[] = [
     type: 'person',
     isDamaged: false,
     junkEffect: 'gain_punk',
+  },
+  {
+    id: 'test-4',
+    name: 'Raider',
+    type: 'person',
+    isDamaged: false,
+    junkEffect: 'raid',
   },
 ];
 
@@ -60,12 +68,6 @@ const rightTestCards: Card[] = [
 ];
 
 const testEventCards: Card[] = [
-  {
-    id: 'event-1',
-    name: 'Raid',
-    type: 'event',
-    startingQueuePosition: 1,
-  },
   {
     id: 'event-2',
     name: 'Ambush',
@@ -174,6 +176,7 @@ const GameBoard = () => {
     eventSlots: [null, null, null],
     waterSiloInHand: false,
     waterCount: 1,
+    raidersLocation: 'default',
   });
 
   const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
@@ -182,6 +185,7 @@ const GameBoard = () => {
     eventSlots: [null, null, null],
     waterSiloInHand: false,
     waterCount: 2,
+    raidersLocation: 'default',
   });
 
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
