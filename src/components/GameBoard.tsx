@@ -39,7 +39,21 @@ const testCards: Card[] = [
   },
   {
     id: 'test-4',
-    name: 'Raider',
+    name: 'Raider 1',
+    type: 'person',
+    isDamaged: false,
+    junkEffect: 'raid',
+  },
+  {
+    id: 'test-5',
+    name: 'Raider 2',
+    type: 'person',
+    isDamaged: false,
+    junkEffect: 'raid',
+  },
+  {
+    id: 'test-6',
+    name: 'Raider 3',
     type: 'person',
     isDamaged: false,
     junkEffect: 'raid',
@@ -508,7 +522,70 @@ const GameBoard = () => {
                                   handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
                                 }));
                               }
+                            } else if (cardToDiscard.card.junkEffect === 'raid') {
+                              const setPlayerState =
+                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                              const playerState =
+                                cardToDiscard.sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
+
+                              // Handle Raiders movement based on current location
+                              switch (playerState.raidersLocation) {
+                                case 'default':
+                                  // Move to event slot 2 (index 1)
+                                  setPlayerState((prev) => ({
+                                    ...prev,
+                                    eventSlots: [
+                                      prev.eventSlots[0],
+                                      { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
+                                      prev.eventSlots[2],
+                                    ],
+                                    raidersLocation: 'event2',
+                                    handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                  }));
+                                  break;
+
+                                case 'event3':
+                                  // Move from slot 3 to slot 2 if empty
+                                  if (!playerState.eventSlots[1]) {
+                                    setPlayerState((prev) => ({
+                                      ...prev,
+                                      eventSlots: [
+                                        null,
+                                        { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
+                                        prev.eventSlots[2],
+                                      ],
+                                      raidersLocation: 'event2',
+                                      handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                    }));
+                                  }
+                                  break;
+
+                                case 'event2':
+                                  // Move from slot 2 to slot 1 if empty
+                                  if (!playerState.eventSlots[2]) {
+                                    setPlayerState((prev) => ({
+                                      ...prev,
+                                      eventSlots: [
+                                        prev.eventSlots[0],
+                                        prev.eventSlots[1],
+                                        { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
+                                      ],
+                                      raidersLocation: 'event1',
+                                      handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                    }));
+                                  }
+                                  break;
+
+                                case 'event1':
+                                  // For now, just discard the junked card since we'll implement raid later
+                                  setPlayerState((prev) => ({
+                                    ...prev,
+                                    handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                  }));
+                                  break;
+                              }
                             }
+
                             setDiscardPile((prev) => [...prev, cardToDiscard.card]);
                             setShowDiscardModal(false);
                             setCardToDiscard(null);
@@ -658,8 +735,16 @@ const GameBoard = () => {
                       )}
                     </div>
                   </div>
-                  <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
-                    <div className="text-white text-center text-xs mt-6">Raiders</div>
+                  <div
+                    className={`w-16 h-20 border border-gray-400 rounded bg-red-800 ${
+                      leftPlayerState.raidersLocation !== 'default' ? 'opacity-50' : ''
+                    }`}
+                  >
+                    <div className="text-white text-center text-xs mt-6">
+                      Raiders
+                      <br />
+                      {leftPlayerState.raidersLocation === 'default' ? '(ready)' : '(in queue)'}
+                    </div>
                   </div>
                   <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
                     💧 {leftPlayerState.waterCount}
