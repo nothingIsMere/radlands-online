@@ -184,6 +184,8 @@ const GameBoard = () => {
 
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
   const [discardPile, setDiscardPile] = useState<Card[]>([]);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [cardToDiscard, setCardToDiscard] = useState<{ card: Card; sourcePlayer: string } | null>(null);
 
   const [gameState, setGameState] = useState<GameState>({
     currentTurn: 'left', // left player starts
@@ -428,6 +430,63 @@ const GameBoard = () => {
                   )}
                 </div>
               </div>
+              {/* Discard Modal */}
+              {showDiscardModal && cardToDiscard && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-gray-800 p-4 rounded-lg border-2 border-gray-600">
+                    <div className="text-white mb-4">What would you like to do with this card?</div>
+                    <div className="flex gap-4">
+                      {cardToDiscard.card.junkEffect && (
+                        <button
+                          className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded"
+                          onClick={() => {
+                            if (cardToDiscard.card.junkEffect === 'extra_water') {
+                              const setPlayerState =
+                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                              setPlayerState((prev) => ({
+                                ...prev,
+                                waterCount: prev.waterCount + 1,
+                                handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                              }));
+                            }
+                            setDiscardPile((prev) => [...prev, cardToDiscard.card]);
+                            setShowDiscardModal(false);
+                            setCardToDiscard(null);
+                          }}
+                        >
+                          Junk
+                        </button>
+                      )}
+                      <button
+                        className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded"
+                        onClick={() => {
+                          const setPlayerState =
+                            cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                          setPlayerState((prev) => ({
+                            ...prev,
+                            handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                          }));
+                          setDiscardPile((prev) => [...prev, cardToDiscard.card]);
+                          setShowDiscardModal(false);
+                          setCardToDiscard(null);
+                        }}
+                      >
+                        Discard
+                      </button>
+                      <button
+                        className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded"
+                        onClick={() => {
+                          setShowDiscardModal(false);
+                          setCardToDiscard(null);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div
                 className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700"
                 onDragOver={(e) => e.preventDefault()}
@@ -435,48 +494,13 @@ const GameBoard = () => {
                   e.preventDefault();
                   const cardId = e.dataTransfer.getData('cardId');
                   const sourcePlayer = e.dataTransfer.getData('sourcePlayer');
-
-                  // Get the appropriate player state and setter
                   const playerState = sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
-                  const setPlayerState = sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
-                  // Find the card
                   const discardedCard = playerState.handCards.find((card) => card.id === cardId);
 
                   if (discardedCard) {
-                    if (discardedCard.junkEffect) {
-                      const choice = window.confirm(
-                        `Would you like to:\n\n1. Use ${discardedCard.junkEffect} effect and discard\n2. Discard without using effect\n\nClick OK to use effect, Cancel to just discard\n\n(You can also click outside this prompt to cancel the discard entirely)`
-                      );
-
-                      if (choice) {
-                        // They chose to use the junk effect
-                        if (discardedCard.junkEffect === 'extra_water') {
-                          setPlayerState((prev) => ({
-                            ...prev,
-                            waterCount: prev.waterCount + 1,
-                            handCards: prev.handCards.filter((card) => card.id !== cardId),
-                          }));
-                        }
-                        // We'll add other junk effects here later
-
-                        setDiscardPile((prev) => [...prev, discardedCard]);
-                      } else {
-                        // They chose to just discard without effect
-                        setDiscardPile((prev) => [...prev, discardedCard]);
-                        setPlayerState((prev) => ({
-                          ...prev,
-                          handCards: prev.handCards.filter((card) => card.id !== cardId),
-                        }));
-                      }
-                    } else {
-                      // Card has no junk effect, just discard it
-                      setDiscardPile((prev) => [...prev, discardedCard]);
-                      setPlayerState((prev) => ({
-                        ...prev,
-                        handCards: prev.handCards.filter((card) => card.id !== cardId),
-                      }));
-                    }
+                    setCardToDiscard({ card: discardedCard, sourcePlayer });
+                    setShowDiscardModal(true);
                   }
                 }}
               >
