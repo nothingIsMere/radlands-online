@@ -1,7 +1,6 @@
 'use client';
-
 import React from 'react';
-import { Card } from '@/types/game';
+import { Card, PlayerState } from '@/types/game';
 
 interface PersonSlotProps {
   index: number;
@@ -12,6 +11,8 @@ interface PersonSlotProps {
   punkCardToPlace?: Card | null;
   setPunkPlacementMode?: (value: boolean) => void;
   setPunkCardToPlace?: (value: Card | null) => void;
+  restoreMode?: boolean;
+  setRestoreMode?: (value: boolean) => void;
 }
 
 const PersonSlot = ({
@@ -23,15 +24,16 @@ const PersonSlot = ({
   punkCardToPlace = null,
   setPunkPlacementMode,
   setPunkCardToPlace,
+  restoreMode = false,
+  setRestoreMode,
 }: PersonSlotProps) => {
   return (
     <div
       className={`w-24 h-32 border-2 ${
-        punkPlacementMode && !card ? 'border-purple-400 animate-pulse cursor-pointer' : 'border-gray-400'
+        (punkPlacementMode && !card) || (restoreMode && card?.isDamaged)
+          ? 'border-purple-400 animate-pulse cursor-pointer'
+          : 'border-gray-400'
       } rounded bg-gray-700 mb-4`}
-      onDragOver={(e) => {
-        e.preventDefault();
-      }}
       onClick={() => {
         if (punkPlacementMode && !card && punkCardToPlace) {
           setPlayerState((prev) => ({
@@ -43,19 +45,33 @@ const PersonSlot = ({
                     name: 'Punk',
                     type: 'person',
                     isPunk: true,
-                    isReady: true, // Punks are always ready
+                    isReady: true,
                   }
                 : slot
             ),
           }));
           if (setPunkPlacementMode) setPunkPlacementMode(false);
           if (setPunkCardToPlace) setPunkCardToPlace(null);
+        } else if (restoreMode && card?.isDamaged) {
+          alert('Attempting to restore card');
+          setPlayerState((prev) => ({
+            ...prev,
+            personSlots: prev.personSlots.map((slot, i) =>
+              i === index ? { ...slot, isDamaged: false, isReady: false } : slot
+            ),
+          }));
+          if (setRestoreMode) setRestoreMode(false);
         }
       }}
+      onDragOver={(e) => {
+        e.preventDefault();
+      }}
       onDragStart={(e) => {
-        e.dataTransfer.setData('cardId', card?.id || '');
-        e.dataTransfer.setData('sourceType', 'personSlot');
-        e.dataTransfer.setData('sourceIndex', index.toString());
+        if (card) {
+          e.dataTransfer.setData('cardId', card.id);
+          e.dataTransfer.setData('sourceType', 'personSlot');
+          e.dataTransfer.setData('sourceIndex', index.toString());
+        }
       }}
       onDrop={(e) => {
         e.preventDefault();
@@ -74,38 +90,28 @@ const PersonSlot = ({
       {card ? (
         <div
           className={`text-white text-center text-xs mt-4 
-      ${
-        card.isDamaged
-          ? 'border-4 border-red-700 bg-red-900'
-          : card.isReady
-          ? 'border-2 border-green-500'
-          : 'border-2 border-red-500'
-      }`}
+            ${
+              card.isDamaged
+                ? 'border-4 border-red-700 bg-red-900'
+                : card.isReady
+                ? 'border-2 border-green-500'
+                : 'border-2 border-red-500'
+            }`}
           draggable="true"
-          onDragStart={(e) => {
-            e.dataTransfer.setData('cardId', card.id);
-            e.dataTransfer.setData('sourceType', 'personSlot');
-            e.dataTransfer.setData('sourceIndex', index.toString());
-          }}
         >
-          <div
-            className={`text-white text-center text-xs mt-4
-  ${!card.isPunk && (card.isReady ? 'border-2 border-green-500' : 'border-2 border-red-500')}`}
-          >
-            {card.isPunk ? (
-              'Punk'
-            ) : (
-              <>
-                {card.name}
-                <br />
-                {card.type}
-                <br />
-                {card.id}
-                <br />
-                {card.isReady ? 'Ready' : 'Not Ready'}
-              </>
-            )}
-          </div>
+          {card.isPunk ? (
+            'Punk'
+          ) : (
+            <>
+              {card.name}
+              <br />
+              {card.type}
+              <br />
+              {card.id}
+              <br />
+              {card.isReady ? 'Ready' : 'Not Ready'}
+            </>
+          )}
         </div>
       ) : (
         <div className="text-white text-center mt-12">Person {index + 1}</div>

@@ -46,17 +46,10 @@ const testCards: Card[] = [
   },
   {
     id: 'test-5',
-    name: 'Raider 2',
+    name: 'Medic',
     type: 'person',
     isDamaged: false,
-    junkEffect: 'raid',
-  },
-  {
-    id: 'test-6',
-    name: 'Raider 3',
-    type: 'person',
-    isDamaged: false,
-    junkEffect: 'raid',
+    junkEffect: 'restore',
   },
 ];
 
@@ -185,11 +178,17 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     handCards: [...testCards, ...testEventCards],
-    personSlots: [null, null, null, null, null, null],
-    // eventSlots: [testEventInSlot3, testEventInSlot2, testEventInSlot1],
+    personSlots: [
+      { id: 'damaged-1', name: 'Damaged Scout', type: 'person', isDamaged: true },
+      { id: 'damaged-2', name: 'Damaged Warrior', type: 'person', isDamaged: true },
+      { id: 'damaged-3', name: 'Damaged Mechanic', type: 'person', isDamaged: true },
+      null,
+      null,
+      null,
+    ],
     eventSlots: [null, null, null],
     waterSiloInHand: false,
-    waterCount: 1,
+    waterCount: 3,
     raidersLocation: 'default',
   });
 
@@ -208,6 +207,7 @@ const GameBoard = () => {
   const [cardToDiscard, setCardToDiscard] = useState<{ card: Card; sourcePlayer: string } | null>(null);
   const [punkPlacementMode, setPunkPlacementMode] = useState(false);
   const [punkCardToPlace, setPunkCardToPlace] = useState<Card | null>(null);
+  const [restoreMode, setRestoreMode] = useState(false);
 
   const [gameState, setGameState] = useState<GameState>({
     currentTurn: 'left', // left player starts
@@ -359,24 +359,28 @@ const GameBoard = () => {
               {/* Column 1 */}
               <div className="flex flex-col">
                 <PersonSlot
-                  index={0}
-                  card={leftPlayerState.personSlots[0]}
+                  index={0} // keep the appropriate index for each slot
+                  card={leftPlayerState.personSlots[0]} // keep the appropriate index for each slot
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
                   setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
                 />
                 <PersonSlot
-                  index={1}
-                  card={leftPlayerState.personSlots[1]}
+                  index={1} // keep the appropriate index for each slot
+                  card={leftPlayerState.personSlots[1]} // keep the appropriate index for each slot
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
                   setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 1</div>
@@ -385,24 +389,28 @@ const GameBoard = () => {
               {/* Column 2 */}
               <div className="flex flex-col">
                 <PersonSlot
-                  index={2}
-                  card={leftPlayerState.personSlots[2]}
+                  index={2} // keep the appropriate index for each slot
+                  card={leftPlayerState.personSlots[2]} // keep the appropriate index for each slot
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
                   setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
                 />
                 <PersonSlot
-                  index={3}
-                  card={leftPlayerState.personSlots[3]}
+                  index={3} // keep the appropriate index for each slot
+                  card={leftPlayerState.personSlots[3]} // keep the appropriate index for each slot
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
                   setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 2</div>
@@ -411,24 +419,28 @@ const GameBoard = () => {
               {/* Column 3 */}
               <div className="flex flex-col">
                 <PersonSlot
-                  index={4}
-                  card={leftPlayerState.personSlots[4]}
+                  index={4} // keep the appropriate index for each slot
+                  card={leftPlayerState.personSlots[4]} // keep the appropriate index for each slot
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
                   setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
                 />
                 <PersonSlot
-                  index={5}
-                  card={leftPlayerState.personSlots[5]}
+                  index={5} // keep the appropriate index for each slot
+                  card={leftPlayerState.personSlots[5]} // keep the appropriate index for each slot
                   playerState={leftPlayerState}
                   setPlayerState={setLeftPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
                   setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 3</div>
@@ -584,6 +596,18 @@ const GameBoard = () => {
                                   }));
                                   break;
                               }
+                            } else if (cardToDiscard.card.junkEffect === 'restore') {
+                              const setPlayerState =
+                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                              // Remove the junked card from hand first
+                              setPlayerState((prev) => ({
+                                ...prev,
+                                handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                              }));
+                              // Add to discard pile
+                              setDiscardPile((prev) => [...prev, cardToDiscard.card]);
+                              // Enter restore mode to let player choose a damaged card
+                              setRestoreMode(true);
                             }
 
                             setDiscardPile((prev) => [...prev, cardToDiscard.card]);
