@@ -176,16 +176,31 @@ const GameBoard = () => {
     }, 100);
   };
 
+  const updateProtectedStatus = (personSlots: (Card | null)[]) => {
+    // Clone the slots array to avoid direct mutation
+    const updatedSlots = [...personSlots];
+
+    // For each column (0/1, 2/3, 4/5)
+    for (let i = 0; i < 6; i += 2) {
+      const frontSlot = updatedSlots[i];
+      const backSlot = updatedSlots[i + 1];
+
+      if (backSlot) {
+        // Back slot card is protected if there's a card in front
+        backSlot.isProtected = frontSlot !== null;
+      }
+      if (frontSlot) {
+        // Front slot card is never protected
+        frontSlot.isProtected = false;
+      }
+    }
+
+    return updatedSlots;
+  };
+
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     handCards: [...testCards, ...testEventCards],
-    personSlots: [
-      { id: 'damaged-1', name: 'Damaged Scout', type: 'person', isDamaged: true },
-      { id: 'damaged-2', name: 'Damaged Warrior', type: 'person', isDamaged: true },
-      { id: 'damaged-3', name: 'Damaged Mechanic', type: 'person', isDamaged: true },
-      null,
-      null,
-      null,
-    ],
+    personSlots: [null, null, null, null, null, null],
     eventSlots: [null, null, null],
     waterSiloInHand: false,
     waterCount: 3,
@@ -369,6 +384,7 @@ const GameBoard = () => {
                   setPunkCardToPlace={setPunkCardToPlace}
                   restoreMode={restoreMode}
                   setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <PersonSlot
                   index={1} // keep the appropriate index for each slot
@@ -381,6 +397,7 @@ const GameBoard = () => {
                   setPunkCardToPlace={setPunkCardToPlace}
                   restoreMode={restoreMode}
                   setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 1</div>
@@ -399,6 +416,7 @@ const GameBoard = () => {
                   setPunkCardToPlace={setPunkCardToPlace}
                   restoreMode={restoreMode}
                   setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <PersonSlot
                   index={3} // keep the appropriate index for each slot
@@ -411,6 +429,7 @@ const GameBoard = () => {
                   setPunkCardToPlace={setPunkCardToPlace}
                   restoreMode={restoreMode}
                   setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 2</div>
@@ -429,6 +448,7 @@ const GameBoard = () => {
                   setPunkCardToPlace={setPunkCardToPlace}
                   restoreMode={restoreMode}
                   setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <PersonSlot
                   index={5} // keep the appropriate index for each slot
@@ -441,6 +461,7 @@ const GameBoard = () => {
                   setPunkCardToPlace={setPunkCardToPlace}
                   restoreMode={restoreMode}
                   setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 3</div>
@@ -879,15 +900,29 @@ const GameBoard = () => {
               <div className="flex flex-col">
                 <PersonSlot
                   index={0}
-                  card={rightPlayerState.personSlots[0]}
-                  playerState={rightPlayerState}
-                  setPlayerState={setRightPlayerState}
+                  card={leftPlayerState.personSlots[0]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <PersonSlot
                   index={1}
-                  card={rightPlayerState.personSlots[1]}
-                  playerState={rightPlayerState}
-                  setPlayerState={setRightPlayerState}
+                  card={leftPlayerState.personSlots[1]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 1</div>
@@ -897,15 +932,29 @@ const GameBoard = () => {
               <div className="flex flex-col">
                 <PersonSlot
                   index={2}
-                  card={rightPlayerState.personSlots[2]}
-                  playerState={rightPlayerState}
-                  setPlayerState={setRightPlayerState}
+                  card={leftPlayerState.personSlots[2]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <PersonSlot
                   index={3}
-                  card={rightPlayerState.personSlots[3]}
-                  playerState={rightPlayerState}
-                  setPlayerState={setRightPlayerState}
+                  card={leftPlayerState.personSlots[3]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 2</div>
@@ -915,15 +964,29 @@ const GameBoard = () => {
               <div className="flex flex-col">
                 <PersonSlot
                   index={4}
-                  card={rightPlayerState.personSlots[4]}
-                  playerState={rightPlayerState}
-                  setPlayerState={setRightPlayerState}
+                  card={leftPlayerState.personSlots[4]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <PersonSlot
                   index={5}
-                  card={rightPlayerState.personSlots[5]}
-                  playerState={rightPlayerState}
-                  setPlayerState={setRightPlayerState}
+                  card={leftPlayerState.personSlots[5]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
+                  punkPlacementMode={punkPlacementMode}
+                  punkCardToPlace={punkCardToPlace}
+                  setPunkPlacementMode={setPunkPlacementMode}
+                  setPunkCardToPlace={setPunkCardToPlace}
+                  restoreMode={restoreMode}
+                  setRestoreMode={setRestoreMode}
+                  updateProtectedStatus={updateProtectedStatus}
                 />
                 <div className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700">
                   <div className="text-white text-center mt-12">Camp 3</div>

@@ -9,6 +9,7 @@ interface Card {
  owner?: 'left' | 'right';
  isDamaged?: boolean;
  junkEffect?: JunkEffect;
+ isProtected?: boolean;
 }
 
 interface PlayerState {

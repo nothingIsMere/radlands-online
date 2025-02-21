@@ -13,6 +13,7 @@ interface PersonSlotProps {
   setPunkCardToPlace?: (value: Card | null) => void;
   restoreMode?: boolean;
   setRestoreMode?: (value: boolean) => void;
+  updateProtectedStatus: (slots: (Card | null)[]) => (Card | null)[];
 }
 
 const PersonSlot = ({
@@ -26,6 +27,7 @@ const PersonSlot = ({
   setPunkCardToPlace,
   restoreMode = false,
   setRestoreMode,
+  updateProtectedStatus,
 }: PersonSlotProps) => {
   return (
     <div
@@ -79,11 +81,16 @@ const PersonSlot = ({
         const draggedCard = playerState.handCards.find((card) => card.id === cardId);
 
         if (draggedCard && draggedCard.type === 'person' && !card) {
-          setPlayerState((prev) => ({
-            ...prev,
-            personSlots: prev.personSlots.map((slot, i) => (i === index ? { ...draggedCard, isReady: false } : slot)),
-            handCards: prev.handCards.filter((card) => card.id !== cardId),
-          }));
+          setPlayerState((prev) => {
+            const updatedSlots = prev.personSlots.map((slot, i) =>
+              i === index ? { ...draggedCard, isReady: false } : slot
+            );
+            return {
+              ...prev,
+              personSlots: updateProtectedStatus(updatedSlots),
+              handCards: prev.handCards.filter((card) => card.id !== cardId),
+            };
+          });
         }
       }}
     >
@@ -110,6 +117,8 @@ const PersonSlot = ({
               {card.id}
               <br />
               {card.isReady ? 'Ready' : 'Not Ready'}
+              <br />
+              {card.isProtected ? 'Protected' : 'Unprotected'}
             </>
           )}
         </div>
