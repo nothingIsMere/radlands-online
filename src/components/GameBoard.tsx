@@ -322,11 +322,14 @@ const GameBoard = () => {
                     if (sourceType === 'personSlot') {
                       const card = leftPlayerState.personSlots[sourceIndex];
                       if (card) {
-                        setLeftPlayerState((prev) => ({
-                          ...prev,
-                          handCards: [...prev.handCards, card],
-                          personSlots: prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot)),
-                        }));
+                        setLeftPlayerState((prev) => {
+                          const updatedSlots = prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot));
+                          return {
+                            ...prev,
+                            handCards: [...prev.handCards, card],
+                            personSlots: updateProtectedStatus(updatedSlots),
+                          };
+                        });
                       }
                     }
                   }}
@@ -900,9 +903,9 @@ const GameBoard = () => {
               <div className="flex flex-col">
                 <PersonSlot
                   index={0}
-                  card={leftPlayerState.personSlots[0]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
+                  card={rightPlayerState.personSlots[0]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
@@ -913,9 +916,9 @@ const GameBoard = () => {
                 />
                 <PersonSlot
                   index={1}
-                  card={leftPlayerState.personSlots[1]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
+                  card={rightPlayerState.personSlots[1]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
@@ -932,9 +935,9 @@ const GameBoard = () => {
               <div className="flex flex-col">
                 <PersonSlot
                   index={2}
-                  card={leftPlayerState.personSlots[2]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
+                  card={rightPlayerState.personSlots[2]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
@@ -945,9 +948,9 @@ const GameBoard = () => {
                 />
                 <PersonSlot
                   index={3}
-                  card={leftPlayerState.personSlots[3]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
+                  card={rightPlayerState.personSlots[3]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
@@ -964,9 +967,9 @@ const GameBoard = () => {
               <div className="flex flex-col">
                 <PersonSlot
                   index={4}
-                  card={leftPlayerState.personSlots[4]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
+                  card={rightPlayerState.personSlots[4]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
@@ -977,9 +980,9 @@ const GameBoard = () => {
                 />
                 <PersonSlot
                   index={5}
-                  card={leftPlayerState.personSlots[5]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
+                  card={rightPlayerState.personSlots[5]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
                   punkPlacementMode={punkPlacementMode}
                   punkCardToPlace={punkCardToPlace}
                   setPunkPlacementMode={setPunkPlacementMode}
@@ -1008,13 +1011,16 @@ const GameBoard = () => {
                   const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
 
                   if (sourceType === 'personSlot') {
-                    const card = rightPlayerState.personSlots[sourceIndex];
+                    const card = leftPlayerState.personSlots[sourceIndex];
                     if (card) {
-                      setRightPlayerState((prev) => ({
-                        ...prev,
-                        handCards: [...prev.handCards, card],
-                        personSlots: prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot)),
-                      }));
+                      setLeftPlayerState((prev) => {
+                        const updatedSlots = prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot));
+                        return {
+                          ...prev,
+                          handCards: [...prev.handCards, card],
+                          personSlots: updateProtectedStatus(updatedSlots),
+                        };
+                      });
                     }
                   }
                 }}
