@@ -14,7 +14,7 @@ interface Card {
 
 interface PlayerState {
   hand: Card[];
-  personSlots: (Card | null)[];  // null means empty slot
+  personSlots: (Card | null)[];  
 }
 
 export type { Card, PlayerState };
