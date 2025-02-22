@@ -311,7 +311,11 @@ const GameBoard = () => {
         {/* Left Player Area */}
         <div
           className={`w-1/3 h-full p-2 relative border-2 
-  ${gameState.currentTurn === 'left' ? 'border-white brightness-110' : 'border-gray-600'}`}
+          ${
+            gameState.currentTurn === 'left'
+              ? 'border-3 border-pink-500 shadow-[0_0_5px_rgba(255,105,180,0.7),0_0_10px_rgba(255,105,180,0.5),0_0_45px_rgba(255,105,180,0.3)] brightness-110'
+              : 'border-2 border-gray-600'
+          }`}
         >
           <div
             style={{
@@ -939,7 +943,11 @@ const GameBoard = () => {
         {/* Right Player Area */}
         <div
           className={`w-1/3 h-full p-2 relative border-2
-  ${gameState.currentTurn === 'right' ? 'border-white brightness-110' : 'border-gray-600'}`}
+          ${
+            gameState.currentTurn === 'right'
+              ? 'border-3 border-pink-500 shadow-[0_0_5px_rgba(255,105,180,0.7),0_0_10px_rgba(255,105,180,0.5),0_0_45px_rgba(255,105,180,0.3)] brightness-110'
+              : 'border-2 border-gray-600'
+          }`}
         >
           <div
             style={{
