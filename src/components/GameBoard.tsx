@@ -201,26 +201,33 @@ const GameBoard = () => {
     }, 100);
   };
 
-  const updateProtectedStatus = (personSlots: (Card | null)[]) => {
-    // Clone the slots array to avoid direct mutation
-    const updatedSlots = [...personSlots];
+  const updateProtectedStatus = (personSlots: (Card | null)[], campSlots: (Card | null)[]) => {
+    // Clone the arrays to avoid direct mutation
+    const updatedPersonSlots = [...personSlots];
+    const updatedCampSlots = [...campSlots];
 
     // For each column (0/1, 2/3, 4/5)
     for (let i = 0; i < 6; i += 2) {
-      const frontSlot = updatedSlots[i];
-      const backSlot = updatedSlots[i + 1];
+      const frontPersonSlot = updatedPersonSlots[i];
+      const backPersonSlot = updatedPersonSlots[i + 1];
+      const campIndex = i / 2; // Convert person slot index to camp index (0,2,4 -> 0,1,2)
+      const camp = updatedCampSlots[campIndex];
 
-      if (backSlot) {
-        // Back slot card is protected if there's a card in front
-        backSlot.isProtected = frontSlot !== null;
+      // Update person slot protection
+      if (backPersonSlot) {
+        backPersonSlot.isProtected = frontPersonSlot !== null;
       }
-      if (frontSlot) {
-        // Front slot card is never protected
-        frontSlot.isProtected = false;
+      if (frontPersonSlot) {
+        frontPersonSlot.isProtected = false;
+      }
+
+      // Update camp protection
+      if (camp) {
+        camp.isProtected = frontPersonSlot !== null || backPersonSlot !== null;
       }
     }
 
-    return updatedSlots;
+    return { personSlots: updatedPersonSlots, campSlots: updatedCampSlots };
   };
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({

@@ -85,9 +85,11 @@ const PersonSlot = ({
             const updatedSlots = prev.personSlots.map((slot, i) =>
               i === index ? { ...draggedCard, isReady: false } : slot
             );
+            const { personSlots, campSlots } = updateProtectedStatus(updatedSlots, prev.campSlots);
             return {
               ...prev,
-              personSlots: updateProtectedStatus(updatedSlots),
+              personSlots,
+              campSlots,
               handCards: prev.handCards.filter((card) => card.id !== cardId),
             };
           });
