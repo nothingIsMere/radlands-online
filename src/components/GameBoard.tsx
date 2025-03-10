@@ -55,7 +55,7 @@ const testCards: Card[] = [
 const rightTestCards: Card[] = [
   // Create card instances from our definitions and modify properties as needed
   { ...createPerson('muse'), id: 'right-1', name: 'Medic', isDamaged: true },
-  { ...createPerson('warrior'), id: 'right-2', name: 'Defender' },
+  { ...createPerson('assassin'), id: 'right-2', name: 'Defender' },
   { ...createPerson('pyromaniac'), id: 'right-3', name: 'Bomber' },
 ].filter(Boolean) as Card[];
 
@@ -63,7 +63,7 @@ const testEventCards: Card[] = [createEvent('ambush'), createEvent('attack')].fi
 
 const drawDeckCards: Card[] = [
   createPerson('scout'),
-  createPerson('warrior'),
+  createPerson('assassin'),
   createPerson('muse'),
   createPerson('vigilante'),
   createPerson('holdout'),
@@ -483,20 +483,13 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Include Holdout, Zeto Kahn, and some event cards
-    handCards: [
-      createPerson('holdout'),
-      createPerson('zeto-kahn'),
-      createEvent('ambush'),
-      createEvent('attack'),
-      createPerson('vera-vosh'),
-      createPerson('sniper'),
-    ].filter(Boolean) as Card[],
+    handCards: [createPerson('looter')].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
       // { ...createPerson('scout'), id: 'left-damaged-person-1', isDamaged: true, isReady: false },
       null,
       // Create a damaged warrior
-      { ...createPerson('warrior'), id: 'left-damaged-person-2', isDamaged: true, isReady: false },
+      { ...createPerson('assassin'), id: 'left-damaged-person-2', isDamaged: true, isReady: false },
       null,
       // Add a punk card
       {
@@ -523,10 +516,10 @@ const GameBoard = () => {
   });
 
   const rightTestPersonSlots: (Card | null)[] = [
-    // { ...createPerson('warrior'), id: 'right-person-1', name: 'Guard' }, // Front row, column 1
+    // { ...createPerson('assassin'), id: 'right-person-1', name: 'Guard' }, // Front row, column 1
     null,
     null, // Back row, column 1
-    { ...createPerson('warrior'), id: 'right-person-3', name: 'Defender' }, // Front row, column 2
+    { ...createPerson('assassin'), id: 'right-person-3', name: 'Assassin' }, // Front row, column 2
     // For punk cards, we'll still need a custom definition since they're special
     {
       id: 'right-person-4',

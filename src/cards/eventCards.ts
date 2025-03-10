@@ -4,21 +4,21 @@ import { Card } from '@/types/game';
 export const eventCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected'> } = {
   'ambush': {
     id: 'event-ambush',
-    name: 'Ambush',
+    name: 'ambush',
     type: 'event',
     startingQueuePosition: 2,
     effect: 'When resolved, damage two enemy person cards'
   },
   'attack': {
     id: 'event-attack',
-    name: 'Attack',
+    name: 'attack',
     type: 'event',
     startingQueuePosition: 1,
     effect: 'When resolved, damage an enemy camp'
   },
   'assault': {
     id: 'event-assault',
-    name: 'Assault',
+    name: 'assault',
     type: 'event',
     startingQueuePosition: 1,
     effect: 'When resolved, damage all unprotected enemy persons'

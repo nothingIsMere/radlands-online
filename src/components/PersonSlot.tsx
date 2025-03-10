@@ -261,12 +261,19 @@ const PersonSlot = ({
         e.preventDefault();
       }}
       onDragStart={(e) => {
-        if (card) {
+        // Only allow dragging if in returnToHandMode and the card belongs to current player
+        if (card && returnToHandMode && player === gameState.currentTurn) {
           e.dataTransfer.setData('cardId', card.id);
           e.dataTransfer.setData('sourceType', 'personSlot');
           e.dataTransfer.setData('sourceIndex', index.toString());
+        } else if (card) {
+          // Prevent drag for cards not in returnToHandMode
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
         }
       }}
+      draggable={card && returnToHandMode && player === gameState.currentTurn ? 'true' : 'false'}
       onDrop={(e) => {
         e.preventDefault();
         // Only allow drops if the element is interactable
