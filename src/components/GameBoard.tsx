@@ -121,13 +121,13 @@ const GameBoard = () => {
     }
 
     if (sacrificeMode) {
-      // In sacrifice mode, a player can only select their own people (excluding the Cult Leader itself)
+      // In sacrifice mode, a player can only select their own people (including the Cult Leader itself)
       if (element === 'person') {
         const personCard =
           elementPlayer === 'left' ? leftPlayerState.personSlots[slotIndex] : rightPlayerState.personSlots[slotIndex];
 
-        // Can only select your own people, but not the Cult Leader itself (who's activating the ability)
-        return elementPlayer === gameState.currentTurn && personCard && personCard.id !== selectedCard?.id; // Don't allow sacrificing the Cult Leader itself
+        // Can select any of your own people, including the Cult Leader itself
+        return elementPlayer === gameState.currentTurn && personCard;
       }
       return false;
     }
@@ -483,7 +483,9 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Include Holdout, Zeto Kahn, and some event cards
-    handCards: [createPerson('looter')].filter(Boolean) as Card[],
+    handCards: [createPerson('looter'), createPerson('wounded-soldier'), createPerson('cult-leader')].filter(
+      Boolean
+    ) as Card[],
     personSlots: [
       // Create a damaged scout
       // { ...createPerson('scout'), id: 'left-damaged-person-1', isDamaged: true, isReady: false },

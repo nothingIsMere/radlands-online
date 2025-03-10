@@ -10,7 +10,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
     abilities: [
       {
         effect: 'Damage. If this hits a camp, Draw 1 card.',
-        cost: 1,
+        cost: 2,
         type: 'damage',
         target: 'any',
         value: 1,
