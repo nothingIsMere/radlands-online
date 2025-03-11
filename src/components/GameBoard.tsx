@@ -488,6 +488,7 @@ const GameBoard = () => {
       createPerson('wounded-soldier'),
       createPerson('cult-leader'),
       createPerson('repair-bot'),
+      createPerson('gunner'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
@@ -1236,6 +1237,44 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'injure_all':
+        // Get the opponent's state and setter
+        const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
+        const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
+        const setOpponentState = opponentPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+        // Find all unprotected enemy person cards
+        const unprotectedPersons = opponentState.personSlots
+          .map((slot, index) => ({ slot, index }))
+          .filter(({ slot }) => slot && !slot.isProtected);
+
+        if (unprotectedPersons.length === 0) {
+          alert('No unprotected enemy persons to injure!');
+          break;
+        }
+
+        // Process each unprotected person
+        unprotectedPersons.forEach(({ slot, index }) => {
+          if (slot) {
+            if (slot.isDamaged || slot.isPunk) {
+              // If already damaged or is a punk, destroy it
+              alert(`${slot.name || 'Enemy card'} destroyed!`);
+              destroyCard(slot, index, opponentPlayer === 'right');
+            } else {
+              // Otherwise mark as damaged
+              setOpponentState((prev) => ({
+                ...prev,
+                personSlots: prev.personSlots.map((card, i) =>
+                  i === index ? { ...card, isDamaged: true, isReady: false } : card
+                ),
+              }));
+            }
+          }
+        });
+
+        alert(`Injured all unprotected enemy persons!`);
+        break;
+
       case 'vanguard_damage':
         // Enter damage targeting mode
         setDamageMode(true);

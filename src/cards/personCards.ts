@@ -64,7 +64,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
     abilities: [
       {
         effect: 'Restore a damaged card',
-        cost: 1,
+        cost: 2,
         type: 'restore',
         target: 'own_any',
       }
