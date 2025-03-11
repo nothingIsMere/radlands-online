@@ -489,6 +489,7 @@ const GameBoard = () => {
       createPerson('cult-leader'),
       createPerson('repair-bot'),
       createPerson('gunner'),
+      createPerson('assassin'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
@@ -721,6 +722,7 @@ const GameBoard = () => {
       (gameBoardRef.current as any).rightHasZetoKahn = rightHasZetoKahn;
       (gameBoardRef.current as any).leftPlayedEventThisTurn = leftPlayedEventThisTurn;
       (gameBoardRef.current as any).rightPlayedEventThisTurn = rightPlayedEventThisTurn;
+      (gameBoardRef.current as any).setDestroyPersonMode = setDestroyPersonMode;
     }
   }, [leftHasZetoKahn, rightHasZetoKahn, leftPlayedEventThisTurn, rightPlayedEventThisTurn]);
 

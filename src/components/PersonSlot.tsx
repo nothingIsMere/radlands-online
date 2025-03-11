@@ -189,9 +189,14 @@ const PersonSlot = ({
           // Handle destroy person targeting - directly destroy the card
           alert(`${card.name} was destroyed!`);
           destroyCard(card, index, player === 'right');
+
           // Reset destroy person mode
-          if (typeof window !== 'undefined' && window.setDestroyPersonMode) {
-            window.setDestroyPersonMode(false);
+          if (typeof window !== 'undefined') {
+            // Look for global setDestroyPersonMode function in GameBoard
+            const gameBoard = document.getElementById('game-board');
+            if (gameBoard && (gameBoard as any).setDestroyPersonMode) {
+              (gameBoard as any).setDestroyPersonMode(false);
+            }
           }
         } else if (sacrificeMode && card && player === gameState.currentTurn) {
           // Handle sacrificing this card
