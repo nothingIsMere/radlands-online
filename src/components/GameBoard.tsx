@@ -490,6 +490,7 @@ const GameBoard = () => {
       createPerson('repair-bot'),
       createPerson('gunner'),
       createPerson('assassin'),
+      createPerson('scientist'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
@@ -1746,18 +1747,6 @@ const GameBoard = () => {
                 </div>
               ))}
             </div>
-
-            <button
-              className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded w-full"
-              onClick={() => {
-                // Simply discard the cards without using any junk effect
-                setDiscardPile((prev) => [...prev, ...scientistCards]);
-                setScientistCards([]);
-                setIsScientistModalOpen(false);
-              }}
-            >
-              Cancel
-            </button>
           </div>
         </div>
       )}
