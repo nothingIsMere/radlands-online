@@ -483,9 +483,12 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Include Holdout, Zeto Kahn, and some event cards
-    handCards: [createPerson('looter'), createPerson('wounded-soldier'), createPerson('cult-leader')].filter(
-      Boolean
-    ) as Card[],
+    handCards: [
+      createPerson('looter'),
+      createPerson('wounded-soldier'),
+      createPerson('cult-leader'),
+      createPerson('repair-bot'),
+    ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
       // { ...createPerson('scout'), id: 'left-damaged-person-1', isDamaged: true, isReady: false },
@@ -2032,7 +2035,7 @@ const GameBoard = () => {
                     (abilityRestoreMode &&
                       gameState.currentTurn === 'left' &&
                       leftPlayerState.campSlots[0]?.isDamaged) ||
-                    (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) ||
+                    (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[0]?.isDamaged) ||
                     (damageColumnMode && gameState.currentTurn !== 'left')
                       ? 'border-purple-400 animate-pulse cursor-pointer'
                       : leftPlayerState.campSlots[0]?.isDamaged
@@ -2114,6 +2117,15 @@ const GameBoard = () => {
                     ) {
                       // Handle damage targeting
                       applyDamage(leftPlayerState.campSlots[0], 0, false);
+                    } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[0]?.isDamaged) {
+                      // Restore the camp
+                      setLeftPlayerState((prev) => ({
+                        ...prev,
+                        campSlots: prev.campSlots.map((camp, i) => (i === 0 ? { ...camp, isDamaged: false } : camp)),
+                      }));
+
+                      // Exit restore mode
+                      if (setRestoreMode) setRestoreMode(false);
                     } else if (
                       abilityRestoreMode &&
                       gameState.currentTurn === 'left' &&
@@ -2242,7 +2254,9 @@ const GameBoard = () => {
       (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) ||
       (damageColumnMode && gameState.currentTurn !== 'left')
         ? 'border-purple-400 animate-pulse cursor-pointer'
-        : leftPlayerState.campSlots[1]?.isDamaged
+        : leftPlayerState.campSlots[1]?.isDamaged(
+            restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[1]?.isDamaged
+          )
         ? 'border-red-700'
         : 'border-gray-400'
     }
@@ -2321,6 +2335,15 @@ const GameBoard = () => {
                     ) {
                       // Handle damage targeting
                       applyDamage(leftPlayerState.campSlots[1], 1, false);
+                    } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[1]?.isDamaged) {
+                      // Restore the camp
+                      setLeftPlayerState((prev) => ({
+                        ...prev,
+                        campSlots: prev.campSlots.map((camp, i) => (i === 1 ? { ...camp, isDamaged: false } : camp)),
+                      }));
+
+                      // Exit restore mode
+                      if (setRestoreMode) setRestoreMode(false);
                     } else if (
                       abilityRestoreMode &&
                       gameState.currentTurn === 'left' &&
@@ -2439,20 +2462,22 @@ const GameBoard = () => {
                       ? 'bg-red-900'
                       : 'bg-gray-700'
                   }
-    ${
-      (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[2]) ||
-      (damageMode &&
-        gameState.currentTurn !== 'left' &&
-        leftPlayerState.campSlots[2] &&
-        (sniperMode || !leftPlayerState.campSlots[2]?.isProtected)) ||
-      (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
-      (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) ||
-      (damageColumnMode && gameState.currentTurn !== 'left')
-        ? 'border-purple-400 animate-pulse cursor-pointer'
-        : leftPlayerState.campSlots[2]?.isDamaged
-        ? 'border-red-700'
-        : 'border-gray-400'
-    }
+                  ${
+                    (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[2]) ||
+                    (damageMode &&
+                      gameState.currentTurn !== 'left' &&
+                      leftPlayerState.campSlots[2] &&
+                      (sniperMode || !leftPlayerState.campSlots[2]?.isProtected)) ||
+                    (abilityRestoreMode &&
+                      gameState.currentTurn === 'left' &&
+                      leftPlayerState.campSlots[2]?.isDamaged) ||
+                    (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
+                    (damageColumnMode && gameState.currentTurn !== 'left')
+                      ? 'border-purple-400 animate-pulse cursor-pointer'
+                      : leftPlayerState.campSlots[2]?.isDamaged
+                      ? 'border-red-700'
+                      : 'border-gray-400'
+                  }
   `}
                   onClick={() => {
                     if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[2]) {
@@ -2528,6 +2553,15 @@ const GameBoard = () => {
                     ) {
                       // Handle damage targeting
                       applyDamage(leftPlayerState.campSlots[2], 2, false);
+                    } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[2]?.isDamaged) {
+                      // Restore the camp
+                      setLeftPlayerState((prev) => ({
+                        ...prev,
+                        campSlots: prev.campSlots.map((camp, i) => (i === 2 ? { ...camp, isDamaged: false } : camp)),
+                      }));
+
+                      // Exit restore mode
+                      if (setRestoreMode) setRestoreMode(false);
                     } else if (
                       abilityRestoreMode &&
                       gameState.currentTurn === 'left' &&
@@ -3121,20 +3155,22 @@ const GameBoard = () => {
                       ? 'bg-red-900'
                       : 'bg-gray-700'
                   }
-    ${
-      (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[0]) ||
-      (damageMode &&
-        gameState.currentTurn !== 'right' &&
-        rightPlayerState.campSlots[0] &&
-        (sniperMode || !rightPlayerState.campSlots[0]?.isProtected)) ||
-      (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
-      (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) ||
-      (damageColumnMode && gameState.currentTurn !== 'right')
-        ? 'border-purple-400 animate-pulse cursor-pointer'
-        : rightPlayerState.campSlots[0]?.isDamaged
-        ? 'border-red-700'
-        : 'border-gray-400'
-    }
+                  ${
+                    (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[0]) ||
+                    (damageMode &&
+                      gameState.currentTurn !== 'right' &&
+                      rightPlayerState.campSlots[0] &&
+                      (sniperMode || !rightPlayerState.campSlots[0]?.isProtected)) ||
+                    (abilityRestoreMode &&
+                      gameState.currentTurn === 'right' &&
+                      rightPlayerState.campSlots[0]?.isDamaged) ||
+                    (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
+                    (damageColumnMode && gameState.currentTurn !== 'right')
+                      ? 'border-purple-400 animate-pulse cursor-pointer'
+                      : rightPlayerState.campSlots[0]?.isDamaged
+                      ? 'border-red-700'
+                      : 'border-gray-400'
+                  }
   `}
                   onClick={() => {
                     if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[0]) {
@@ -3210,6 +3246,15 @@ const GameBoard = () => {
                     ) {
                       // Handle damage targeting
                       applyDamage(rightPlayerState.campSlots[0], 0, true);
+                    } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[0]?.isDamaged) {
+                      // Restore the camp
+                      setRightPlayerState((prev) => ({
+                        ...prev,
+                        campSlots: prev.campSlots.map((camp, i) => (i === 0 ? { ...camp, isDamaged: false } : camp)),
+                      }));
+
+                      // Exit restore mode
+                      if (setRestoreMode) setRestoreMode(false);
                     } else if (
                       abilityRestoreMode &&
                       gameState.currentTurn === 'right' &&
@@ -3322,20 +3367,22 @@ const GameBoard = () => {
                       ? 'bg-red-900'
                       : 'bg-gray-700'
                   }
-    ${
-      (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[1]) ||
-      (damageMode &&
-        gameState.currentTurn !== 'right' &&
-        rightPlayerState.campSlots[1] &&
-        (sniperMode || !rightPlayerState.campSlots[1]?.isProtected)) ||
-      (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
-      (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) ||
-      (damageColumnMode && gameState.currentTurn !== 'right')
-        ? 'border-purple-400 animate-pulse cursor-pointer'
-        : rightPlayerState.campSlots[1]?.isDamaged
-        ? 'border-red-700'
-        : 'border-gray-400'
-    }
+                  ${
+                    (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[1]) ||
+                    (damageMode &&
+                      gameState.currentTurn !== 'right' &&
+                      rightPlayerState.campSlots[1] &&
+                      (sniperMode || !rightPlayerState.campSlots[1]?.isProtected)) ||
+                    (abilityRestoreMode &&
+                      gameState.currentTurn === 'right' &&
+                      rightPlayerState.campSlots[1]?.isDamaged) ||
+                    (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
+                    (damageColumnMode && gameState.currentTurn !== 'right')
+                      ? 'border-purple-400 animate-pulse cursor-pointer'
+                      : rightPlayerState.campSlots[1]?.isDamaged
+                      ? 'border-red-700'
+                      : 'border-gray-400'
+                  }
   `}
                   onClick={() => {
                     if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[1]) {
@@ -3411,6 +3458,15 @@ const GameBoard = () => {
                     ) {
                       // Handle damage targeting
                       applyDamage(rightPlayerState.campSlots[1], 1, true);
+                    } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[1]?.isDamaged) {
+                      // Restore the camp
+                      setRightPlayerState((prev) => ({
+                        ...prev,
+                        campSlots: prev.campSlots.map((camp, i) => (i === 1 ? { ...camp, isDamaged: false } : camp)),
+                      }));
+
+                      // Exit restore mode
+                      if (setRestoreMode) setRestoreMode(false);
                     } else if (
                       abilityRestoreMode &&
                       gameState.currentTurn === 'right' &&
@@ -3523,20 +3579,22 @@ const GameBoard = () => {
                       ? 'bg-red-900'
                       : 'bg-gray-700'
                   }
-    ${
-      (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[2]) ||
-      (damageMode &&
-        gameState.currentTurn !== 'right' &&
-        rightPlayerState.campSlots[2] &&
-        (sniperMode || !rightPlayerState.campSlots[2]?.isProtected)) ||
-      (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[2]?.isDamaged) ||
-      (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) ||
-      (damageColumnMode && gameState.currentTurn !== 'right')
-        ? 'border-purple-400 animate-pulse cursor-pointer'
-        : rightPlayerState.campSlots[2]?.isDamaged
-        ? 'border-red-700'
-        : 'border-gray-400'
-    }
+                  ${
+                    (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[2]) ||
+                    (damageMode &&
+                      gameState.currentTurn !== 'right' &&
+                      rightPlayerState.campSlots[2] &&
+                      (sniperMode || !rightPlayerState.campSlots[2]?.isProtected)) ||
+                    (abilityRestoreMode &&
+                      gameState.currentTurn === 'right' &&
+                      rightPlayerState.campSlots[2]?.isDamaged) ||
+                    (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[2]?.isDamaged) ||
+                    (damageColumnMode && gameState.currentTurn !== 'right')
+                      ? 'border-purple-400 animate-pulse cursor-pointer'
+                      : rightPlayerState.campSlots[2]?.isDamaged
+                      ? 'border-red-700'
+                      : 'border-gray-400'
+                  }
   `}
                   onClick={() => {
                     if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[2]) {
@@ -3612,6 +3670,15 @@ const GameBoard = () => {
                     ) {
                       // Handle damage targeting
                       applyDamage(rightPlayerState.campSlots[2], 2, true);
+                    } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[2]?.isDamaged) {
+                      // Restore the camp
+                      setRightPlayerState((prev) => ({
+                        ...prev,
+                        campSlots: prev.campSlots.map((camp, i) => (i === 2 ? { ...camp, isDamaged: false } : camp)),
+                      }));
+
+                      // Exit restore mode
+                      if (setRestoreMode) setRestoreMode(false);
                     } else if (
                       abilityRestoreMode &&
                       gameState.currentTurn === 'right' &&
