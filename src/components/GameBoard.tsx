@@ -492,6 +492,7 @@ const GameBoard = () => {
       createPerson('assassin'),
       createPerson('scientist'),
       createPerson('mutant'),
+      createPerson('vigilante'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
