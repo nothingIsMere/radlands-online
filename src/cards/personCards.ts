@@ -225,6 +225,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'raid',
       }
     ],
+    traits: ['start_ready'],
     junkEffect: 'extra_water'
   },
   'pyromaniac': {
