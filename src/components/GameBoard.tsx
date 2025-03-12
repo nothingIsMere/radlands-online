@@ -513,6 +513,7 @@ const GameBoard = () => {
       createPerson('rabble-rouser'),
       createPerson('sniper'),
       createPerson('magnus-karv'),
+      createPerson('molgur-stang'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
@@ -2096,6 +2097,7 @@ const GameBoard = () => {
                       gameState.currentTurn !== 'left' &&
                       leftPlayerState.campSlots[0] &&
                       (sniperMode || !leftPlayerState.campSlots[0]?.isProtected)) ||
+                    (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) ||
                     (abilityRestoreMode &&
                       gameState.currentTurn === 'left' &&
                       leftPlayerState.campSlots[0]?.isDamaged) ||
@@ -2314,6 +2316,7 @@ const GameBoard = () => {
         gameState.currentTurn !== 'left' &&
         leftPlayerState.campSlots[1] &&
         (sniperMode || !leftPlayerState.campSlots[1]?.isProtected)) ||
+      (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) ||
       (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[1]?.isDamaged) ||
       (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) ||
       (damageColumnMode && gameState.currentTurn !== 'left')
@@ -2530,6 +2533,7 @@ const GameBoard = () => {
                       gameState.currentTurn !== 'left' &&
                       leftPlayerState.campSlots[2] &&
                       (sniperMode || !leftPlayerState.campSlots[2]?.isProtected)) ||
+                    (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) ||
                     (abilityRestoreMode &&
                       gameState.currentTurn === 'left' &&
                       leftPlayerState.campSlots[2]?.isDamaged) ||
@@ -3223,6 +3227,7 @@ const GameBoard = () => {
                       gameState.currentTurn !== 'right' &&
                       rightPlayerState.campSlots[0] &&
                       (sniperMode || !rightPlayerState.campSlots[0]?.isProtected)) ||
+                    (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) ||
                     (abilityRestoreMode &&
                       gameState.currentTurn === 'right' &&
                       rightPlayerState.campSlots[0]?.isDamaged) ||
@@ -3435,6 +3440,7 @@ const GameBoard = () => {
                       gameState.currentTurn !== 'right' &&
                       rightPlayerState.campSlots[1] &&
                       (sniperMode || !rightPlayerState.campSlots[1]?.isProtected)) ||
+                    (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) ||
                     (abilityRestoreMode &&
                       gameState.currentTurn === 'right' &&
                       rightPlayerState.campSlots[1]?.isDamaged) ||
@@ -3647,6 +3653,7 @@ const GameBoard = () => {
                       gameState.currentTurn !== 'right' &&
                       rightPlayerState.campSlots[2] &&
                       (sniperMode || !rightPlayerState.campSlots[2]?.isProtected)) ||
+                    (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) ||
                     (abilityRestoreMode &&
                       gameState.currentTurn === 'right' &&
                       rightPlayerState.campSlots[2]?.isDamaged) ||
