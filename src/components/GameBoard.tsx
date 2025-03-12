@@ -89,21 +89,25 @@ const GameBoard = () => {
     // Default: Players can only interact with their own elements during their turn
     const isCurrentPlayerElement = gameState.currentTurn === elementPlayer;
 
-    // Special interaction modes
     if (mimicMode) {
       // In mimic mode, a player can interact with either:
-      // 1. Their own ready person cards, or
-      // 2. Undamaged enemy person cards
+      // 1. Their own ready person cards with abilities, or
+      // 2. Undamaged enemy person cards with abilities
       if (element === 'person') {
         const targetCard =
           elementPlayer === 'left' ? leftPlayerState.personSlots[slotIndex] : rightPlayerState.personSlots[slotIndex];
 
+        // First check if card exists and has abilities (applies to both own and enemy cards)
+        if (!targetCard || targetCard.isPunk || !targetCard.abilities || targetCard.abilities.length === 0) {
+          return false; // No abilities to mimic
+        }
+
         if (elementPlayer === gameState.currentTurn) {
           // Own person cards - must be ready
-          return targetCard && targetCard.isReady && targetCard.id !== mimicSourceCard?.id;
+          return targetCard.isReady && targetCard.id !== mimicSourceCard?.id;
         } else {
           // Enemy person cards - must be undamaged
-          return targetCard && !targetCard.isDamaged;
+          return !targetCard.isDamaged;
         }
       }
       return false;
@@ -501,6 +505,7 @@ const GameBoard = () => {
       createPerson('vigilante'),
       createPerson('rescue-team'),
       createPerson('muse'),
+      createPerson('mimic'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
