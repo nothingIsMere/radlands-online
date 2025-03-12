@@ -89,19 +89,32 @@ const PersonSlot = ({
   setIsAbilityModalOpen,
   mimicMode = false,
 }: PersonSlotProps) => {
+  React.useEffect(() => {
+    if (restoreMode && card?.name === 'Repair Bot') {
+      console.log('Repair Bot in restore mode:', {
+        index,
+        cardName: card.name,
+        isDamaged: card.isDamaged,
+        player,
+        restorePlayer,
+        isInteractable: isInteractable('person', player, index),
+      });
+    }
+  }, [restoreMode, card, player, restorePlayer, index, isInteractable]);
   return (
     <div
       className={`w-24 h-32 border-2 ${
         ((punkPlacementMode && !card) ||
           (restoreMode && card?.isDamaged && player === restorePlayer) ||
           (injureMode && card && !card.isProtected) ||
-          (destroyPersonMode && card) || // Add this line for destroy person mode
-          (damageMode && card) || // Just check that the card exists for damageMode
+          (destroyPersonMode && card) ||
+          (damageMode && card) ||
           (sacrificeMode && player === gameState.currentTurn && card) ||
           (damageColumnMode && player !== gameState.currentTurn) ||
           (abilityRestoreMode && card?.isDamaged) ||
+          (returnToHandMode && card && player === gameState.currentTurn) ||
           (mimicMode && card)) &&
-        isInteractable('person', player, index) // This will handle protection checks
+        isInteractable('person', player, index)
           ? 'border-purple-400 animate-pulse cursor-pointer'
           : 'border-gray-400'
       } rounded bg-gray-700 mb-4`}
@@ -140,8 +153,9 @@ const PersonSlot = ({
             // Remove the card from its slot
             const updatedPersonSlots = prev.personSlots.map((slot, i) => (i === index ? null : slot));
 
+            // Update protection status
             const columnIndex = Math.floor(index / 2);
-            const { personSlots, campSlots } = updateProtectedStatus(updatedSlots, prev.campSlots, columnIndex);
+            const { personSlots, campSlots } = updateProtectedStatus(updatedPersonSlots, prev.campSlots, columnIndex);
 
             return {
               ...prev,
@@ -152,9 +166,9 @@ const PersonSlot = ({
           });
 
           // Reset return to hand mode
-          setReturnToHandMode(false);
+          if (setReturnToHandMode) setReturnToHandMode(false);
           alert(`${card.name} returned to your hand!`);
-        } else if (restoreMode && card?.isDamaged) {
+        } else if (restoreMode && card?.isDamaged && player === restorePlayer) {
           setPlayerState((prev) => ({
             ...prev,
             personSlots: prev.personSlots.map((slot, i) =>
@@ -162,6 +176,11 @@ const PersonSlot = ({
             ),
           }));
           if (setRestoreMode) setRestoreMode(false);
+          // Reset restore source index when we exit restore mode
+          const gameBoard = document.getElementById('game-board');
+          if (gameBoard && (gameBoard as any).setRestoreSourceIndex) {
+            (gameBoard as any).setRestoreSourceIndex(undefined);
+          }
         } else if (injureMode && card && !card.isProtected) {
           if (card.isPunk || card.isDamaged) {
             alert(`${card.isPunk ? 'Punk' : 'Damaged card'} destroyed!`);
@@ -359,8 +378,8 @@ const PersonSlot = ({
             const gameBoard = document.getElementById('game-board');
 
             if (gameBoard && gameBoard.restoreEffect) {
-              // Call the restore effect function defined in the gameBoard
-              gameBoard.restoreEffect(player);
+              // Call the restore effect function defined in the gameBoard with this card's index
+              gameBoard.restoreEffect(player, index);
               alert(`${draggedCard.name} entered play: Restore a damaged card!`);
             }
           }
@@ -393,21 +412,24 @@ const PersonSlot = ({
       {card ? (
         <div
           className={`text-white text-center text-xs mt-4 
-          ${
-            card.isDamaged
-              ? 'border-4 border-red-700 bg-red-900'
-              : card.isReady
-              ? 'border-2 border-green-500'
-              : 'border-2 border-red-500'
-          }
-          ${
-            card.abilities?.length > 0 &&
-            card.isReady &&
-            gameState.currentPhase === 'actions' &&
-            player === gameState.currentTurn
-              ? 'animate-pulse cursor-pointer'
-              : ''
-          }`}
+    ${
+      card.isDamaged
+        ? 'border-4 border-red-700 bg-red-900'
+        : card.isReady
+        ? 'border-2 border-green-500'
+        : 'border-2 border-red-500'
+    }
+    ${
+      // Only add pulse if it's NOT a non-damaged Repair Bot in restore mode
+      card.name === 'Repair Bot' && !card.isDamaged && restoreMode
+        ? '' // No animation for undamaged Repair Bot
+        : card.abilities?.length > 0 &&
+          card.isReady &&
+          gameState.currentPhase === 'actions' &&
+          player === gameState.currentTurn
+        ? 'animate-pulse cursor-pointer'
+        : ''
+    }`}
           draggable="true"
         >
           {card.isPunk ? (

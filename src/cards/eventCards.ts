@@ -42,8 +42,8 @@ export function createEvent(cardKey: string): Card | undefined {
     console.error(`Event card template not found: ${cardKey}`);
     return undefined;
   }
-  // Create a new instance with default game state - use timestamp for uniqueness
-  const id = `${template.id}-${cardKey}-${Date.now()}`;
+  // Create a new instance with default game state - use counter for uniqueness on client side
+const id = `${template.id}-${cardKey}-${eventCounter++}`;
   
   return {
     ...template,

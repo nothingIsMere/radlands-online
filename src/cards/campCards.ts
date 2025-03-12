@@ -87,8 +87,8 @@ export function createCamp(cardKey: string): Card | undefined {
     console.error(`Camp card template not found: ${cardKey}`);
     return undefined;
   }
-  // Create a new instance with default game state - use timestamp for uniqueness
-  const id = `${template.id}-${cardKey}-${Date.now()}`;
+  // Ensure campCounter is declared at the top of the file like the other counters
+const id = `${template.id}-${cardKey}-${campCounter++}`;
   
   return {
     ...template,

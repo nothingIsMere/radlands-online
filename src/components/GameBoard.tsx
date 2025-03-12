@@ -111,13 +111,19 @@ const GameBoard = () => {
 
     if (restoreMode) {
       // In restore mode, a player can only interact with their own damaged person cards
-      return (
-        elementPlayer === restorePlayer &&
-        element === 'person' &&
-        (elementPlayer === 'left'
-          ? leftPlayerState.personSlots[slotIndex]?.isDamaged
-          : rightPlayerState.personSlots[slotIndex]?.isDamaged)
-      );
+      // BUT explicitly exclude Repair Bot if it's in restore mode due to its own entry effect
+      const playerState = elementPlayer === 'left' ? leftPlayerState : rightPlayerState;
+      const card = element === 'person' ? playerState.personSlots[slotIndex] : null;
+
+      if (!card || !card.isDamaged) return false;
+
+      // Special case: if we're in restore mode AND this is a Repair Bot that just entered play
+      // AND we're in the entry-triggered restore mode (not an ability-triggered restore)
+      if (card.name === 'Repair Bot' && gameState.currentPhase === 'actions') {
+        return false; // Exclude the Repair Bot from being a valid target for its own entry effect
+      }
+
+      return elementPlayer === restorePlayer;
     }
 
     if (sacrificeMode) {
@@ -493,6 +499,7 @@ const GameBoard = () => {
       createPerson('scientist'),
       createPerson('mutant'),
       createPerson('vigilante'),
+      createPerson('rescue-team'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
@@ -579,6 +586,7 @@ const GameBoard = () => {
   const [punkCardToPlace, setPunkCardToPlace] = useState<Card | null>(null);
   const [restoreMode, setRestoreMode] = useState(false);
   const [restorePlayer, setRestorePlayer] = useState<'left' | 'right' | null>(null);
+  const [restoreSourceIndex, setRestoreSourceIndex] = useState<number | undefined>(undefined);
   const [injureMode, setInjureMode] = useState(false);
   // Raid ability state
   const [abilityRaidMode, setAbilityRaidMode] = useState(false);
@@ -657,13 +665,13 @@ const GameBoard = () => {
     }
   };
 
-  // Function to handle restoring a card
-  const restoreEffect = (playerSide: 'left' | 'right') => {
-    console.log(`Restore effect triggered for ${playerSide} player`);
+  const restoreEffect = (playerSide: 'left' | 'right', sourceIndex?: number) => {
+    console.log(`Restore effect triggered for ${playerSide} player, source index:`, sourceIndex);
 
     // Enter restore mode
     setRestoreMode(true);
     setRestorePlayer(playerSide);
+    setRestoreSourceIndex(sourceIndex);
   };
 
   // Function to handle drawing a card and damaging the Wounded Soldier
@@ -1608,6 +1616,12 @@ const GameBoard = () => {
         alert(`Select an unprotected enemy person to injure`);
         break;
 
+      case 'return_to_hand':
+        // Enter return to hand mode
+        setReturnToHandMode(true);
+        alert(`Select one of your people to return to your hand`);
+        break;
+
       default:
         // Placeholder for other ability types
         alert(`Used ability: ${ability.effect}`);
@@ -2286,9 +2300,7 @@ const GameBoard = () => {
       (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) ||
       (damageColumnMode && gameState.currentTurn !== 'left')
         ? 'border-purple-400 animate-pulse cursor-pointer'
-        : leftPlayerState.campSlots[1]?.isDamaged(
-            restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[1]?.isDamaged
-          )
+        : leftPlayerState.campSlots[1]?.isDamaged
         ? 'border-red-700'
         : 'border-gray-400'
     }

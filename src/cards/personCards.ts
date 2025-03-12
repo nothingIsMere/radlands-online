@@ -1,4 +1,5 @@
 // personCards.ts
+'use client';
 import { Card, JunkEffect } from '@/types/game';
 
 export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected' | 'isReady'> } = {
@@ -429,10 +430,6 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
 };
 
 // Helper function to create a new person instance
-// Static counter for deterministic IDs
-let personCounter = 0;
-
-// Helper function to create a new person instance
 export function createPerson(cardKey: string): Card | undefined {
   const template = personCards[cardKey];
   
@@ -441,8 +438,9 @@ export function createPerson(cardKey: string): Card | undefined {
     return undefined;
   }
   
-  // Create a new instance with default game state - use timestamp for uniqueness
-  const id = `${template.id}-${cardKey}-${Date.now()}`;
+  // Create a new instance with default game state - use random string for uniqueness
+  const randomId = Math.random().toString(36).substring(2, 9);
+  const id = `${template.id}-${cardKey}-${randomId}`;
   
   return {
     ...template,
