@@ -515,6 +515,7 @@ const GameBoard = () => {
       createPerson('magnus-karv'),
       createPerson('molgur-stang'),
       createPerson('doomsayer'),
+      createPerson('vanguard'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
@@ -578,7 +579,7 @@ const GameBoard = () => {
   const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
     handCards: [...rightTestCards],
     personSlots: initializedRightTestPersonSlots,
-    eventSlots: [createEvent('ambush'), createEvent('attack'), null],
+    eventSlots: [null, null, null],
 
     campSlots: initializedRightTestCamps,
     waterSiloInHand: false,
