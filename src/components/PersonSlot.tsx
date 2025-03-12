@@ -403,7 +403,7 @@ const PersonSlot = ({
               // Call the delay events effect function defined in the gameBoard
               const opponentPlayer = player === 'left' ? 'right' : 'left';
               gameBoard.delayEventsEffect(opponentPlayer);
-              alert(`${draggedCard.name} entered play: Opponent's events moved back in queue!`);
+              // The alerts will be handled within the delayEventsEffect function
             }
           }
         }

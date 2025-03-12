@@ -578,14 +578,7 @@ const GameBoard = () => {
   const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
     handCards: [...rightTestCards],
     personSlots: initializedRightTestPersonSlots,
-    eventSlots: [
-      createEvent('ambush'), // Empty slot 3 (index 0) - this gives room for events to shift back
-      // null,
-      createEvent('attack'), // Add Attack event to slot 2 (index 1)
-      // null,
-      createEvent('assault'), // Add Assault event to slot 1 (index 2)
-      // null,
-    ],
+    eventSlots: [null, createEvent('ambush'), null],
 
     campSlots: initializedRightTestCamps,
     waterSiloInHand: false,
@@ -732,7 +725,59 @@ const GameBoard = () => {
 
   // Function to handle delaying opponent's events in queue
   const delayEventsEffect = (opponentSide: 'left' | 'right') => {
-    // existing implementation...
+    console.log(`Checking if ${opponentSide} player's events can be delayed`);
+
+    // Get the opponent state and setter
+    const opponentState = opponentSide === 'left' ? leftPlayerState : rightPlayerState;
+    const setOpponentState = opponentSide === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+    // Check if any events can be moved back
+    const slot1HasEvent = opponentState.eventSlots[2] !== null;
+    const slot2HasEvent = opponentState.eventSlots[1] !== null;
+    const slot3HasEvent = opponentState.eventSlots[0] !== null;
+
+    // An event can only move back if there's an empty slot behind it
+    const slot1CanMove = slot1HasEvent && !slot2HasEvent;
+    const slot2CanMove = slot2HasEvent && !slot3HasEvent;
+
+    // If no events can be moved, show a message and return
+    if (!slot1CanMove && !slot2CanMove) {
+      alert("No events can be moved back - either there are no events or there's no room to move them.");
+      return;
+    }
+
+    // Ask user if they want to delay events
+    const confirmDelay = window.confirm(
+      "Do you want to delay opponent's events? This will move eligible events back one position in the queue."
+    );
+
+    if (!confirmDelay) {
+      return; // User canceled
+    }
+
+    // Move events back where possible (we do slot 2 first to avoid overwriting)
+    setOpponentState((prev) => {
+      const newEventSlots = [...prev.eventSlots]; // Clone the event slots
+
+      // Move slot 2 event back to slot 3 if possible
+      if (slot2CanMove) {
+        newEventSlots[0] = newEventSlots[1]; // Move from slot 2 to slot 3
+        newEventSlots[1] = null; // Clear slot 2
+      }
+
+      // Move slot 1 event back to slot 2 if possible
+      if (slot1CanMove) {
+        newEventSlots[1] = newEventSlots[2]; // Move from slot 1 to slot 2
+        newEventSlots[2] = null; // Clear slot 1
+      }
+
+      return {
+        ...prev,
+        eventSlots: newEventSlots,
+      };
+    });
+
+    alert(`Opponent's events have been delayed in the queue!`);
   };
 
   // Attach all functions to the game board element
