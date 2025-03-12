@@ -514,6 +514,7 @@ const GameBoard = () => {
       createPerson('sniper'),
       createPerson('magnus-karv'),
       createPerson('molgur-stang'),
+      createPerson('doomsayer'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
@@ -578,12 +579,12 @@ const GameBoard = () => {
     handCards: [...rightTestCards],
     personSlots: initializedRightTestPersonSlots,
     eventSlots: [
-      // createEvent('ambush'), // Empty slot 3 (index 0) - this gives room for events to shift back
-      null,
-      // createEvent('attack'), // Add Attack event to slot 2 (index 1)
-      null,
-      // createEvent('assault'), // Add Assault event to slot 1 (index 2)
-      null,
+      createEvent('ambush'), // Empty slot 3 (index 0) - this gives room for events to shift back
+      // null,
+      createEvent('attack'), // Add Attack event to slot 2 (index 1)
+      // null,
+      createEvent('assault'), // Add Assault event to slot 1 (index 2)
+      // null,
     ],
 
     campSlots: initializedRightTestCamps,
@@ -1640,6 +1641,45 @@ const GameBoard = () => {
         setReturnToHandMode(true);
         alert(`Select one of your people to return to your hand`);
         break;
+
+      case 'damage_conditional_event': {
+        // First check if opponent has any events in queue
+        const currentTurn = gameState.currentTurn;
+        const enemyPlayer = currentTurn === 'left' ? 'right' : 'left';
+        const enemyState = enemyPlayer === 'left' ? leftPlayerState : rightPlayerState;
+
+        // Check if any event slots are filled
+        const hasEvent = enemyState.eventSlots.some((event) => event !== null);
+
+        if (!hasEvent) {
+          alert('Opponent has no events in queue! Ability cannot be used.');
+
+          // Refund the water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          // Don't mark the card as unready if the ability can't be used
+          if (location.type === 'person') {
+            setPlayerState((prev) => ({
+              ...prev,
+              personSlots: prev.personSlots.map((slot, idx) =>
+                idx === location.index ? { ...slot, isReady: true } : slot
+              ),
+            }));
+          }
+
+          return; // Exit without entering damage mode
+        }
+
+        // If opponent has events, proceed with damage as normal
+        setDamageMode(true);
+        setDamageSource(card);
+        setDamageValue(ability.value || 1);
+        alert(`Select an unprotected enemy card to damage`);
+        break;
+      }
 
       default:
         // Placeholder for other ability types
