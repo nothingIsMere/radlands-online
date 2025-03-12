@@ -506,6 +506,7 @@ const GameBoard = () => {
       createPerson('rescue-team'),
       createPerson('muse'),
       createPerson('mimic'),
+      createPerson('exterminator'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
@@ -1515,16 +1516,21 @@ const GameBoard = () => {
         alert(`Select any enemy camp to destroy`);
         break;
 
-      case 'destroy_damaged_all':
-        // This ability doesn't need targeting - it affects all damaged enemy cards at once
+      case 'destroy_damaged_all': {
+        // Using a block scope (notice the curly braces after the case statement)
+        // Explicitly define all variables we need within this block
+        const currentTurn = gameState.currentTurn;
+        const enemyPlayer = currentTurn === 'left' ? 'right' : 'left';
+        const enemyState = enemyPlayer === 'left' ? leftPlayerState : rightPlayerState;
+        const setEnemyState = enemyPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
         // Get all damaged enemy person cards
-        const damagedPersons = opponentState.personSlots
+        const damagedPersons = enemyState.personSlots
           .map((slot, index) => ({ slot, index }))
           .filter(({ slot }) => slot && slot.isDamaged);
 
         // Get all damaged enemy camp cards
-        const damagedCamps = opponentState.campSlots
+        const damagedCamps = enemyState.campSlots
           .map((slot, index) => ({ slot, index }))
           .filter(({ slot }) => slot && slot.isDamaged);
 
@@ -1537,16 +1543,15 @@ const GameBoard = () => {
         damagedPersons.forEach(({ slot, index }) => {
           if (slot) {
             alert(`${slot.name || 'Enemy card'} destroyed!`);
-            destroyCard(slot, index, opponentPlayer === 'right');
+            destroyCard(slot, index, enemyPlayer === 'right');
           }
         });
 
-        // Destroy all damaged camps (if we implement camp destruction)
+        // Destroy all damaged camps
         damagedCamps.forEach(({ slot, index }) => {
           if (slot) {
             alert(`${slot.name || 'Enemy camp'} destroyed!`);
-            // Handle camp destruction
-            setOpponentState((prev) => ({
+            setEnemyState((prev) => ({
               ...prev,
               campSlots: prev.campSlots.map((camp, i) => (i === index ? null : camp)),
             }));
@@ -1555,6 +1560,7 @@ const GameBoard = () => {
 
         alert(`All damaged enemy cards destroyed!`);
         break;
+      }
 
       case 'mutant_ability':
         // Open a special modal for choosing Mutant options
