@@ -127,20 +127,25 @@ const PersonSlot = ({
         // Only allow interaction if the element is interactable
         if (!isInteractable('person', player, index)) return;
         if (punkPlacementMode && !card && punkCardToPlace) {
-          setPlayerState((prev) => ({
-            ...prev,
-            personSlots: prev.personSlots.map((slot, i) =>
-              i === index
-                ? {
-                    id: punkCardToPlace.id,
-                    name: 'Punk',
-                    type: 'person',
-                    isPunk: true,
-                    isReady: true,
-                  }
-                : slot
-            ),
-          }));
+          setPlayerState((prev) => {
+            // For testing purposes, always make punks enter Ready regardless of Argo Yesky
+            const punkShouldBeReady = true; // Always true for testing
+
+            return {
+              ...prev,
+              personSlots: prev.personSlots.map((slot, i) =>
+                i === index
+                  ? {
+                      id: punkCardToPlace.id,
+                      name: 'Punk',
+                      type: 'person',
+                      isPunk: true,
+                      isReady: punkShouldBeReady,
+                    }
+                  : slot
+              ),
+            };
+          });
 
           if (setPunkPlacementMode) setPunkPlacementMode(false);
           if (setPunkCardToPlace) setPunkCardToPlace(null);
@@ -247,37 +252,62 @@ const PersonSlot = ({
           } else {
             alert('This card has no abilities to mimic!');
           }
-        } else if (
-          gameState.currentPhase === 'actions' &&
-          player === gameState.currentTurn &&
-          card &&
-          card.isReady &&
-          card.abilities?.length > 0
-        ) {
-          console.log('Opening ability modal for:', card.name);
+        } else if (gameState.currentPhase === 'actions' && player === gameState.currentTurn && card) {
+          // Check if card is ready or is a Punk with Argo Yesky in play
+          const isCardReady = card.isReady;
+          const isPunk = card.isPunk;
 
-          // Check if ability can be used
-          if (checkAbilityEnabled && !checkAbilityEnabled(card)) {
-            return; // Don't open ability modal if ability check fails
-          }
+          // Check if player has an undamaged Argo Yesky in play
+          const hasUndamagedArgoYesky = playerState.personSlots.some(
+            (slot) => slot?.name === 'Argo Yesky' && !slot.isDamaged
+          );
 
-          // Open ability modal for this card
-          if (typeof setSelectedCard === 'function') {
-            console.log('setSelectedCard exists');
-            setSelectedCard(card);
-          } else {
-            console.log('setSelectedCard is not a function');
-          }
+          // Card can use ability if:
+          // 1. It's ready and has abilities, OR
+          // 2. It's a Punk and Argo Yesky is in play
+          if ((isCardReady && card.abilities?.length > 0) || (isPunk && hasUndamagedArgoYesky && isCardReady)) {
+            console.log('Opening ability modal for:', card.name);
 
-          if (typeof setSelectedCardLocation === 'function') {
-            setSelectedCardLocation({ type: 'person', index: index });
-          }
+            // Check if ability can be used
+            if (checkAbilityEnabled && !checkAbilityEnabled(card)) {
+              return; // Don't open ability modal if ability check fails
+            }
 
-          if (typeof setIsAbilityModalOpen === 'function') {
-            console.log('Opening modal');
-            setIsAbilityModalOpen(true);
-          } else {
-            console.log('setIsAbilityModalOpen is not a function');
+            // For Punks with Argo Yesky in play, create a synthetic damage ability
+            let cardToUse = card;
+            if (isPunk && hasUndamagedArgoYesky) {
+              cardToUse = {
+                ...card,
+                abilities: [
+                  {
+                    effect: 'Do 1 damage to an unprotected enemy card (via Argo Yesky)',
+                    cost: 1,
+                    type: 'damage',
+                    target: 'any',
+                    value: 1,
+                  },
+                ],
+              };
+            }
+
+            // Open ability modal for this card
+            if (typeof setSelectedCard === 'function') {
+              console.log('setSelectedCard exists');
+              setSelectedCard(cardToUse);
+            } else {
+              console.log('setSelectedCard is not a function');
+            }
+
+            if (typeof setSelectedCardLocation === 'function') {
+              setSelectedCardLocation({ type: 'person', index: index });
+            }
+
+            if (typeof setIsAbilityModalOpen === 'function') {
+              console.log('Opening modal');
+              setIsAbilityModalOpen(true);
+            } else {
+              console.log('setIsAbilityModalOpen is not a function');
+            }
           }
         }
       }}
@@ -419,8 +449,8 @@ const PersonSlot = ({
       // Only add pulse if it's NOT a non-damaged Repair Bot in restore mode
       card.name === 'Repair Bot' && !card.isDamaged && restoreMode
         ? '' // No animation for undamaged Repair Bot
-        : card.abilities?.length > 0 &&
-          card.isReady &&
+        : ((card.abilities?.length > 0 && card.isReady) ||
+            (card.isPunk && playerState.personSlots.some((slot) => slot?.name === 'Argo Yesky' && !slot.isDamaged))) &&
           gameState.currentPhase === 'actions' &&
           player === gameState.currentTurn
         ? 'animate-pulse cursor-pointer'
