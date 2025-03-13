@@ -253,9 +253,10 @@ const PersonSlot = ({
             alert('This card has no abilities to mimic!');
           }
         } else if (gameState.currentPhase === 'actions' && player === gameState.currentTurn && card) {
-          // Check if card is ready or is a Punk with Argo Yesky in play
+          // Check if card is ready
           const isCardReady = card.isReady;
           const isPunk = card.isPunk;
+          const hasNativeAbilities = card.abilities?.length > 0;
 
           // Check if player has an undamaged Argo Yesky in play
           const hasUndamagedArgoYesky = playerState.personSlots.some(
@@ -263,9 +264,9 @@ const PersonSlot = ({
           );
 
           // Card can use ability if:
-          // 1. It's ready and has abilities, OR
-          // 2. It's a Punk and Argo Yesky is in play
-          if ((isCardReady && card.abilities?.length > 0) || (isPunk && hasUndamagedArgoYesky && isCardReady)) {
+          // 1. It's ready and has native abilities, OR
+          // 2. It's ready and Argo Yesky is in play (which grants all cards a damage ability)
+          if (isCardReady && (hasNativeAbilities || hasUndamagedArgoYesky)) {
             console.log('Opening ability modal for:', card.name);
 
             // Check if ability can be used
@@ -273,20 +274,27 @@ const PersonSlot = ({
               return; // Don't open ability modal if ability check fails
             }
 
-            // For Punks with Argo Yesky in play, create a synthetic damage ability
+            // Prepare the card to use in the ability modal
             let cardToUse = card;
-            if (isPunk && hasUndamagedArgoYesky) {
+
+            // If Argo Yesky is in play, add or append the damage ability
+            if (hasUndamagedArgoYesky) {
+              const argoYeskyAbility = {
+                effect: 'Do 1 damage to an unprotected enemy card (via Argo Yesky)',
+                cost: 1,
+                type: 'damage',
+                target: 'any',
+                value: 1,
+              };
+
+              // If card already has abilities, add Argo's ability to the list
+              // Otherwise create a new abilities array with just Argo's ability
+              const newAbilities =
+                cardToUse.abilities?.length > 0 ? [...cardToUse.abilities, argoYeskyAbility] : [argoYeskyAbility];
+
               cardToUse = {
                 ...card,
-                abilities: [
-                  {
-                    effect: 'Do 1 damage to an unprotected enemy card (via Argo Yesky)',
-                    cost: 1,
-                    type: 'damage',
-                    target: 'any',
-                    value: 1,
-                  },
-                ],
+                abilities: newAbilities,
               };
             }
 
@@ -449,8 +457,10 @@ const PersonSlot = ({
       // Only add pulse if it's NOT a non-damaged Repair Bot in restore mode
       card.name === 'Repair Bot' && !card.isDamaged && restoreMode
         ? '' // No animation for undamaged Repair Bot
-        : ((card.abilities?.length > 0 && card.isReady) ||
-            (card.isPunk && playerState.personSlots.some((slot) => slot?.name === 'Argo Yesky' && !slot.isDamaged))) &&
+        : (card.abilities?.length > 0 ||
+            // Add pulse if Argo Yesky is in play (giving all cards damage ability)
+            playerState.personSlots.some((slot) => slot?.name === 'Argo Yesky' && !slot.isDamaged)) &&
+          card.isReady &&
           gameState.currentPhase === 'actions' &&
           player === gameState.currentTurn
         ? 'animate-pulse cursor-pointer'
