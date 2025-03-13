@@ -519,6 +519,7 @@ const GameBoard = () => {
       createPerson('zeto-kahn'),
       createEvent('ambush'),
       createEvent('attack'),
+      createPerson('vera-vosh'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
@@ -547,7 +548,7 @@ const GameBoard = () => {
       createCamp('outpost'), // Third camp is normal
     ],
     waterSiloInHand: false,
-    waterCount: 10,
+    waterCount: 30,
     raidersLocation: 'default',
   });
 
@@ -652,8 +653,8 @@ const GameBoard = () => {
 
   const [leftPlayedEventThisTurn, setLeftPlayedEventThisTurn] = useState(false);
   const [rightPlayedEventThisTurn, setRightPlayedEventThisTurn] = useState(false);
-  const [leftUsedVeraVoshEffect, setLeftUsedVeraVoshEffect] = useState(false);
-  const [rightUsedVeraVoshEffect, setRightUsedVeraVoshEffect] = useState(false);
+  const [leftCardsUsedAbility, setLeftCardsUsedAbility] = useState<string[]>([]);
+  const [rightCardsUsedAbility, setRightCardsUsedAbility] = useState<string[]>([]);
 
   const gameBoardRef = useRef(null);
 
@@ -1251,18 +1252,19 @@ const GameBoard = () => {
         (slot) => slot && slot.name === 'Vera Vosh' && !slot.isDamaged
       );
 
-      const usedVeraVoshEffect = gameState.currentTurn === 'left' ? leftUsedVeraVoshEffect : rightUsedVeraVoshEffect;
+      // Get the array of cards that have used abilities this turn
+      const cardsUsedAbility = gameState.currentTurn === 'left' ? leftCardsUsedAbility : rightCardsUsedAbility;
+      const setCardsUsedAbility = gameState.currentTurn === 'left' ? setLeftCardsUsedAbility : setRightCardsUsedAbility;
 
-      if (hasUndamagedVeraVosh && !usedVeraVoshEffect) {
-        // First ability use with undamaged Vera Vosh in play - card stays ready
+      // Check if this specific card has already used an ability this turn
+      const hasCardUsedAbility = cardsUsedAbility.includes(card.id);
+
+      if (hasUndamagedVeraVosh && !hasCardUsedAbility) {
+        // First ability use for this card with undamaged Vera Vosh in play - card stays ready
         console.log(`${card.name} stays ready due to Vera Vosh's effect`);
 
-        // Mark that player has used Vera Vosh's effect this turn
-        if (gameState.currentTurn === 'left') {
-          setLeftUsedVeraVoshEffect(true);
-        } else {
-          setRightUsedVeraVoshEffect(true);
-        }
+        // Add this card to the list of cards that have used abilities this turn
+        setCardsUsedAbility([...cardsUsedAbility, card.id]);
 
         // No need to mark card as unready
       } else {
@@ -1720,8 +1722,8 @@ const GameBoard = () => {
   useEffect(() => {
     setLeftPlayedEventThisTurn(false);
     setRightPlayedEventThisTurn(false);
-    setLeftUsedVeraVoshEffect(false);
-    setRightUsedVeraVoshEffect(false);
+    setLeftCardsUsedAbility([]);
+    setRightCardsUsedAbility([]);
   }, [gameState.currentTurn]);
 
   return (
