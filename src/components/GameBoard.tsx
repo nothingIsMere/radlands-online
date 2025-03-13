@@ -516,6 +516,9 @@ const GameBoard = () => {
       createPerson('molgur-stang'),
       createPerson('doomsayer'),
       createPerson('vanguard'),
+      createPerson('zeto-kahn'),
+      createEvent('ambush'),
+      createEvent('attack'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
@@ -646,8 +649,7 @@ const GameBoard = () => {
   const [mimicSourceLocation, setMimicSourceLocation] = useState<{ type: 'person' | 'camp'; index: number } | null>(
     null
   );
-  const [leftHasZetoKahn, setLeftHasZetoKahn] = useState(false);
-  const [rightHasZetoKahn, setRightHasZetoKahn] = useState(false);
+
   const [leftPlayedEventThisTurn, setLeftPlayedEventThisTurn] = useState(false);
   const [rightPlayedEventThisTurn, setRightPlayedEventThisTurn] = useState(false);
   const [leftUsedVeraVoshEffect, setLeftUsedVeraVoshEffect] = useState(false);
@@ -787,22 +789,22 @@ const GameBoard = () => {
     alert(`Opponent's events have been delayed in the queue!`);
   };
 
-  // Attach all functions to the game board element
   useEffect(() => {
     if (gameBoardRef.current) {
+      // Game mechanics functions
       (gameBoardRef.current as any).punkEffect = punkEffect;
       (gameBoardRef.current as any).restoreEffect = restoreEffect;
       (gameBoardRef.current as any).drawAndDamageEffect = drawAndDamageEffect;
       (gameBoardRef.current as any).delayEventsEffect = delayEventsEffect;
-      (gameBoardRef.current as any).setPlayerHasZetoKahn = setPlayerHasZetoKahn;
-      (gameBoardRef.current as any).executeImmediateEvent = executeImmediateEvent;
-      (gameBoardRef.current as any).leftHasZetoKahn = leftHasZetoKahn;
-      (gameBoardRef.current as any).rightHasZetoKahn = rightHasZetoKahn;
+      (gameBoardRef.current as any).setDestroyPersonMode = setDestroyPersonMode;
+      (gameBoardRef.current as any).currentTurn = gameState.currentTurn;
       (gameBoardRef.current as any).leftPlayedEventThisTurn = leftPlayedEventThisTurn;
       (gameBoardRef.current as any).rightPlayedEventThisTurn = rightPlayedEventThisTurn;
-      (gameBoardRef.current as any).setDestroyPersonMode = setDestroyPersonMode;
+      (gameBoardRef.current as any).setLeftPlayedEventThisTurn = setLeftPlayedEventThisTurn;
+      (gameBoardRef.current as any).setRightPlayedEventThisTurn = setRightPlayedEventThisTurn;
+      (gameBoardRef.current as any).addToDiscardPile = addToDiscardPile;
     }
-  }, [leftHasZetoKahn, rightHasZetoKahn, leftPlayedEventThisTurn, rightPlayedEventThisTurn]);
+  }, []); // Remove dependencies to avoid re-assigning on every state change
 
   const [gameState, setGameState] = useState<GameState>({
     currentTurn: 'left', // left player starts
@@ -845,15 +847,6 @@ const GameBoard = () => {
     const playerState = isRightPlayer ? rightPlayerState : leftPlayerState;
     const setPlayerState = isRightPlayer ? setRightPlayerState : setLeftPlayerState;
 
-    // Check if the card is Zeto Kahn
-    if (card.name === 'Zeto Kahn') {
-      if (isRightPlayer) {
-        setRightHasZetoKahn(false);
-      } else {
-        setLeftHasZetoKahn(false);
-      }
-    }
-
     if (card.isPunk) {
       // Punks go back to the draw deck
       console.log('Punk destroyed, returning to top of draw deck');
@@ -889,31 +882,8 @@ const GameBoard = () => {
     return Math.floor(slotIndex / 2);
   };
 
-  // Function to handle immediate event execution (for Zeto Kahn's ability)
-  const executeImmediateEvent = (playerSide: 'left' | 'right', eventCard: Card) => {
-    console.log(`Executing immediate event: ${eventCard.name} for ${playerSide} player`);
-
-    // Get the player state and setter
-    const setPlayerState = playerSide === 'left' ? setLeftPlayerState : setRightPlayerState;
-
-    // Remove the card from hand
-    setPlayerState((prev) => ({
-      ...prev,
-      handCards: prev.handCards.filter((c) => c.id !== eventCard.id),
-    }));
-
-    // Add card to discard pile
-    setDiscardPile((prev) => [...prev, eventCard]);
-
-    // Mark that the player has played an event this turn
-    if (playerSide === 'left') {
-      setLeftPlayedEventThisTurn(true);
-    } else {
-      setRightPlayedEventThisTurn(true);
-    }
-
-    // For now, just alert the effect (in a real implementation, execute the event effect)
-    alert(`Event ${eventCard.name} executed immediately due to Zeto Kahn's ability!`);
+  const addToDiscardPile = (card: Card) => {
+    setDiscardPile((prev) => [...prev, card]);
   };
 
   const applyDamage = (target: Card, slotIndex: number, isRightPlayer: boolean) => {
@@ -1044,15 +1014,6 @@ const GameBoard = () => {
     } else if (mutantPendingAction === 'damage_only') {
       // Only damage was chosen, apply damage to Mutant
       applyDamageToMutant();
-    }
-  };
-
-  // Function to set whether a player has Zeto Kahn in play
-  const setPlayerHasZetoKahn = (playerSide: 'left' | 'right', hasZetoKahn: boolean) => {
-    if (playerSide === 'left') {
-      setLeftHasZetoKahn(hasZetoKahn);
-    } else {
-      setRightHasZetoKahn(hasZetoKahn);
     }
   };
 
@@ -1740,11 +1701,13 @@ const GameBoard = () => {
     }
   };
 
-  // Reset event played flags when turn changes
   useEffect(() => {
-    setLeftPlayedEventThisTurn(false);
-    setRightPlayedEventThisTurn(false);
-  }, [gameState.currentTurn]);
+    if (gameBoardRef.current) {
+      // This will ensure the current values are always exposed
+      (gameBoardRef.current as any).leftPlayedEventThisTurn = leftPlayedEventThisTurn;
+      (gameBoardRef.current as any).rightPlayedEventThisTurn = rightPlayedEventThisTurn;
+    }
+  }, [leftPlayedEventThisTurn, rightPlayedEventThisTurn]);
 
   useEffect(() => {
     if (gameState.currentPhase === 'events') {
@@ -1754,7 +1717,6 @@ const GameBoard = () => {
     }
   }, [gameState.currentPhase, gameState.currentTurn]);
 
-  // Reset event played flags and Vera Vosh effect when turn changes
   useEffect(() => {
     setLeftPlayedEventThisTurn(false);
     setRightPlayedEventThisTurn(false);

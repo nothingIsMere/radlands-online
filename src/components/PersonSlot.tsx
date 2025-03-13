@@ -353,15 +353,7 @@ const PersonSlot = ({
           });
 
           // Handle card entry traits
-          // Check if the played card is Zeto Kahn
-          if (draggedCard.name === 'Zeto Kahn') {
-            console.log(`${player} player played Zeto Kahn`);
-            const gameBoard = document.getElementById('game-board');
-            if (gameBoard && gameBoard.setPlayerHasZetoKahn) {
-              console.log(`Setting ${player}HasZetoKahn to true`);
-              gameBoard.setPlayerHasZetoKahn(player, true);
-            }
-          }
+
           if (draggedCard.traits?.includes('gain_punk_on_entry')) {
             // Get a reference to the needed functions and state
             const gameBoard = document.getElementById('game-board');
