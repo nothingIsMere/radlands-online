@@ -520,6 +520,7 @@ const GameBoard = () => {
       createEvent('ambush'),
       createEvent('attack'),
       createPerson('vera-vosh'),
+      createPerson('karli-blaze'),
     ].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout

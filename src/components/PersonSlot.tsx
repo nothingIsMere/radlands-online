@@ -330,8 +330,13 @@ const PersonSlot = ({
           }
 
           setPlayerState((prev) => {
-            // Determine if the card should start ready based on traits
-            const shouldStartReady = draggedCard.traits?.includes('start_ready') || false;
+            // Check for undamaged Karli Blaze in play
+            const hasUndamagedKarliBlaze = prev.personSlots.some(
+              (card) => card?.name === 'Karli Blaze' && !card.isDamaged
+            );
+
+            // Determine if the card should start ready based on traits or Karli Blaze
+            const shouldStartReady = draggedCard.traits?.includes('start_ready') || hasUndamagedKarliBlaze;
 
             const updatedSlots = prev.personSlots.map((slot, i) =>
               i === index ? { ...draggedCard, isReady: shouldStartReady } : slot
@@ -353,7 +358,6 @@ const PersonSlot = ({
           });
 
           // Handle card entry traits
-
           if (draggedCard.traits?.includes('gain_punk_on_entry')) {
             // Get a reference to the needed functions and state
             const gameBoard = document.getElementById('game-board');

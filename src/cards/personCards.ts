@@ -22,7 +22,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         },
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'extra_water'
   },
   'wounded-soldier': {
@@ -39,7 +39,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['start_ready', 'draw_and_damage_on_entry'],
+    traits: ['draw_and_damage_on_entry'],
     junkEffect: 'injure'
   },
   'cult-leader': {
@@ -54,7 +54,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'sacrifice_then_damage',
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'draw_card'
   },
   'repair-bot': {
@@ -70,7 +70,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         target: 'own_any',
       }
     ],
-    traits: ['start_ready', 'restore_on_entry'],
+    traits: ['restore_on_entry'],
     junkEffect: 'injure'
   },
   'gunner': {
@@ -85,7 +85,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'injure_all'
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'restore'
   },
   'assassin': {
@@ -101,7 +101,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         target: 'enemy_person'
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'raid'
   },
   'scientist': {
@@ -116,7 +116,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'scientist_ability',
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'raid'
   },
   'mutant': {
@@ -131,7 +131,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'mutant_ability',
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'injure'
   },
   'vigilante': {
@@ -148,7 +148,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'raid'
   },
   'rescue-team': {
@@ -180,7 +180,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'injure'
   },
   'mimic': {
@@ -195,7 +195,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'mimic_ability',
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'injure'
   },
   'exterminator': {
@@ -210,7 +210,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'destroy_damaged_all',
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'draw_card'
   },
   'scout': {
@@ -225,7 +225,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'raid',
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'extra_water'
   },
   'pyromaniac': {
@@ -242,7 +242,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'injure'
   },
   'holdout': {
@@ -259,7 +259,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['start_ready', 'free_in_destroyed_camp'],
+    traits: ['free_in_destroyed_camp'],
     junkEffect: 'raid'
   },
   'doomsayer': {
@@ -276,7 +276,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['start_ready', 'delay_events_on_entry'],
+    traits: ['delay_events_on_entry'],
     junkEffect: 'draw_card'
   },
   'rabble-rouser': {
@@ -296,7 +296,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'punk_damage',
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'raid'
   },
   'vanguard': {
@@ -311,7 +311,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'vanguard_damage',
       }
     ],
-    traits: ['start_ready', 'gain_punk_on_entry'],
+    traits: ['gain_punk_on_entry'],
     junkEffect: 'raid'
   },
   'sniper': {
@@ -328,7 +328,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'restore'
   },
   'magnus-karv': {
@@ -343,7 +343,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'damage_column',
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'gain_punk'
   },
   'zeto-kahn': {
@@ -358,7 +358,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'draw_then_discard',
       }
     ],
-    traits: ['start_ready', 'immediate_events'],
+    traits: ['immediate_events'],
     junkEffect: 'gain_punk'
   },
   'vera-vosh': {
@@ -375,7 +375,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['start_ready', 'keep_ready_first_ability'],
+    traits: ['keep_ready_first_ability'],
     junkEffect: 'gain_punk'  // Junk effect is gain_punk
   },
   'karli-blaze': {
@@ -408,7 +408,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         target: 'enemy_camp',
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'gain_punk'
   },
   'argo-yesky': {
@@ -425,7 +425,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'gain_punk'
   },
 };
