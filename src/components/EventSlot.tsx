@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { Card, PlayerState } from '@/types/game';
+import { canPlaceEventInSlot } from '@/utils/eventUtils';
 
 interface EventSlotProps {
   index: number;
@@ -24,6 +25,11 @@ const EventSlot = ({ index, card, playerState, setPlayerState, player = 'left' }
 
         // Validate the drag operation
         if (!draggedCard || draggedCard.type !== 'event' || card) {
+          return;
+        }
+
+        // Check if we can place this event in this slot
+        if (!canPlaceEventInSlot(draggedCard, playerState, index)) {
           return;
         }
 

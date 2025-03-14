@@ -11,6 +11,7 @@ import { createEvent } from '@/cards/eventCards';
 import { applyDamageToTarget, restoreCard, deductWaterCost, markCardUsedAbility } from '@/utils/abilityUtils';
 import { markEventPlayed, checkZetoKahnEffect, hasVeraVoshTrait } from '@/utils/gameUtils';
 import { updateProtectionStatus } from '@/utils/protectionUtils';
+import { advanceEventQueue, canPlaceEventInSlot, placeEventInFirstValidSlot, processEvents } from '@/utils/eventUtils';
 
 interface PlayerState {
   handCards: Card[];
@@ -412,43 +413,42 @@ const GameBoard = () => {
     const setCurrentPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
     const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
 
-    const eventInSlot1 = currentPlayerState.eventSlots[2];
-    if (eventInSlot1) {
-      if (eventInSlot1.id === 'raiders') {
-        // Handle Raiders card
-        console.log('Raiders card triggered!');
+    // Use the executeRaid function to trigger a raid
+    const executeRaidEffect = (player: 'left' | 'right') => {
+      // Return Raiders card to default position
+      setCurrentPlayerState((prev) => ({
+        ...prev,
+        raidersLocation: 'default',
+      }));
 
-        // Return Raiders card to default position
-        setCurrentPlayerState((prev) => ({
-          ...prev,
-          eventSlots: [prev.eventSlots[0], prev.eventSlots[1], null],
-          raidersLocation: 'default',
-        }));
+      // Set raid mode and message
+      setCampRaidMode(true);
+      setRaidingPlayer(player);
+      setRaidMessage(`${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`);
+    };
 
-        // Set raid mode and message
-        setCampRaidMode(true);
-        setRaidingPlayer(gameState.currentTurn);
-        setRaidMessage(`${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`);
+    // Process any events in slot 1
+    const eventProcessed = processEvents(
+      currentPlayerState,
+      setCurrentPlayerState,
+      (card) => setDiscardPile((prev) => [...prev, card]),
+      executeRaidEffect
+    );
 
-        // Don't proceed to next phase yet
-        return;
-      } else {
-        // Normal event handling
-        alert(`${eventInSlot1.name} occurs`);
-        // Move card to discard pile
-        setDiscardPile((prev) => [...prev, eventInSlot1]);
-      }
+    // If it was a Raiders card, don't advance to next phase yet
+    if (eventProcessed && currentPlayerState.eventSlots[2]?.id === 'raiders') {
+      return;
     }
 
-    // Then advance remaining events
-    setCurrentPlayerState((prev) => ({
-      ...prev,
-      eventSlots: [
-        null, // Slot 3 becomes empty
-        prev.eventSlots[0], // Slot 3's card moves to Slot 2
-        prev.eventSlots[1], // Slot 2's card moves to Slot 1
-      ],
-    }));
+    // If no event in slot 1 or it wasn't Raiders, just advance the queue
+    // This is done inside processEvents if there was an event, but if there wasn't,
+    // we still need to advance the remaining events
+    if (!eventProcessed) {
+      setCurrentPlayerState((prev) => ({
+        ...prev,
+        eventSlots: advanceEventQueue(prev),
+      }));
+    }
 
     // After events are processed, move to Replenish phase
     setTimeout(() => {
@@ -1384,18 +1384,43 @@ const GameBoard = () => {
 
         // Normal Raiders movement logic
         console.log('Normal Raiders logic executing');
+
         switch (playerState.raidersLocation) {
           case 'default':
-            setPlayerState((prev) => ({
-              ...prev,
-              eventSlots: [
-                prev.eventSlots[0],
-                { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
-                prev.eventSlots[2],
-              ],
-              raidersLocation: 'event2',
-            }));
-            alert('Raiders moved to event slot 2');
+            // Create Raiders card
+            const raidersCard = {
+              id: 'raiders',
+              name: 'Raiders',
+              type: 'event',
+              startingQueuePosition: 2,
+              owner: gameState.currentTurn,
+            };
+
+            // Simple logic to manually place Raiders in the right slot
+            // First try slot 2 (index 1)
+            if (playerState.eventSlots[1] === null) {
+              // Slot 2 is available, place Raiders there
+              setPlayerState((prev) => ({
+                ...prev,
+                eventSlots: [prev.eventSlots[0], raidersCard, prev.eventSlots[2]],
+                raidersLocation: 'event2',
+              }));
+              alert('Raiders moved to event slot 2');
+            }
+            // If slot 2 is occupied, try slot 3 (index 0)
+            else if (playerState.eventSlots[0] === null) {
+              // Slot 3 is available, place Raiders there
+              setPlayerState((prev) => ({
+                ...prev,
+                eventSlots: [raidersCard, prev.eventSlots[1], prev.eventSlots[2]],
+                raidersLocation: 'event3',
+              }));
+              alert('Raiders moved to event slot 3');
+            }
+            // If both slots are occupied
+            else {
+              alert('No valid slot available for Raiders!');
+            }
             break;
 
           case 'event2':
@@ -1417,8 +1442,42 @@ const GameBoard = () => {
             break;
 
           case 'event1':
-            // Execute raid from slot 1
-            executeRaid(gameState.currentTurn);
+            // Execute raid AND reset Raiders position
+            const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
+
+            // IMPORTANT: First reset the Raiders card position to default
+            setPlayerState((prev) => ({
+              ...prev,
+              eventSlots: [
+                prev.eventSlots[0],
+                prev.eventSlots[1],
+                null, // Remove Raiders from slot 1
+              ],
+              raidersLocation: 'default', // Reset to default position
+            }));
+
+            // Set up raid mode
+            setCampRaidMode(true);
+            setRaidingPlayer(gameState.currentTurn);
+            setRaidMessage(`${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`);
+            break;
+
+          case 'event3':
+            // Move from slot 3 to slot 2 if empty
+            if (!playerState.eventSlots[1]) {
+              setPlayerState((prev) => ({
+                ...prev,
+                eventSlots: [
+                  null, // Clear slot 3
+                  { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
+                  prev.eventSlots[2],
+                ],
+                raidersLocation: 'event2',
+              }));
+              alert('Raiders advanced to event slot 2');
+            } else {
+              alert('Event slot 2 is occupied. Raiders cannot advance.');
+            }
             break;
         }
         break;
@@ -2804,17 +2863,46 @@ const GameBoard = () => {
                               // Handle Raiders movement based on current location
                               switch (playerState.raidersLocation) {
                                 case 'default':
-                                  // Move to event slot 2 (index 1)
-                                  setPlayerState((prev) => ({
-                                    ...prev,
-                                    eventSlots: [
-                                      prev.eventSlots[0],
-                                      { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
-                                      prev.eventSlots[2],
-                                    ],
-                                    raidersLocation: 'event2',
-                                    handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                                  }));
+                                  // Create Raiders card
+                                  const raidersCard = {
+                                    id: 'raiders',
+                                    name: 'Raiders',
+                                    type: 'event',
+                                    startingQueuePosition: 2,
+                                    owner: sourcePlayer,
+                                  };
+
+                                  // Simple logic to manually place Raiders in the right slot
+                                  // First try slot 2 (index 1)
+                                  if (playerState.eventSlots[1] === null) {
+                                    // Slot 2 is available, place Raiders there
+                                    setPlayerState((prev) => ({
+                                      ...prev,
+                                      eventSlots: [prev.eventSlots[0], raidersCard, prev.eventSlots[2]],
+                                      raidersLocation: 'event2',
+                                      handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                    }));
+                                  }
+                                  // If slot 2 is occupied, try slot 3 (index 0)
+                                  else if (playerState.eventSlots[0] === null) {
+                                    // Slot 3 is available, place Raiders there
+                                    setPlayerState((prev) => ({
+                                      ...prev,
+                                      eventSlots: [raidersCard, prev.eventSlots[1], prev.eventSlots[2]],
+                                      raidersLocation: 'event3',
+                                      handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                    }));
+                                  }
+                                  // If both slots are occupied
+                                  else {
+                                    alert('No valid slot available for Raiders!');
+                                    // Still remove the card even if placement fails
+                                    setPlayerState((prev) => ({
+                                      ...prev,
+                                      handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                    }));
+                                    setDiscardPile((prev) => [...prev, cardToDiscard.card]);
+                                  }
                                   break;
 
                                 case 'event3':
