@@ -1205,39 +1205,16 @@ const GameBoard = () => {
   };
 
   const applyRestore = (target: Card, slotIndex: number, isRightPlayer: boolean) => {
-    const playerState = isRightPlayer ? rightPlayerState : leftPlayerState;
-    const setPlayerState = isRightPlayer ? setRightPlayerState : setLeftPlayerState;
+    // Use our helper function to restore the card
+    const wasRestored = restoreCard(
+      target,
+      slotIndex,
+      isRightPlayer,
+      isRightPlayer ? setRightPlayerState : setLeftPlayerState
+    );
 
-    if (target.isDamaged) {
-      // Remove damage from the card
+    if (wasRestored) {
       alert(`Restored ${target.name}`);
-
-      if (target.type === 'person') {
-        setPlayerState((prev) => ({
-          ...prev,
-          personSlots: prev.personSlots.map((slot, i) =>
-            i === slotIndex ? { ...slot, isDamaged: false, isReady: false } : slot
-          ),
-        }));
-      } else if (target.type === 'camp') {
-        console.log(`Restoring camp at index ${slotIndex}`, target);
-
-        // Create a new object for the camp to ensure state update
-        const updatedCamp = {
-          ...target,
-          isDamaged: false,
-        };
-
-        setPlayerState((prev) => {
-          const updatedCampSlots = [...prev.campSlots];
-          updatedCampSlots[slotIndex] = updatedCamp;
-
-          return {
-            ...prev,
-            campSlots: updatedCampSlots,
-          };
-        });
-      }
     } else {
       alert('This card is not damaged!');
     }
