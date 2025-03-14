@@ -8,8 +8,8 @@ import { useEffect } from 'react';
 import { createPerson } from '@/cards/personCards';
 import { createCamp } from '@/cards/campCards';
 import { createEvent } from '@/cards/eventCards';
-import { markEventPlayed, checkZetoKahnEffect, hasVeraVoshTrait } from '@/utils/gameUtils';
 import { applyDamageToTarget, restoreCard, deductWaterCost, markCardUsedAbility } from '@/utils/abilityUtils';
+import { markEventPlayed, checkZetoKahnEffect, hasVeraVoshTrait } from '@/utils/gameUtils';
 
 interface PlayerState {
   handCards: Card[];
@@ -1239,59 +1239,34 @@ const GameBoard = () => {
     const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
     const setOpponentState = opponentPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
-    // If this is a mimic ability, mark the Mimic card as not ready
-    if (mimicMode && mimicSourceLocation) {
-      const sourcePlayer = gameState.currentTurn;
-      const sourceSetPlayerState = sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+    // Use our helper to deduct water cost
+    deductWaterCost(
+      gameState.currentTurn,
+      ability.cost,
+      leftPlayerState,
+      rightPlayerState,
+      setLeftPlayerState,
+      setRightPlayerState
+    );
 
-      sourceSetPlayerState((prev) => ({
-        ...prev,
-        personSlots: prev.personSlots.map((slot, idx) =>
-          idx === mimicSourceLocation.index ? { ...slot, isReady: false } : slot
-        ),
-      }));
+    // Check if Vera Vosh's trait is active
+    const hasVeraVoshEffect = hasVeraVoshTrait(playerState);
 
-      // Clear mimic mode after ability is executed
-      setMimicMode(false);
-      setMimicSourceCard(null);
-      setMimicSourceLocation(null);
-    }
-
-    // Deduct water cost
-    setPlayerState((prev) => ({
-      ...prev,
-      waterCount: prev.waterCount - ability.cost,
-    }));
-
-    if (location.type === 'person') {
-      // Check if Vera Vosh's trait is active using our helper function
-      const hasVeraVoshEffect = hasVeraVoshTrait(playerState);
-
-      // Get the array of cards that have used abilities this turn
-      const cardsUsedAbility = gameState.currentTurn === 'left' ? leftCardsUsedAbility : rightCardsUsedAbility;
-      const setCardsUsedAbility = gameState.currentTurn === 'left' ? setLeftCardsUsedAbility : setRightCardsUsedAbility;
-
-      // Check if this specific card has already used an ability this turn
-      const hasCardUsedAbility = cardsUsedAbility.includes(card.id);
-
-      if (hasVeraVoshEffect && !hasCardUsedAbility) {
-        // First ability use for this card with undamaged Vera Vosh in play - card stays ready
-        console.log(`${card.name} stays ready due to Vera Vosh's effect`);
-
-        // Add this card to the list of cards that have used abilities this turn
-        setCardsUsedAbility([...cardsUsedAbility, card.id]);
-
-        // No need to mark card as unready
-      } else {
-        // Normal case - mark card as unready
-        setPlayerState((prev) => ({
-          ...prev,
-          personSlots: prev.personSlots.map((slot, idx) =>
-            idx === location.index ? { ...slot, isReady: false } : slot
-          ),
-        }));
-      }
-    }
+    // Use our helper to mark the card as used
+    markCardUsedAbility(
+      card,
+      location,
+      gameState.currentTurn,
+      leftPlayerState,
+      rightPlayerState,
+      setLeftPlayerState,
+      setRightPlayerState,
+      leftCardsUsedAbility,
+      rightCardsUsedAbility,
+      setLeftCardsUsedAbility,
+      setRightCardsUsedAbility,
+      hasVeraVoshEffect
+    );
 
     // Handle ability effects based on type
     switch (ability.type) {
