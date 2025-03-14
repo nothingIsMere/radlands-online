@@ -1,6 +1,20 @@
 // game.ts updated
 export type JunkEffect = 'extra_water' | 'draw_card' | 'raid' | 'injure' | 'gain_punk' | 'restore';
 
+/**
+ * Possible game phases in order
+ */
+ export type GamePhase = 'events' | 'replenish' | 'actions' | 'end';
+
+ /**
+  * Game turn state definition
+  */
+ export interface GameTurnState {
+   currentTurn: 'left' | 'right';
+   currentPhase: GamePhase;
+   isFirstTurn: boolean;
+ }
+
 // Enhanced Card interface to handle all card types
 export interface Card {
   // Common properties

@@ -12,6 +12,8 @@ import { applyDamageToTarget, restoreCard, deductWaterCost, markCardUsedAbility 
 import { markEventPlayed, checkZetoKahnEffect, hasVeraVoshTrait } from '@/utils/gameUtils';
 import { updateProtectionStatus } from '@/utils/protectionUtils';
 import { advanceEventQueue, canPlaceEventInSlot, placeEventInFirstValidSlot, processEvents } from '@/utils/eventUtils';
+import { Card, PlayerState, GameTurnState } from '@/types/game';
+import { advanceToNextPhase, processCurrentPhase, endTurn } from '@/utils/turnUtils';
 
 interface PlayerState {
   handCards: Card[];
@@ -783,7 +785,7 @@ const GameBoard = () => {
     }
   }, []); // Remove dependencies to avoid re-assigning on every state change
 
-  const [gameState, setGameState] = useState<GameState>({
+  const [gameState, setGameState] = useState<GameTurnState>({
     currentTurn: 'left', // left player starts
     currentPhase: 'events', // start with events phase
     isFirstTurn: true,
