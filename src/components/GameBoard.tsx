@@ -2894,29 +2894,21 @@ const GameBoard = () => {
                               const playerState = sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
                               const setPlayerState = sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
+                              // IMPORTANT: Mark that an event was played this turn
+                              // This needs to happen REGARDLESS of whether Zeto Kahn is in play
+                              if (sourcePlayer === 'left') {
+                                setLeftPlayedEventThisTurn(true);
+                              } else {
+                                setRightPlayedEventThisTurn(true);
+                              }
+
                               // Check for Zeto Kahn's conditions
                               const hasZetoKahn = playerState.personSlots.some(
                                 (slot) => slot?.name === 'Zeto Kahn' && !slot.isDamaged
                               );
 
-                              const isFirstEvent =
-                                sourcePlayer === 'left' ? !leftPlayedEventThisTurn : !rightPlayedEventThisTurn;
-
-                              alert(
-                                `Zeto Kahn check: hasZK=${hasZetoKahn}, isFirstEvent=${isFirstEvent}, raidersLocation=${playerState.raidersLocation}`
-                              );
-
                               // If Zeto Kahn's conditions are met, execute raid immediately
-                              if (hasZetoKahn && isFirstEvent && playerState.raidersLocation === 'default') {
-                                alert('ZETO KAHN EFFECT ACTIVATED - RAIDING IMMEDIATELY');
-
-                                // Mark that an event was played this turn
-                                if (sourcePlayer === 'left') {
-                                  setLeftPlayedEventThisTurn(true);
-                                } else {
-                                  setRightPlayedEventThisTurn(true);
-                                }
-
+                              if (hasZetoKahn && playerState.raidersLocation === 'default') {
                                 // Remove the card from hand
                                 setPlayerState((prev) => ({
                                   ...prev,
@@ -2941,8 +2933,6 @@ const GameBoard = () => {
                               }
 
                               // Normal raid handling if Zeto Kahn's conditions aren't met
-                              alert('NORMAL RAID BEHAVIOR');
-
                               // Handle Raiders movement based on current location
                               switch (playerState.raidersLocation) {
                                 case 'default':
