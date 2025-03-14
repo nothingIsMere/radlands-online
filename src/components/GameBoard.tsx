@@ -85,6 +85,10 @@ const rightWaterSiloCard: Card = {
 };
 
 const GameBoard = () => {
+  const debugWithAlert = (message) => {
+    alert(`DEBUG: ${message}`);
+  };
+
   const isInteractable = (element: 'person' | 'event' | 'camp', elementPlayer: 'left' | 'right', slotIndex: number) => {
     // Default: Players can only interact with their own elements during their turn
     const isCurrentPlayerElement = gameState.currentTurn === elementPlayer;
@@ -297,6 +301,27 @@ const GameBoard = () => {
 
     // Default behavior - players can only interact with their own elements during their turn
     return isCurrentPlayerElement && gameState.currentPhase === 'actions';
+  };
+
+  const checkZetoKahnImmediateEffect = (playerSide: 'left' | 'right') => {
+    // Get the current player state
+    const playerState = playerSide === 'left' ? leftPlayerState : rightPlayerState;
+
+    // Check for undamaged Zeto Kahn
+    const hasUndamagedZetoKahn = playerState.personSlots.some((slot) => slot?.name === 'Zeto Kahn' && !slot.isDamaged);
+
+    // Check if this is the first event played this turn
+    const isFirstEventThisTurn = playerSide === 'left' ? !leftPlayedEventThisTurn : !rightPlayedEventThisTurn;
+
+    // Log for debugging
+    console.log(`Zeto Kahn check for ${playerSide}:`, {
+      hasUndamagedZetoKahn,
+      isFirstEventThisTurn,
+      raidersLocation: playerState.raidersLocation,
+    });
+
+    // Return true if Zeto Kahn's effect should trigger (undamaged ZK + first event + raiders in default position)
+    return hasUndamagedZetoKahn && isFirstEventThisTurn && playerState.raidersLocation === 'default';
   };
 
   // const testEventInSlot1: Card = {
@@ -1020,11 +1045,11 @@ const GameBoard = () => {
     }
   };
 
-  // Add this function after applyDamage or applyRestore, but before the return statement in GameBoard
   const executeJunkEffect = (card: Card) => {
-    // Use the existing variables from outer scope instead of redeclaring them
-    const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
-    const setPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
+    // Use the current turn to determine the player
+    const currentPlayer = gameState.currentTurn;
+    const playerState = currentPlayer === 'left' ? leftPlayerState : rightPlayerState;
+    const setPlayerState = currentPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
     switch (card.junkEffect) {
       case 'draw_card':
@@ -1056,13 +1081,27 @@ const GameBoard = () => {
       case 'restore':
         // Enter restore mode
         setRestoreMode(true);
-        setRestorePlayer(gameState.currentTurn);
+        setRestorePlayer(currentPlayer);
         break;
 
-      case 'raid':
-        // Handle raiders movement based on current location
+      case 'raid': {
+        alert('RAID JUNK EFFECT TRIGGERED');
+
+        // Check for Zeto Kahn's immediate event effect
+        const shouldExecuteImmediately = checkZetoKahnImmediateEffect(currentPlayer);
+
+        if (shouldExecuteImmediately) {
+          alert('ZETO KAHN EFFECT ACTIVATED - RAIDING IMMEDIATELY');
+          executeRaid(currentPlayer);
+          return; // Exit the function completely
+        }
+
+        // Normal case - handle Raiders movement based on current location
+        alert('NORMAL RAID BEHAVIOR');
+
         switch (playerState.raidersLocation) {
           case 'default':
+            alert('Moving Raiders to slot 2');
             setPlayerState((prev) => ({
               ...prev,
               eventSlots: [
@@ -1072,11 +1111,11 @@ const GameBoard = () => {
               ],
               raidersLocation: 'event2',
             }));
-            alert('Raiders moved to event slot 2');
             break;
 
           case 'event2':
             if (!playerState.eventSlots[2]) {
+              alert('Moving Raiders to slot 1');
               setPlayerState((prev) => ({
                 ...prev,
                 eventSlots: [
@@ -1086,28 +1125,18 @@ const GameBoard = () => {
                 ],
                 raidersLocation: 'event1',
               }));
-              alert('Raiders advanced to event slot 1');
             } else {
-              alert('Event slot 1 is occupied. Raiders cannot advance.');
+              alert('Event slot 1 occupied - cannot advance');
             }
             break;
 
           case 'event1':
-            // Execute raid immediately
-            const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
-
-            setPlayerState((prev) => ({
-              ...prev,
-              eventSlots: [prev.eventSlots[0], prev.eventSlots[1], null],
-              raidersLocation: 'default',
-            }));
-
-            setCampRaidMode(true);
-            setRaidingPlayer(gameState.currentTurn);
-            setRaidMessage(`${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`);
+            alert('Executing raid from slot 1');
+            executeRaid(currentPlayer);
             break;
         }
         break;
+      }
 
       case 'gain_punk':
         // Get a punk from the draw deck
@@ -1128,6 +1157,35 @@ const GameBoard = () => {
       default:
         alert(`Unknown junk effect: ${card.junkEffect}`);
         break;
+    }
+  };
+
+  const executeRaid = (playerSide: 'left' | 'right') => {
+    console.log(`Executing raid for ${playerSide} player`);
+
+    // Determine the opponent
+    const opponentPlayer = playerSide === 'left' ? 'right' : 'left';
+
+    // Get the player state and setter
+    const playerState = playerSide === 'left' ? leftPlayerState : rightPlayerState;
+    const setPlayerState = playerSide === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+    // Set Raiders back to default position
+    setPlayerState((prev) => ({
+      ...prev,
+      raidersLocation: 'default',
+    }));
+
+    // Set up raid mode
+    setCampRaidMode(true);
+    setRaidingPlayer(playerSide);
+    setRaidMessage(`${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`);
+
+    // Mark that an event was played this turn
+    if (playerSide === 'left') {
+      setLeftPlayedEventThisTurn(true);
+    } else {
+      setRightPlayedEventThisTurn(true);
     }
   };
 
@@ -1425,11 +1483,43 @@ const GameBoard = () => {
         alert(`Select a damaged card to restore`);
         break;
 
-      case 'raid':
-        // Handle Raiders movement based on current location
+      case 'raid': {
+        console.log('Raid ability triggered');
+        console.log('Current turn:', gameState.currentTurn);
+        console.log('Raiders location:', playerState.raidersLocation);
+
+        // Check for Zeto Kahn's effect
+        console.log("Checking for Zeto Kahn's effect");
+        const hasUndamagedZetoKahn = playerState.personSlots.some(
+          (slot) => slot?.name === 'Zeto Kahn' && !slot.isDamaged
+        );
+        console.log('Has undamaged Zeto Kahn:', hasUndamagedZetoKahn);
+
+        const isFirstEventThisTurn =
+          gameState.currentTurn === 'left' ? !leftPlayedEventThisTurn : !rightPlayedEventThisTurn;
+        console.log('Is first event this turn:', isFirstEventThisTurn);
+
+        // IMPORTANT: Only apply Zeto's effect when Raiders is in default state
+        if (playerState.raidersLocation === 'default' && hasUndamagedZetoKahn && isFirstEventThisTurn) {
+          console.log("Zeto Kahn's effect applies - executing raid immediately");
+
+          // Mark that an event was played
+          if (gameState.currentTurn === 'left') {
+            setLeftPlayedEventThisTurn(true);
+          } else {
+            setRightPlayedEventThisTurn(true);
+          }
+
+          // Execute raid immediately
+          executeRaid(gameState.currentTurn);
+          alert("Raiders executed immediately due to Zeto Kahn's ability!");
+          return; // Exit early
+        }
+
+        // Normal Raiders movement logic
+        console.log('Normal Raiders logic executing');
         switch (playerState.raidersLocation) {
           case 'default':
-            // Move to event slot 2 (index 1) - correct position
             setPlayerState((prev) => ({
               ...prev,
               eventSlots: [
@@ -1442,24 +1532,7 @@ const GameBoard = () => {
             alert('Raiders moved to event slot 2');
             break;
 
-          case 'event3':
-            // Move to slot 2 if empty
-            if (!playerState.eventSlots[1]) {
-              setPlayerState((prev) => ({
-                ...prev,
-                eventSlots: [
-                  null,
-                  { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
-                  prev.eventSlots[2],
-                ],
-                raidersLocation: 'event2',
-              }));
-              alert('Raiders advanced to event slot 2');
-            } else {
-              alert('Event slot 2 is occupied. Raiders cannot advance.');
-            }
-            break;
-
+          // Original case code for other states
           case 'event2':
             // Move to slot 1 if empty
             if (!playerState.eventSlots[2]) {
@@ -1479,29 +1552,12 @@ const GameBoard = () => {
             break;
 
           case 'event1':
-            // Execute raid immediately
-            // First, determine the opponent player
-
-            // Remove Raiders from event slot 1 and return to default
-            setPlayerState((prev) => ({
-              ...prev,
-              eventSlots: [
-                prev.eventSlots[0],
-                prev.eventSlots[1],
-                null, // Clear slot 1
-              ],
-              raidersLocation: 'default',
-            }));
-
-            // Set raid mode to let opponent choose a camp
-            setCampRaidMode(true);
-            setRaidingPlayer(gameState.currentTurn);
-            setRaidMessage(`${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`);
-
-            // We don't need to transition phases since this happens during the action phase
+            // Original code for executing from event1
+            executeRaid(gameState.currentTurn);
             break;
         }
         break;
+      }
 
       case 'sniper_damage':
         // Enter special sniper damage targeting mode that ignores protection
@@ -1606,6 +1662,9 @@ const GameBoard = () => {
           alert(`Not enough cards in the draw deck. Needed 3, but only ${drawDeck.length} available.`);
           break;
         }
+
+        // IMPORTANT: Add this debug alert
+        debugWithAlert('Processing scientist ability');
 
         // Take 3 cards from the top of the draw deck
         const drawnCards = drawDeck.slice(-3);
@@ -1815,10 +1874,43 @@ const GameBoard = () => {
                   key={index}
                   className="bg-gray-700 border border-gray-600 rounded p-2 cursor-pointer hover:bg-gray-600"
                   onClick={() => {
+                    debugWithAlert(`Selected card: ${card.name}, Junk effect: ${card.junkEffect}`);
                     // Close the modal
                     setIsScientistModalOpen(false);
 
-                    // Apply the selected card's junk effect
+                    // Special debug for raid junk effect
+                    if (card.junkEffect === 'raid') {
+                      console.log('SCIENTIST RAID SELECTED');
+                      const currentPlayer = gameState.currentTurn;
+
+                      // Use our helper function to check Zeto Kahn conditions
+                      const shouldExecuteImmediately = checkZetoKahnImmediateEffect(currentPlayer);
+                      console.log('Should execute immediately:', shouldExecuteImmediately);
+
+                      if (shouldExecuteImmediately) {
+                        console.log('Zeto Kahn immediate execution triggered');
+                        // Mark that an event was played
+                        if (currentPlayer === 'left') {
+                          setLeftPlayedEventThisTurn(true);
+                        } else {
+                          setRightPlayedEventThisTurn(true);
+                        }
+
+                        // Add cards to discard pile
+                        setDiscardPile((prev) => [...prev, ...scientistCards]);
+
+                        // Clear the scientist cards
+                        setScientistCards([]);
+
+                        // Execute raid immediately
+                        executeRaid(currentPlayer);
+
+                        alert(`RAID EXECUTED IMMEDIATELY DUE TO ZETO KAHN`);
+                        return;
+                      }
+                    }
+
+                    // Normal flow for other effects or when ZK conditions aren't met
                     executeJunkEffect(card);
 
                     // Add all cards to discard pile
@@ -2798,10 +2890,58 @@ const GameBoard = () => {
                                 }));
                               }
                             } else if (cardToDiscard.card.junkEffect === 'raid') {
-                              const setPlayerState =
-                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-                              const playerState =
-                                cardToDiscard.sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
+                              const sourcePlayer = cardToDiscard.sourcePlayer;
+                              const playerState = sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
+                              const setPlayerState = sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+                              // Check for Zeto Kahn's conditions
+                              const hasZetoKahn = playerState.personSlots.some(
+                                (slot) => slot?.name === 'Zeto Kahn' && !slot.isDamaged
+                              );
+
+                              const isFirstEvent =
+                                sourcePlayer === 'left' ? !leftPlayedEventThisTurn : !rightPlayedEventThisTurn;
+
+                              alert(
+                                `Zeto Kahn check: hasZK=${hasZetoKahn}, isFirstEvent=${isFirstEvent}, raidersLocation=${playerState.raidersLocation}`
+                              );
+
+                              // If Zeto Kahn's conditions are met, execute raid immediately
+                              if (hasZetoKahn && isFirstEvent && playerState.raidersLocation === 'default') {
+                                alert('ZETO KAHN EFFECT ACTIVATED - RAIDING IMMEDIATELY');
+
+                                // Mark that an event was played this turn
+                                if (sourcePlayer === 'left') {
+                                  setLeftPlayedEventThisTurn(true);
+                                } else {
+                                  setRightPlayedEventThisTurn(true);
+                                }
+
+                                // Remove the card from hand
+                                setPlayerState((prev) => ({
+                                  ...prev,
+                                  handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                }));
+
+                                // Add to discard pile
+                                setDiscardPile((prev) => [...prev, cardToDiscard.card]);
+
+                                // Set up raid immediately
+                                const opponentPlayer = sourcePlayer === 'left' ? 'right' : 'left';
+                                setCampRaidMode(true);
+                                setRaidingPlayer(sourcePlayer);
+                                setRaidMessage(
+                                  `${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`
+                                );
+
+                                // Close the modal
+                                setShowDiscardModal(false);
+                                setCardToDiscard(null);
+                                return; // Exit early
+                              }
+
+                              // Normal raid handling if Zeto Kahn's conditions aren't met
+                              alert('NORMAL RAID BEHAVIOR');
 
                               // Handle Raiders movement based on current location
                               switch (playerState.raidersLocation) {

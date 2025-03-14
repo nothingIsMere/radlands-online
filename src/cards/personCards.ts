@@ -358,7 +358,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'draw_then_discard',
       }
     ],
-    traits: ['immediate_events'],
+    traits: ['immediate_events'], // This trait should be checked regardless of ready status
     junkEffect: 'gain_punk'
   },
   'vera-vosh': {

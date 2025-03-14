@@ -43,7 +43,8 @@ const EventSlot = ({ index, card, playerState, setPlayerState, player = 'left' }
             if (!hasPlayedEvent) {
               // Check for undamaged Zeto Kahn directly in this player's personSlots
               const hasUndamagedZetoKahn = playerState.personSlots.some(
-                (card) => card?.name === 'Zeto Kahn' && !card.isDamaged
+                // ONLY check for undamaged, not ready status
+                (slot) => slot?.name === 'Zeto Kahn' && !slot.isDamaged
               );
 
               if (hasUndamagedZetoKahn) {
