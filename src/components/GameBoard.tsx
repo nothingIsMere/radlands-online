@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { createPerson } from '@/cards/personCards';
 import { createCamp } from '@/cards/campCards';
 import { createEvent } from '@/cards/eventCards';
+import { markEventPlayed, checkZetoKahnEffect } from '@/utils/gameUtils';
 
 interface PlayerState {
   handCards: Card[];
@@ -1485,34 +1486,23 @@ const GameBoard = () => {
 
       case 'raid': {
         console.log('Raid ability triggered');
-        console.log('Current turn:', gameState.currentTurn);
-        console.log('Raiders location:', playerState.raidersLocation);
 
-        // Check for Zeto Kahn's effect
-        console.log("Checking for Zeto Kahn's effect");
-        const hasUndamagedZetoKahn = playerState.personSlots.some(
-          (slot) => slot?.name === 'Zeto Kahn' && !slot.isDamaged
+        // Mark that an event is being played
+        markEventPlayed(gameState.currentTurn, setLeftPlayedEventThisTurn, setRightPlayedEventThisTurn);
+
+        // Check for Zeto Kahn's immediate effect
+        const shouldExecuteImmediately = checkZetoKahnEffect(
+          gameState.currentTurn,
+          leftPlayerState,
+          rightPlayerState,
+          leftPlayedEventThisTurn,
+          rightPlayedEventThisTurn
         );
-        console.log('Has undamaged Zeto Kahn:', hasUndamagedZetoKahn);
 
-        const isFirstEventThisTurn =
-          gameState.currentTurn === 'left' ? !leftPlayedEventThisTurn : !rightPlayedEventThisTurn;
-        console.log('Is first event this turn:', isFirstEventThisTurn);
-
-        // IMPORTANT: Only apply Zeto's effect when Raiders is in default state
-        if (playerState.raidersLocation === 'default' && hasUndamagedZetoKahn && isFirstEventThisTurn) {
+        if (shouldExecuteImmediately) {
           console.log("Zeto Kahn's effect applies - executing raid immediately");
-
-          // Mark that an event was played
-          if (gameState.currentTurn === 'left') {
-            setLeftPlayedEventThisTurn(true);
-          } else {
-            setRightPlayedEventThisTurn(true);
-          }
-
           // Execute raid immediately
           executeRaid(gameState.currentTurn);
-          alert("Raiders executed immediately due to Zeto Kahn's ability!");
           return; // Exit early
         }
 
@@ -1532,7 +1522,6 @@ const GameBoard = () => {
             alert('Raiders moved to event slot 2');
             break;
 
-          // Original case code for other states
           case 'event2':
             // Move to slot 1 if empty
             if (!playerState.eventSlots[2]) {
@@ -1552,7 +1541,7 @@ const GameBoard = () => {
             break;
 
           case 'event1':
-            // Original code for executing from event1
+            // Execute raid from slot 1
             executeRaid(gameState.currentTurn);
             break;
         }
@@ -2894,21 +2883,24 @@ const GameBoard = () => {
                               const playerState = sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
                               const setPlayerState = sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
-                              // IMPORTANT: Mark that an event was played this turn
-                              // This needs to happen REGARDLESS of whether Zeto Kahn is in play
-                              if (sourcePlayer === 'left') {
-                                setLeftPlayedEventThisTurn(true);
-                              } else {
-                                setRightPlayedEventThisTurn(true);
-                              }
+                              // Use the new helper function to mark event as played
+                              markEventPlayed(
+                                sourcePlayer as 'left' | 'right',
+                                setLeftPlayedEventThisTurn,
+                                setRightPlayedEventThisTurn
+                              );
 
-                              // Check for Zeto Kahn's conditions
-                              const hasZetoKahn = playerState.personSlots.some(
-                                (slot) => slot?.name === 'Zeto Kahn' && !slot.isDamaged
+                              // Use the new helper function to check Zeto Kahn effect
+                              const shouldExecuteImmediately = checkZetoKahnEffect(
+                                sourcePlayer as 'left' | 'right',
+                                leftPlayerState,
+                                rightPlayerState,
+                                leftPlayedEventThisTurn,
+                                rightPlayedEventThisTurn
                               );
 
                               // If Zeto Kahn's conditions are met, execute raid immediately
-                              if (hasZetoKahn && playerState.raidersLocation === 'default') {
+                              if (shouldExecuteImmediately) {
                                 // Remove the card from hand
                                 setPlayerState((prev) => ({
                                   ...prev,
