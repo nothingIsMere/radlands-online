@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { Card, PlayerState } from '@/types/game';
-import { hasCardTrait, hasKarliBlazeTrait } from '@/utils/gameUtils';
+import { hasCardTrait, hasKarliBlazeTrait, hasArgoYeskyTrait } from '@/utils/gameUtils';
 
 interface PersonSlotProps {
   index: number;
@@ -260,14 +260,12 @@ const PersonSlot = ({
           const hasNativeAbilities = card.abilities?.length > 0;
 
           // Check if player has an undamaged Argo Yesky in play
-          const hasUndamagedArgoYesky = playerState.personSlots.some(
-            (slot) => slot?.name === 'Argo Yesky' && !slot.isDamaged
-          );
+          const hasArgoYeskyEffect = hasArgoYeskyTrait(playerState);
 
           // Card can use ability if:
           // 1. It's ready and has native abilities, OR
           // 2. It's ready and Argo Yesky is in play (which grants all cards a damage ability)
-          if (isCardReady && (hasNativeAbilities || hasUndamagedArgoYesky)) {
+          if (isCardReady && (hasNativeAbilities || hasArgoYeskyEffect)) {
             console.log('Opening ability modal for:', card.name);
 
             // Check if ability can be used
@@ -279,7 +277,7 @@ const PersonSlot = ({
             let cardToUse = card;
 
             // If Argo Yesky is in play, add or append the damage ability
-            if (hasUndamagedArgoYesky) {
+            if (hasArgoYeskyEffect) {
               const argoYeskyAbility = {
                 effect: 'Do 1 damage to an unprotected enemy card (via Argo Yesky)',
                 cost: 1,
