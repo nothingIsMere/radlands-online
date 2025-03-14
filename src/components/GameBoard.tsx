@@ -9,6 +9,7 @@ import { createPerson } from '@/cards/personCards';
 import { createCamp } from '@/cards/campCards';
 import { createEvent } from '@/cards/eventCards';
 import { markEventPlayed, checkZetoKahnEffect, hasVeraVoshTrait } from '@/utils/gameUtils';
+import { applyDamageToTarget, restoreCard, deductWaterCost, markCardUsedAbility } from '@/utils/abilityUtils';
 
 interface PlayerState {
   handCards: Card[];
@@ -922,43 +923,21 @@ const GameBoard = () => {
     const setCurrentPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
 
     const targetType = target.type;
-    let wasDestroyed = false;
 
-    if (target.isPunk || target.isDamaged) {
-      // If target is already damaged or is a punk, destroy it
+    // Use our new helper to apply damage
+    const wasDestroyed = applyDamageToTarget(
+      target,
+      slotIndex,
+      isRightPlayer,
+      setPlayerState,
+      destroyCard,
+      damageValue
+    );
+
+    if (wasDestroyed) {
       alert(`${target.isPunk ? 'Punk' : 'Damaged card'} destroyed!`);
-
-      if (targetType === 'person') {
-        destroyCard(target, slotIndex, isRightPlayer);
-      } else if (targetType === 'camp') {
-        // For camps, we need to remove them from the campSlots array
-        setPlayerState((prev) => ({
-          ...prev,
-          campSlots: prev.campSlots.map((camp, i) => (i === slotIndex ? null : camp)),
-        }));
-
-        // Add the camp to the discard pile
-        setDiscardPile((prev) => [...prev, target]);
-      }
-
-      wasDestroyed = true;
     } else {
-      // Otherwise, mark as damaged
       alert(`Applied ${damageValue} damage to ${target.name}`);
-
-      if (targetType === 'person') {
-        setPlayerState((prev) => ({
-          ...prev,
-          personSlots: prev.personSlots.map((slot, i) =>
-            i === slotIndex ? { ...slot, isDamaged: true, isReady: false } : slot
-          ),
-        }));
-      } else if (targetType === 'camp') {
-        setPlayerState((prev) => ({
-          ...prev,
-          campSlots: prev.campSlots.map((slot, i) => (i === slotIndex ? { ...slot, isDamaged: true } : slot)),
-        }));
-      }
     }
 
     // Check for secondary effects based on the damage source
