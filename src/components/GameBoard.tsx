@@ -14,6 +14,8 @@ import { updateProtectionStatus } from '@/utils/protectionUtils';
 import { advanceEventQueue, canPlaceEventInSlot, placeEventInFirstValidSlot, processEvents } from '@/utils/eventUtils';
 import { Card, PlayerState, GameTurnState } from '@/types/game';
 import { advanceToNextPhase, processCurrentPhase, endTurn } from '@/utils/turnUtils';
+import { gameLogger } from '@/utils/actionLogger';
+import { createEndTurnAction } from '@/utils/actionCreators';
 
 interface PlayerState {
   handCards: Card[];
@@ -3111,15 +3113,22 @@ const GameBoard = () => {
                   <button
                     className="absolute -top-20 left-0 right-0 bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded"
                     onClick={() => {
-                      console.log('Done clicked, current turn:', gameState.currentTurn);
-                      console.log('Current phase:', gameState.currentPhase);
-                      setGameState((prev) => ({
-                        ...prev,
-                        currentTurn: prev.currentTurn === 'left' ? 'right' : 'left',
-                        currentPhase: 'events',
-                      }));
-                      console.log('After state update - turn:', gameState.currentTurn);
-                      console.log('After state update - phase:', gameState.currentPhase);
+                      // Log the end turn action
+                      gameLogger.logAction(createEndTurnAction(gameState.currentTurn));
+
+                      // Then proceed with normal end turn handling
+                      endTurn(
+                        gameState,
+                        setGameState,
+                        () => {
+                          setLeftPlayedEventThisTurn(false);
+                          setLeftCardsUsedAbility([]);
+                        },
+                        () => {
+                          setRightPlayedEventThisTurn(false);
+                          setRightCardsUsedAbility([]);
+                        }
+                      );
                     }}
                   >
                     Done
