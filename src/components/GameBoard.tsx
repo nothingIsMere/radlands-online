@@ -10,6 +10,7 @@ import { createCamp } from '@/cards/campCards';
 import { createEvent } from '@/cards/eventCards';
 import { applyDamageToTarget, restoreCard, deductWaterCost, markCardUsedAbility } from '@/utils/abilityUtils';
 import { markEventPlayed, checkZetoKahnEffect, hasVeraVoshTrait } from '@/utils/gameUtils';
+import { updateProtectionStatus } from '@/utils/protectionUtils';
 
 interface PlayerState {
   handCards: Card[];
@@ -458,60 +459,6 @@ const GameBoard = () => {
     }, 100);
   };
 
-  const updateProtectedStatus = (
-    personSlots: (Card | null)[],
-    campSlots: (Card | null)[],
-    affectedColumnIndex?: number
-  ) => {
-    // Clone the arrays to avoid direct mutation
-    const updatedPersonSlots = [...personSlots];
-    const updatedCampSlots = [...campSlots];
-
-    // If a specific column is affected, only update that column
-    if (affectedColumnIndex !== undefined) {
-      const i = affectedColumnIndex * 2; // Convert column index to person slot index
-      const frontPersonSlot = updatedPersonSlots[i];
-      const backPersonSlot = updatedPersonSlots[i + 1];
-      const camp = updatedCampSlots[affectedColumnIndex];
-
-      // Update person slot protection
-      if (backPersonSlot) {
-        backPersonSlot.isProtected = frontPersonSlot !== null;
-      }
-      if (frontPersonSlot) {
-        frontPersonSlot.isProtected = false;
-      }
-
-      // Update camp protection
-      if (camp) {
-        camp.isProtected = frontPersonSlot !== null || backPersonSlot !== null;
-      }
-    } else {
-      // For each column (0/1, 2/3, 4/5)
-      for (let i = 0; i < 6; i += 2) {
-        const frontPersonSlot = updatedPersonSlots[i];
-        const backPersonSlot = updatedPersonSlots[i + 1];
-        const campIndex = i / 2; // Convert person slot index to camp index (0,2,4 -> 0,1,2)
-        const camp = updatedCampSlots[campIndex];
-
-        // Update person slot protection
-        if (backPersonSlot) {
-          backPersonSlot.isProtected = frontPersonSlot !== null;
-        }
-        if (frontPersonSlot) {
-          frontPersonSlot.isProtected = false;
-        }
-
-        // Update camp protection
-        if (camp) {
-          camp.isProtected = frontPersonSlot !== null || backPersonSlot !== null;
-        }
-      }
-    }
-
-    return { personSlots: updatedPersonSlots, campSlots: updatedCampSlots };
-  };
-
   const leftCamps = [
     { ...createCamp('base-camp'), isDamaged: true }, // First camp is damaged
     null, // Second camp is destroyed
@@ -604,7 +551,7 @@ const GameBoard = () => {
     Boolean
   ) as Card[];
 
-  const { personSlots: initializedRightTestPersonSlots, campSlots: initializedRightTestCamps } = updateProtectedStatus(
+  const { personSlots: initializedRightTestPersonSlots, campSlots: initializedRightTestCamps } = updateProtectionStatus(
     rightTestPersonSlots,
     rightTestCamps
   );
@@ -898,7 +845,7 @@ const GameBoard = () => {
     // Remove card from slot and update protection status
     setPlayerState((prev) => {
       const updatedSlots = prev.personSlots.map((slot, i) => (i === slotIndex ? null : slot));
-      const { personSlots, campSlots } = updateProtectedStatus(updatedSlots, prev.campSlots);
+      const { personSlots, campSlots } = updateProtectionStatus(updatedSlots, prev.campSlots);
 
       return {
         ...prev,
@@ -1991,7 +1938,7 @@ const GameBoard = () => {
                       if (card) {
                         setLeftPlayerState((prev) => {
                           const updatedSlots = prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot));
-                          const { personSlots, campSlots } = updateProtectedStatus(updatedSlots, prev.campSlots);
+                          const { personSlots, campSlots } = updateProtectionStatus(updatedSlots, prev.campSlots);
                           return {
                             ...prev,
                             handCards: [...prev.handCards, card],
@@ -2090,7 +2037,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="left"
@@ -2128,7 +2075,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="left"
@@ -2309,7 +2256,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="left"
@@ -2347,7 +2294,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="left"
@@ -2526,7 +2473,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="left"
@@ -2564,7 +2511,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="left"
@@ -3267,7 +3214,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="right"
@@ -3302,7 +3249,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="right"
@@ -3480,7 +3427,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="right"
@@ -3515,7 +3462,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="right"
@@ -3693,7 +3640,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="right"
@@ -3728,7 +3675,7 @@ const GameBoard = () => {
                   setInjureMode={setInjureMode}
                   damageMode={damageMode}
                   applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectedStatus}
+                  updateProtectedStatus={updateProtectionStatus}
                   destroyCard={destroyCard}
                   gameState={gameState}
                   player="right"
@@ -3911,7 +3858,7 @@ const GameBoard = () => {
                         return {
                           ...prev,
                           handCards: [...prev.handCards, card],
-                          personSlots: updateProtectedStatus(updatedSlots),
+                          personSlots: updateProtectionStatus(updatedSlots),
                         };
                       });
                     }
