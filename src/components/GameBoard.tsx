@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 import { createPerson } from '@/cards/personCards';
 import { createCamp } from '@/cards/campCards';
 import { createEvent } from '@/cards/eventCards';
-import { markEventPlayed, checkZetoKahnEffect } from '@/utils/gameUtils';
+import { markEventPlayed, checkZetoKahnEffect, hasVeraVoshTrait } from '@/utils/gameUtils';
 
 interface PlayerState {
   handCards: Card[];
@@ -1308,10 +1308,8 @@ const GameBoard = () => {
     }));
 
     if (location.type === 'person') {
-      // Check if player has an undamaged Vera Vosh in play
-      const hasUndamagedVeraVosh = playerState.personSlots.some(
-        (slot) => slot && slot.name === 'Vera Vosh' && !slot.isDamaged
-      );
+      // Check if Vera Vosh's trait is active using our helper function
+      const hasVeraVoshEffect = hasVeraVoshTrait(playerState);
 
       // Get the array of cards that have used abilities this turn
       const cardsUsedAbility = gameState.currentTurn === 'left' ? leftCardsUsedAbility : rightCardsUsedAbility;
@@ -1320,7 +1318,7 @@ const GameBoard = () => {
       // Check if this specific card has already used an ability this turn
       const hasCardUsedAbility = cardsUsedAbility.includes(card.id);
 
-      if (hasUndamagedVeraVosh && !hasCardUsedAbility) {
+      if (hasVeraVoshEffect && !hasCardUsedAbility) {
         // First ability use for this card with undamaged Vera Vosh in play - card stays ready
         console.log(`${card.name} stays ready due to Vera Vosh's effect`);
 

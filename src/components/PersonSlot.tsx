@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { Card, PlayerState } from '@/types/game';
+import { hasCardTrait, hasKarliBlazeTrait } from '@/utils/gameUtils';
 
 interface PersonSlotProps {
   index: number;
@@ -368,13 +369,11 @@ const PersonSlot = ({
           }
 
           setPlayerState((prev) => {
-            // Check for undamaged Karli Blaze in play
-            const hasUndamagedKarliBlaze = prev.personSlots.some(
-              (card) => card?.name === 'Karli Blaze' && !card.isDamaged
-            );
+            // Use the new helper function to check for Karli Blaze's trait
+            const hasKarliEffect = hasKarliBlazeTrait(prev);
 
             // Determine if the card should start ready based on traits or Karli Blaze
-            const shouldStartReady = draggedCard.traits?.includes('start_ready') || hasUndamagedKarliBlaze;
+            const shouldStartReady = hasCardTrait(draggedCard, 'start_ready') || hasKarliEffect;
 
             const updatedSlots = prev.personSlots.map((slot, i) =>
               i === index ? { ...draggedCard, isReady: shouldStartReady } : slot

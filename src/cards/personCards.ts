@@ -296,7 +296,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'punk_damage',
       }
     ],
-    traits: ['start_ready'],
+    traits: [],
     junkEffect: 'raid'
   },
   'vanguard': {
@@ -311,7 +311,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'vanguard_damage',
       }
     ],
-    traits: ['start_ready', 'gain_punk_on_entry'],
+    traits: ['gain_punk_on_entry'],
     junkEffect: 'raid'
   },
   'sniper': {

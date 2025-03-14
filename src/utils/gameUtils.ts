@@ -54,3 +54,70 @@ export const checkZetoKahnEffect = (
   
   return hasUndamagedZetoKahn && isFirstEventThisTurn && raidersInDefaultPosition;
 };
+
+/**
+ * Checks if a card has a specific trait
+ * @param card The card to check
+ * @param trait The trait to check for
+ * @returns True if the card has the specified trait
+ */
+ export const hasCardTrait = (card: Card | null, trait: string): boolean => {
+  if (!card || !card.traits) return false;
+  return card.traits.includes(trait);
+};
+
+/**
+ * Checks if a player has a card with a specific trait in play and active
+ * @param playerState The player's state
+ * @param trait The trait to check for
+ * @param requireUndamaged Whether the card must be undamaged to have an active trait
+ * @returns True if the player has an active card with the specified trait
+ */
+export const hasActiveTraitInPlay = (
+  playerState: PlayerState,
+  trait: string,
+  requireUndamaged: boolean = true
+): boolean => {
+  return playerState.personSlots.some(card => 
+    card && 
+    hasCardTrait(card, trait) && 
+    (!requireUndamaged || !card.isDamaged)
+  );
+};
+
+/**
+ * Checks if Karli Blaze's trait is active for a player
+ * Cards enter play ready with Karli Blaze in play
+ * @param playerState The player's state
+ * @returns True if Karli Blaze's trait is active
+ */
+ export const hasKarliBlazeTrait = (playerState: PlayerState): boolean => {
+  // Check directly for undamaged Karli Blaze by name, not by trait
+  return playerState.personSlots.some(
+    slot => slot?.name === 'Karli Blaze' && !slot.isDamaged
+  );
+};
+
+/**
+ * Checks if Argo Yesky's trait is active for a player
+ * All cards gain a damage ability with Argo Yesky in play
+ * @param playerState The player's state
+ * @returns True if Argo Yesky's trait is active
+ */
+export const hasArgoYeskyTrait = (playerState: PlayerState): boolean => {
+  return playerState.personSlots.some(
+    slot => slot?.name === 'Argo Yesky' && !slot.isDamaged
+  );
+};
+
+/**
+ * Checks if Vera Vosh's trait is active for a player
+ * Cards stay ready after first ability use with Vera Vosh in play
+ * @param playerState The player's state
+ * @returns True if Vera Vosh's trait is active
+ */
+export const hasVeraVoshTrait = (playerState: PlayerState): boolean => {
+  return playerState.personSlots.some(
+    slot => slot?.name === 'Vera Vosh' && !slot.isDamaged
+  );
+};
