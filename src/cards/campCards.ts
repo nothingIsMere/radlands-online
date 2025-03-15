@@ -589,6 +589,7 @@ export const campCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected'>
 // Helper function to create a new camp instance
 export function createCamp(cardKey: string): Card | undefined {
   const template = campCards[cardKey];
+
   
   if (!template) {
     console.error(`Camp card template not found: ${cardKey}`);

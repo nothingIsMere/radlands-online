@@ -502,7 +502,7 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Include Holdout, Zeto Kahn, and some event cards
-    handCards: [].filter(Boolean) as Card[],
+    handCards: [createPerson('sniper')].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
       // { ...createPerson('scout'), id: 'left-damaged-person-1', isDamaged: true, isReady: false },
@@ -527,7 +527,7 @@ const GameBoard = () => {
     campSlots: [
       { ...createCamp('railgun'), isDamaged: true }, // First camp is damaged
       createCamp('atomic-garden'), // Second camp
-      createCamp('victory-totem'), // Third camp
+      createCamp('cannon'), // Third camp
     ],
     waterSiloInHand: false,
     waterCount: 30,
@@ -1276,6 +1276,37 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'conditional_damage':
+        // For cards like Cannon with conditional abilities
+        let conditionMet = false;
+
+        if (ability.condition === 'self_undamaged') {
+          // For Cannon: "If this card is undamaged, Damage"
+          conditionMet = !card.isDamaged;
+        }
+        // We'll add more conditions later as needed
+
+        if (conditionMet) {
+          // Condition is met, proceed with damage effect
+          setDamageMode(true);
+          setDamageSource(card);
+          setDamageValue(ability.value || 1);
+          alert(`Select an unprotected enemy card to damage`);
+        } else {
+          // Condition not met, show message and refund water cost
+          alert('Condition not met: This card must be undamaged to use this ability.');
+
+          // Refund the water cost
+          const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+          const setPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+        }
+        break;
+
       case 'restore_person_ready':
         // For Atomic Garden
         setRestorePersonReadyMode(true);
@@ -2233,6 +2264,7 @@ const GameBoard = () => {
                       ? 'bg-red-900'
                       : 'bg-gray-700'
                   }
+    
                   ${
                     (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[0]) ||
                     (damageMode &&
@@ -2364,6 +2396,8 @@ const GameBoard = () => {
                         {leftPlayerState.campSlots[0]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
                         {leftPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                        <br />
+                        {leftPlayerState.campSlots[0]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
                       </>
                     )}
                   </div>
@@ -2587,6 +2621,8 @@ const GameBoard = () => {
                         {leftPlayerState.campSlots[1]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
                         {leftPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                        <br />
+                        {leftPlayerState.campSlots[1]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
                       </>
                     )}
                   </div>
@@ -2812,6 +2848,8 @@ const GameBoard = () => {
                         {leftPlayerState.campSlots[2]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
                         {leftPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                        <br />
+                        {leftPlayerState.campSlots[2]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
                       </>
                     )}
                   </div>
@@ -3589,6 +3627,8 @@ const GameBoard = () => {
                         {rightPlayerState.campSlots[0]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
                         {rightPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                        <br />
+                        {rightPlayerState.campSlots[0]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
                       </>
                     )}
                   </div>
@@ -3808,6 +3848,8 @@ const GameBoard = () => {
                         {rightPlayerState.campSlots[1]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
                         {rightPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                        <br />
+                        {rightPlayerState.campSlots[1]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
                       </>
                     )}
                   </div>
@@ -4027,6 +4069,8 @@ const GameBoard = () => {
                         {rightPlayerState.campSlots[2]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
                         {rightPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                        <br />
+                        {rightPlayerState.campSlots[2]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
                       </>
                     )}
                   </div>
