@@ -125,35 +125,40 @@ export const restoreCard = (
 };
 
 /**
- * Deducts water cost for an ability
+ * Deducts water cost for an ability, with support for modified costs
  * @param player The current player ('left' or 'right')
- * @param waterCost The water cost to deduct
+ * @param waterCost The base water cost to deduct
  * @param leftPlayerState The left player's state
  * @param rightPlayerState The right player's state
  * @param setLeftPlayerState Function to update left player's state
  * @param setRightPlayerState Function to update right player's state
+ * @param modifiedCost Optional modified cost (for abilities with cost modifiers)
  * @returns True if the cost was successfully paid
  */
-export const deductWaterCost = (
+ export const deductWaterCost = (
   player: 'left' | 'right',
   waterCost: number,
   leftPlayerState: PlayerState,
   rightPlayerState: PlayerState,
   setLeftPlayerState: (updater: (prevState: PlayerState) => PlayerState) => void,
-  setRightPlayerState: (updater: (prevState: PlayerState) => PlayerState) => void
+  setRightPlayerState: (updater: (prevState: PlayerState) => PlayerState) => void,
+  modifiedCost?: number
 ): boolean => {
   const playerState = player === 'left' ? leftPlayerState : rightPlayerState;
   const setPlayerState = player === 'left' ? setLeftPlayerState : setRightPlayerState;
   
+  // Use modified cost if provided, otherwise use base cost
+  const costToDeduct = modifiedCost !== undefined ? modifiedCost : waterCost;
+  
   // Check if player has enough water
-  if (playerState.waterCount < waterCost) {
+  if (playerState.waterCount < costToDeduct) {
     return false;
   }
   
   // Deduct water cost
   setPlayerState((prev) => ({
     ...prev,
-    waterCount: prev.waterCount - waterCost,
+    waterCount: prev.waterCount - costToDeduct,
   }));
   
   return true;
@@ -196,9 +201,9 @@ export const deductWaterCost = (
   // Check if this card has already used an ability this turn
   const hasCardUsedAbility = cardsUsedAbility.includes(card.id);
   
-  if (hasVeraVoshActive && !hasCardUsedAbility && location.type === 'person') {
-    // First person card ability use with Vera Vosh active - card stays ready
-    // Note: Vera Vosh's effect only applies to person cards, not camps
+  if (hasVeraVoshActive && !hasCardUsedAbility) {
+    // First ability use with Vera Vosh active - card stays ready
+    // Vera Vosh's effect applies to both person and camp cards
     console.log(`${card.name} stays ready due to Vera Vosh's effect`);
     
     // Add card to list of cards that used abilities this turn

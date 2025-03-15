@@ -539,9 +539,11 @@ const GameBoard = () => {
     ],
     eventSlots: [null, null, null],
     campSlots: [
-      { ...createCamp('railgun'), isDamaged: true }, // First camp is damaged
-      createCamp('atomic-garden'), // Second camp
-      createCamp('cannon'), // Third camp
+      // { ...createCamp('railgun'), isDamaged: true },
+      // createCamp('atomic-garden'),
+      null,
+      null,
+      createCamp('pillbox'),
     ],
     waterSiloInHand: false,
     waterCount: 30,
@@ -1259,6 +1261,23 @@ const GameBoard = () => {
     const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
     const setOpponentState = opponentPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
+    // Add this inside executeAbility function in GameBoard.tsx, somewhere before the switch statement
+    let finalWaterCost = ability.cost;
+
+    // Apply cost modifiers if any
+    if (ability.costModifier === 'destroyed_camps') {
+      // For Pillbox: cost reduced by number of destroyed camps
+      const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+      // Count destroyed camps (null slots in campSlots)
+      const destroyedCamps = playerState.campSlots.filter((camp) => camp === null).length;
+
+      // Reduce cost, but never below 0
+      finalWaterCost = Math.max(0, ability.cost - destroyedCamps);
+
+      console.log(`Cost modified by destroyed camps: ${ability.cost} -> ${finalWaterCost}`);
+    }
+
     // Use our helper to deduct water cost
     deductWaterCost(
       gameState.currentTurn,
@@ -1266,7 +1285,8 @@ const GameBoard = () => {
       leftPlayerState,
       rightPlayerState,
       setLeftPlayerState,
-      setRightPlayerState
+      setRightPlayerState,
+      finalWaterCost
     );
 
     // Check if Vera Vosh's trait is active
@@ -1850,29 +1870,28 @@ const GameBoard = () => {
           >
             {selectedCard.abilities?.map((ability, index) => {
               const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
-              const hasEnoughWater = playerState.waterCount >= ability.cost;
 
-              // Special check for Rabble Rouser's punk damage ability
-              let isDisabled = !hasEnoughWater;
-              let disabledReason = 'Not enough water';
-
-              if (ability.type === 'punk_damage' && selectedCard.name === 'Rabble Rouser') {
-                const hasPunk = playerState.personSlots.some((card) => card && card.isPunk);
-                if (!hasPunk) {
-                  isDisabled = true;
-                  disabledReason = 'No punk in play';
-                }
+              // Calculate modified cost if applicable
+              let displayCost = ability.cost;
+              if (ability.costModifier === 'destroyed_camps') {
+                const destroyedCamps = playerState.campSlots.filter((camp) => camp === null).length;
+                displayCost = Math.max(0, ability.cost - destroyedCamps);
               }
+
+              const hasEnoughWater = playerState.waterCount >= displayCost;
 
               return (
                 <div key={index} className="mb-4 p-2 border border-gray-600 rounded">
                   <div className="text-white mb-2">{ability.effect}</div>
-                  <div className="text-blue-300 mb-2">Cost: {ability.cost} water</div>
+                  <div className="text-blue-300 mb-2">
+                    Cost: {displayCost} water
+                    {displayCost !== ability.cost && ` (reduced from ${ability.cost})`}
+                  </div>
                   <button
                     className={`bg-purple-600 text-white px-4 py-2 rounded w-full
-          ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-500'}`}
-                    disabled={isDisabled}
-                    title={isDisabled ? disabledReason : ''}
+          ${!hasEnoughWater ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-500'}`}
+                    disabled={!hasEnoughWater}
+                    title={!hasEnoughWater ? 'Not enough water' : ''}
                     onClick={() => {
                       if (selectedCardLocation) {
                         executeAbility(selectedCard, ability, selectedCardLocation);
@@ -1880,7 +1899,7 @@ const GameBoard = () => {
                       setIsAbilityModalOpen(false);
                     }}
                   >
-                    Use Ability {isDisabled && `(${disabledReason})`}
+                    Use Ability {!hasEnoughWater && `(Not enough water)`}
                   </button>
                 </div>
               );
