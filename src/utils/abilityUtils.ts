@@ -97,6 +97,34 @@ export const restoreCard = (
 };
 
 /**
+ * Restores a damaged person card and makes it ready
+ * @param target The target person card to restore
+ * @param slotIndex The index of the target card's slot
+ * @param isRightPlayer Whether the target belongs to the right player
+ * @param setPlayerState Function to update the target player's state
+ * @returns True if the card was successfully restored
+ */
+ export const restorePersonAndMakeReady = (
+  target: Card,
+  slotIndex: number,
+  isRightPlayer: boolean,
+  setPlayerState: (updater: (prevState: PlayerState) => PlayerState) => void
+): boolean => {
+  if (!target.isDamaged || target.type !== 'person') {
+    return false; // Card wasn't damaged or isn't a person
+  }
+
+  setPlayerState((prev) => ({
+    ...prev,
+    personSlots: prev.personSlots.map((slot, i) =>
+      i === slotIndex ? { ...slot, isDamaged: false, isReady: true } : slot
+    ),
+  }));
+  
+  return true; // Card was restored and made ready
+};
+
+/**
  * Deducts water cost for an ability
  * @param player The current player ('left' or 'right')
  * @param waterCost The water cost to deduct
@@ -186,4 +214,13 @@ export const markCardUsedAbility = (
     }
     // If we later add camp abilities, we'd handle that here
   }
+
+  // If it's a camp card that used an ability
+    if (location.type === 'camp') {
+  // Add camp to list of cards that used abilities this turn
+  setCardsUsedAbility([...cardsUsedAbility, card.id]);
+  
+  // Note: Camp cards don't have a "ready" state, so we don't need to mark them as not ready
+  // But we do track that they used an ability this turn
+}
 };

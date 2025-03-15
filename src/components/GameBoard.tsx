@@ -8,7 +8,13 @@ import { useEffect } from 'react';
 import { createPerson } from '@/cards/personCards';
 import { createCamp } from '@/cards/campCards';
 import { createEvent } from '@/cards/eventCards';
-import { applyDamageToTarget, restoreCard, deductWaterCost, markCardUsedAbility } from '@/utils/abilityUtils';
+import {
+  applyDamageToTarget,
+  restoreCard,
+  deductWaterCost,
+  markCardUsedAbility,
+  restorePersonAndMakeReady,
+} from '@/utils/abilityUtils';
 import { markEventPlayed, checkZetoKahnEffect, hasVeraVoshTrait } from '@/utils/gameUtils';
 import { updateProtectionStatus } from '@/utils/protectionUtils';
 import { advanceEventQueue, canPlaceEventInSlot, placeEventInFirstValidSlot, processEvents } from '@/utils/eventUtils';
@@ -292,6 +298,18 @@ const GameBoard = () => {
       return false;
     }
 
+    if (restorePersonReadyMode) {
+      // Only allow targeting damaged person cards
+      if (element === 'person') {
+        const targetCard =
+          elementPlayer === 'left' ? leftPlayerState.personSlots[slotIndex] : rightPlayerState.personSlots[slotIndex];
+        return gameState.currentTurn === elementPlayer && targetCard && targetCard.isDamaged;
+      }
+
+      // Camps are not valid targets for Atomic Garden
+      return false;
+    }
+
     if (punkPlacementMode) {
       // In punk placement mode, a player can only place on their own empty person slots
       return (
@@ -307,7 +325,20 @@ const GameBoard = () => {
       return elementPlayer !== raidingPlayer;
     }
 
-    // Default behavior - players can only interact with their own elements during their turn
+    // Default behavior - players can interact with their own elements during their turn
+    if (element === 'camp') {
+      const card =
+        elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
+
+      return (
+        isCurrentPlayerElement &&
+        gameState.currentPhase === 'actions' &&
+        card &&
+        card.abilities &&
+        card.abilities.length > 0
+      );
+    }
+
     return isCurrentPlayerElement && gameState.currentPhase === 'actions';
   };
 
@@ -471,36 +502,7 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Include Holdout, Zeto Kahn, and some event cards
-    handCards: [
-      createPerson('looter'),
-      createPerson('wounded-soldier'),
-      createPerson('cult-leader'),
-      createPerson('repair-bot'),
-      createPerson('gunner'),
-      createPerson('assassin'),
-      createPerson('scientist'),
-      createPerson('mutant'),
-      createPerson('vigilante'),
-      createPerson('rescue-team'),
-      createPerson('muse'),
-      createPerson('mimic'),
-      createPerson('exterminator'),
-      createPerson('scout'),
-      createPerson('pyromaniac'),
-      createPerson('holdout'),
-      createPerson('rabble-rouser'),
-      createPerson('sniper'),
-      createPerson('magnus-karv'),
-      createPerson('molgur-stang'),
-      createPerson('doomsayer'),
-      createPerson('vanguard'),
-      createPerson('zeto-kahn'),
-      createEvent('ambush'),
-      createEvent('attack'),
-      createPerson('vera-vosh'),
-      createPerson('karli-blaze'),
-      createPerson('argo-yesky'),
-    ].filter(Boolean) as Card[],
+    handCards: [].filter(Boolean) as Card[],
     personSlots: [
       // Create a damaged scout
       // { ...createPerson('scout'), id: 'left-damaged-person-1', isDamaged: true, isReady: false },
@@ -523,9 +525,9 @@ const GameBoard = () => {
     ],
     eventSlots: [null, null, null],
     campSlots: [
-      { ...createCamp('base-camp'), isDamaged: true }, // First camp is damaged
-      null, // Second camp is destroyed (null)
-      createCamp('outpost'), // Third camp is normal
+      { ...createCamp('railgun'), isDamaged: true }, // First camp is damaged
+      createCamp('atomic-garden'), // Second camp
+      createCamp('victory-totem'), // Third camp
     ],
     waterSiloInHand: false,
     waterCount: 30,
@@ -551,7 +553,7 @@ const GameBoard = () => {
   ];
 
   // Initialize protected status for right player's slots
-  const rightTestCamps: (Card | null)[] = [createCamp('garrison'), createCamp('depot'), createCamp('outpost')].filter(
+  const rightTestCamps: (Card | null)[] = [createCamp('outpost'), createCamp('resonator'), createCamp('cache')].filter(
     Boolean
   ) as Card[];
 
@@ -635,6 +637,7 @@ const GameBoard = () => {
   const [rightPlayedEventThisTurn, setRightPlayedEventThisTurn] = useState(false);
   const [leftCardsUsedAbility, setLeftCardsUsedAbility] = useState<string[]>([]);
   const [rightCardsUsedAbility, setRightCardsUsedAbility] = useState<string[]>([]);
+  const [restorePersonReadyMode, setRestorePersonReadyMode] = useState(false);
 
   const gameBoardRef = useRef(null);
 
@@ -1156,6 +1159,58 @@ const GameBoard = () => {
   };
 
   const applyRestore = (target: Card, slotIndex: number, isRightPlayer: boolean) => {
+    // At the beginning of applyRestore function
+    if (restorePersonReadyMode && target.type === 'person') {
+      const wasRestored = restorePersonAndMakeReady(
+        target,
+        slotIndex,
+        isRightPlayer,
+        isRightPlayer ? setRightPlayerState : setLeftPlayerState
+      );
+
+      if (wasRestored) {
+        alert(`Restored ${target.name} and made it ready!`);
+      } else {
+        alert('This card is not damaged or is not a person!');
+      }
+
+      // Reset targeting mode
+      setRestorePersonReadyMode(false);
+      setRestoreSource(null);
+      return;
+    }
+
+    // Rest of the original applyRestore function...
+    // Check if this is a restore_person_ready ability
+    if (restoreSource?.abilities?.some((a) => a.type === 'restore_person_ready') && target.type === 'person') {
+      // Use our special function that both restores and makes ready
+      const wasRestored = restorePersonAndMakeReady(
+        target,
+        slotIndex,
+        isRightPlayer,
+        isRightPlayer ? setRightPlayerState : setLeftPlayerState
+      );
+
+      if (wasRestored) {
+        alert(`Restored ${target.name} and made it ready`);
+      } else {
+        alert('This card is not damaged or is not a person!');
+      }
+    } else {
+      // Normal restore
+      const wasRestored = restoreCard(
+        target,
+        slotIndex,
+        isRightPlayer,
+        isRightPlayer ? setRightPlayerState : setLeftPlayerState
+      );
+
+      if (wasRestored) {
+        alert(`Restored ${target.name}`);
+      } else {
+        alert('This card is not damaged!');
+      }
+    }
     // Use our helper function to restore the card
     const wasRestored = restoreCard(
       target,
@@ -1221,6 +1276,13 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'restore_person_ready':
+        // For Atomic Garden
+        setRestorePersonReadyMode(true);
+        setRestoreSource(card);
+        alert(`Select a damaged person to restore and make them ready`);
+        break;
+
       case 'injure_all':
         // Get the opponent's state and setter
         const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
@@ -2121,6 +2183,7 @@ const GameBoard = () => {
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <PersonSlot
                   index={1}
@@ -2159,6 +2222,7 @@ const GameBoard = () => {
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -2277,6 +2341,10 @@ const GameBoard = () => {
                     ) {
                       // Handle restore targeting
                       applyRestore(leftPlayerState.campSlots[0], 0, false);
+                    } else if (isInteractable('camp', 'left', 0)) {
+                      setSelectedCard(leftPlayerState.campSlots[0]);
+                      setSelectedCardLocation({ type: 'camp', index: 0 });
+                      setIsAbilityModalOpen(true);
                     }
                   }}
                 >
@@ -2295,7 +2363,7 @@ const GameBoard = () => {
                         <br />
                         {leftPlayerState.campSlots[0]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
-                        {leftPlayerState.campSlots[0]?.isDamaged ? 'Damaged' : 'Not Damaged'}
+                        {leftPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                       </>
                     )}
                   </div>
@@ -2340,6 +2408,7 @@ const GameBoard = () => {
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <PersonSlot
                   index={3}
@@ -2378,6 +2447,7 @@ const GameBoard = () => {
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -2494,6 +2564,10 @@ const GameBoard = () => {
                     ) {
                       // Handle restore targeting
                       applyRestore(leftPlayerState.campSlots[1], 1, false);
+                    } else if (isInteractable('camp', 'left', 1)) {
+                      setSelectedCard(leftPlayerState.campSlots[1]);
+                      setSelectedCardLocation({ type: 'camp', index: 1 });
+                      setIsAbilityModalOpen(true);
                     }
                   }}
                 >
@@ -2512,7 +2586,7 @@ const GameBoard = () => {
                         <br />
                         {leftPlayerState.campSlots[1]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
-                        {leftPlayerState.campSlots[1]?.isDamaged ? 'Damaged' : 'Not Damaged'}
+                        {leftPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                       </>
                     )}
                   </div>
@@ -2557,6 +2631,7 @@ const GameBoard = () => {
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <PersonSlot
                   index={5}
@@ -2595,6 +2670,7 @@ const GameBoard = () => {
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -2713,6 +2789,10 @@ const GameBoard = () => {
                     ) {
                       // Handle restore targeting
                       applyRestore(leftPlayerState.campSlots[2], 2, false);
+                    } else if (isInteractable('camp', 'left', 2)) {
+                      setSelectedCard(leftPlayerState.campSlots[2]);
+                      setSelectedCardLocation({ type: 'camp', index: 2 });
+                      setIsAbilityModalOpen(true);
                     }
                   }}
                 >
@@ -2731,7 +2811,7 @@ const GameBoard = () => {
                         <br />
                         {leftPlayerState.campSlots[2]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
-                        {leftPlayerState.campSlots[2]?.isDamaged ? 'Damaged' : 'Not Damaged'}
+                        {leftPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                       </>
                     )}
                   </div>
@@ -3331,6 +3411,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <PersonSlot
                   index={1}
@@ -3366,6 +3447,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3484,6 +3566,10 @@ const GameBoard = () => {
                     ) {
                       // Handle restore targeting
                       applyRestore(rightPlayerState.campSlots[0], 0, true);
+                    } else if (isInteractable('camp', 'right', 0)) {
+                      setSelectedCard(rightPlayerState.campSlots[0]);
+                      setSelectedCardLocation({ type: 'camp', index: 0 });
+                      setIsAbilityModalOpen(true);
                     }
                   }}
                 >
@@ -3502,7 +3588,7 @@ const GameBoard = () => {
                         <br />
                         {rightPlayerState.campSlots[0]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
-                        {rightPlayerState.campSlots[0]?.isDamaged ? 'Damaged' : 'Not Damaged'}
+                        {rightPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                       </>
                     )}
                   </div>
@@ -3544,6 +3630,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <PersonSlot
                   index={3}
@@ -3579,6 +3666,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3697,6 +3785,10 @@ const GameBoard = () => {
                     ) {
                       // Handle restore targeting
                       applyRestore(rightPlayerState.campSlots[1], 1, true);
+                    } else if (isInteractable('camp', 'right', 1)) {
+                      setSelectedCard(rightPlayerState.campSlots[1]);
+                      setSelectedCardLocation({ type: 'camp', index: 1 });
+                      setIsAbilityModalOpen(true);
                     }
                   }}
                 >
@@ -3715,7 +3807,7 @@ const GameBoard = () => {
                         <br />
                         {rightPlayerState.campSlots[1]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
-                        {rightPlayerState.campSlots[1]?.isDamaged ? 'Damaged' : 'Not Damaged'}
+                        {rightPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                       </>
                     )}
                   </div>
@@ -3757,6 +3849,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <PersonSlot
                   index={5}
@@ -3792,6 +3885,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   mimicMode={mimicMode}
+                  restorePersonReadyMode={restorePersonReadyMode}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3910,6 +4004,10 @@ const GameBoard = () => {
                     ) {
                       // Handle restore targeting
                       applyRestore(rightPlayerState.campSlots[2], 2, true);
+                    } else if (isInteractable('camp', 'right', 2)) {
+                      setSelectedCard(rightPlayerState.campSlots[2]);
+                      setSelectedCardLocation({ type: 'camp', index: 2 });
+                      setIsAbilityModalOpen(true);
                     }
                   }}
                 >
@@ -3928,7 +4026,7 @@ const GameBoard = () => {
                         <br />
                         {rightPlayerState.campSlots[2]?.isProtected ? 'Protected' : 'Unprotected'}
                         <br />
-                        {rightPlayerState.campSlots[2]?.isDamaged ? 'Damaged' : 'Not Damaged'}
+                        {rightPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                       </>
                     )}
                   </div>

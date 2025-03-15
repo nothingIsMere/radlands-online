@@ -18,6 +18,7 @@ interface PersonSlotProps {
   setRestoreMode?: (value: boolean) => void;
   injureMode?: boolean;
   damageColumnMode?: boolean;
+  restorePersonReadyMode?: boolean;
   checkAbilityEnabled?: (card: Card) => boolean; // Function to check if an ability can be used
   setInjureMode?: (value: boolean) => void;
   damageMode?: boolean;
@@ -89,6 +90,7 @@ const PersonSlot = ({
   setSelectedCardLocation,
   setIsAbilityModalOpen,
   mimicMode = false,
+  restorePersonReadyMode = false,
 }: PersonSlotProps) => {
   React.useEffect(() => {
     if (restoreMode && card?.name === 'Repair Bot') {
@@ -107,6 +109,7 @@ const PersonSlot = ({
       className={`w-24 h-32 border-2 ${
         ((punkPlacementMode && !card) ||
           (restoreMode && card?.isDamaged && player === restorePlayer) ||
+          (restorePersonReadyMode && player === gameState.currentTurn && card?.isDamaged) ||
           (injureMode && card && !card.isProtected) ||
           (destroyPersonMode && card) ||
           (damageMode && card) ||
@@ -150,6 +153,8 @@ const PersonSlot = ({
 
           if (setPunkPlacementMode) setPunkPlacementMode(false);
           if (setPunkCardToPlace) setPunkCardToPlace(null);
+        } else if (restorePersonReadyMode && player === gameState.currentTurn && card?.isDamaged) {
+          applyRestore(card, index, player === 'right');
         } else if (returnToHandMode && card && player === gameState.currentTurn) {
           // Return the card to the player's hand
           setPlayerState((prev) => {

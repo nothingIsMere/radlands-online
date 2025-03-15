@@ -77,7 +77,7 @@ export interface GameState {
 }
 
 // Additional state types we'll need for ability targeting
-export type AbilityMode = null | 'damage' | 'restore' | 'protect' | 'swap';
+export type AbilityMode = null | 'damage' | 'restore' | 'protect' | 'swap' | 'restore_person_ready';
 export interface AbilityContext {
   sourceCard: Card | null;
   sourceSlot: number | null;
