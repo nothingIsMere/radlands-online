@@ -264,6 +264,20 @@ const GameBoard = () => {
         return false;
       }
 
+      if (element === 'camp') {
+        const card =
+          elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
+
+        return (
+          isCurrentPlayerElement &&
+          gameState.currentPhase === 'actions' &&
+          card &&
+          card.isReady && // Add this check
+          card.abilities &&
+          card.abilities.length > 0
+        );
+      }
+
       // Normal damage logic for other cards
       if (element === 'person') {
         const targetCard =
@@ -2398,6 +2412,8 @@ const GameBoard = () => {
                         {leftPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                         <br />
                         {leftPlayerState.campSlots[0]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                        <br />
+                        {leftPlayerState.campSlots[0]?.isReady ? 'Ready' : 'Not Ready'}
                       </>
                     )}
                   </div>
@@ -2623,6 +2639,8 @@ const GameBoard = () => {
                         {leftPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                         <br />
                         {leftPlayerState.campSlots[1]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                        <br />
+                        {leftPlayerState.campSlots[1]?.isReady ? 'Ready' : 'Not Ready'}
                       </>
                     )}
                   </div>
@@ -2850,6 +2868,8 @@ const GameBoard = () => {
                         {leftPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                         <br />
                         {leftPlayerState.campSlots[2]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                        <br />
+                        {leftPlayerState.campSlots[2]?.isReady ? 'Ready' : 'Not Ready'}
                       </>
                     )}
                   </div>
@@ -3629,6 +3649,8 @@ const GameBoard = () => {
                         {rightPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                         <br />
                         {rightPlayerState.campSlots[0]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                        <br />
+                        {rightPlayerState.campSlots[0]?.isReady ? 'Ready' : 'Not Ready'}
                       </>
                     )}
                   </div>
@@ -3850,6 +3872,8 @@ const GameBoard = () => {
                         {rightPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                         <br />
                         {rightPlayerState.campSlots[1]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                        <br />
+                        {rightPlayerState.campSlots[1]?.isReady ? 'Ready' : 'Not Ready'}
                       </>
                     )}
                   </div>
@@ -4071,6 +4095,8 @@ const GameBoard = () => {
                         {rightPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
                         <br />
                         {rightPlayerState.campSlots[2]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                        <br />
+                        {rightPlayerState.campSlots[2]?.isReady ? 'Ready' : 'Not Ready'}
                       </>
                     )}
                   </div>

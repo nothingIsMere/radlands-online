@@ -174,7 +174,7 @@ export const deductWaterCost = (
  * @param setRightCardsUsedAbility Function to update right player's used abilities array
  * @param hasVeraVoshActive Whether Vera Vosh's trait is active
  */
-export const markCardUsedAbility = (
+ export const markCardUsedAbility = (
   card: Card,
   location: { type: 'person' | 'camp'; index: number },
   player: 'left' | 'right',
@@ -196,12 +196,13 @@ export const markCardUsedAbility = (
   // Check if this card has already used an ability this turn
   const hasCardUsedAbility = cardsUsedAbility.includes(card.id);
   
-  if (hasVeraVoshActive && !hasCardUsedAbility) {
-    // First ability use with Vera Vosh active - card stays ready
+  if (hasVeraVoshActive && !hasCardUsedAbility && location.type === 'person') {
+    // First person card ability use with Vera Vosh active - card stays ready
+    // Note: Vera Vosh's effect only applies to person cards, not camps
     console.log(`${card.name} stays ready due to Vera Vosh's effect`);
     
     // Add card to list of cards that used abilities this turn
-    setCardsUsedAbility([...cardsUsedAbility, card.id]);
+    setCardsUsedAbility((prev) => [...prev, card.id]);
   } else {
     // Normal case - mark card as not ready
     if (location.type === 'person') {
@@ -211,16 +212,21 @@ export const markCardUsedAbility = (
           idx === location.index ? { ...slot, isReady: false } : slot
         ),
       }));
+      
+      // Add to list of cards that used abilities this turn
+      setCardsUsedAbility((prev) => [...prev, card.id]);
+    } 
+    // Handle camp cards
+    else if (location.type === 'camp') {
+      setPlayerState((prev) => ({
+        ...prev,
+        campSlots: prev.campSlots.map((slot, idx) =>
+          idx === location.index ? { ...slot, isReady: false } : slot
+        ),
+      }));
+      
+      // Add to list of cards that used abilities this turn
+      setCardsUsedAbility((prev) => [...prev, card.id]);
     }
-    // If we later add camp abilities, we'd handle that here
   }
-
-  // If it's a camp card that used an ability
-    if (location.type === 'camp') {
-  // Add camp to list of cards that used abilities this turn
-  setCardsUsedAbility([...cardsUsedAbility, card.id]);
-  
-  // Note: Camp cards don't have a "ready" state, so we don't need to mark them as not ready
-  // But we do track that they used an ability this turn
-}
 };

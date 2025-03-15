@@ -608,5 +608,6 @@ export function createCamp(cardKey: string): Card | undefined {
     id: id,
     isDamaged: isDamaged,
     isProtected: false,
+    isReady: true 
   };
 }
