@@ -541,48 +541,48 @@ const GameBoard = () => {
   ];
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
-    // Include Holdout, Zeto Kahn, and some event cards
-    handCards: [createPerson('sniper')].filter(Boolean) as Card[],
-    personSlots: [
-      // Create a damaged scout
-      // { ...createPerson('scout'), id: 'left-damaged-person-1', isDamaged: true, isReady: false },
-      { ...createPerson('scout'), id: 'left-damaged-person-1', isDamaged: true, isReady: false },
-      // Create a damaged warrior
-      { ...createPerson('assassin'), id: 'left-damaged-person-2', isDamaged: true, isReady: false },
-      null,
+    // Hand cards: several random people plus two with "gain_punk" junk effect
+    handCards: [
+      // Regular person cards
+      { ...createPerson('scout'), id: 'test-scout-1' },
+      { ...createPerson('assassin'), id: 'test-assassin-1' },
+      { ...createPerson('gunner'), id: 'test-gunner-1' },
+
+      // Two cards with gain_punk junk effect
       {
-        id: 'punk-card-test',
-        name: 'Punk',
+        id: 'test-punk-generator-1',
+        name: 'Punk Generator Alpha',
         type: 'person',
-        isDamaged: false,
-        isProtected: false,
-        isPunk: true,
-        isReady: false,
+        playCost: 1,
+        abilities: [],
+        junkEffect: 'gain_punk', // This card can be junked to gain a punk
       },
       {
-        id: 'punk-card-test',
-        name: 'Punk',
+        id: 'test-punk-generator-2',
+        name: 'Punk Generator Beta',
         type: 'person',
-        isDamaged: false,
-        isProtected: false,
-        isPunk: true,
-        isReady: false,
-      },
-      {
-        id: 'punk-card-test',
-        name: 'Punk',
-        type: 'person',
-        isDamaged: false,
-        isProtected: false,
-        isPunk: true,
-        isReady: false,
+        playCost: 1,
+        abilities: [],
+        junkEffect: 'gain_punk', // This card can be junked to gain a punk
       },
     ],
+
+    // No people in person slots
+    personSlots: [null, null, null, null, null, null],
+
+    // Camp slots with Nest of Spies for testing
+    campSlots: [
+      createCamp('nest-of-spies'), // Put Nest of Spies in first column
+      createCamp('atomic-garden'),
+      createCamp('pillbox'),
+    ],
+
+    // Other properties
     eventSlots: [null, null, null],
-    campSlots: [createCamp('command-post'), createCamp('atomic-garden'), createCamp('pillbox')],
     waterSiloInHand: false,
-    waterCount: 30,
+    waterCount: 10, // Plenty of water for testing
     raidersLocation: 'default',
+    peoplePlayedThisTurn: 0, // Initialize counter
   });
 
   const rightTestPersonSlots: (Card | null)[] = [
@@ -622,6 +622,7 @@ const GameBoard = () => {
     waterSiloInHand: false,
     waterCount: 2,
     raidersLocation: 'default',
+    peoplePlayedThisTurn: 0,
   });
 
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
@@ -1369,6 +1370,48 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'conditional_damage':
+        // For cards like Cannon with conditional abilities
+        let nestOfSpiesConditionMet = false; // Declare a new variable with a unique name
+
+        if (ability.condition === 'self_undamaged') {
+          // For Cannon: "If this card is undamaged, Damage"
+          nestOfSpiesConditionMet = !card.isDamaged;
+        } else if (ability.condition === 'played_two_people') {
+          // For Nest of Spies: "If you have put 2 or more people into play this turn Damage."
+          nestOfSpiesConditionMet = playerState.peoplePlayedThisTurn >= 2;
+
+          if (!nestOfSpiesConditionMet) {
+            alert('Not enough people played this turn! You need to play at least 2 people.');
+
+            // Refund the water cost
+            setPlayerState((prev) => ({
+              ...prev,
+              waterCount: prev.waterCount + ability.cost,
+            }));
+
+            return; // Exit without entering damage mode
+          }
+        }
+
+        // If condition is met, proceed with damage effect
+        if (nestOfSpiesConditionMet) {
+          setDamageMode(true);
+          setDamageSource(card);
+          setDamageValue(ability.value || 1);
+          alert(`Select an unprotected enemy card to damage`);
+        } else {
+          // Condition not met
+          alert('Condition not met for this ability.');
+
+          // Refund the water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+        }
+        break;
+
       case 'self_damage_then_restore_any':
         // For Bonfire: "Damage this card, then Restore any number of cards"
 
@@ -1936,6 +1979,8 @@ const GameBoard = () => {
     setRightPlayedEventThisTurn(false);
     setLeftCardsUsedAbility([]);
     setRightCardsUsedAbility([]);
+    setLeftPlayerState((prev) => ({ ...prev, peoplePlayedThisTurn: 0 }));
+    setRightPlayerState((prev) => ({ ...prev, peoplePlayedThisTurn: 0 }));
   }, [gameState.currentTurn]);
 
   return (

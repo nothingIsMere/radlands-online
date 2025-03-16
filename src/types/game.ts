@@ -65,6 +65,7 @@ export interface PlayerState {
   waterSiloInHand: boolean;
   waterCount: number;
   raidersLocation: 'default' | 'event1' | 'event2' | 'event3';
+  peoplePlayedThisTurn: number;
 }
 
 export type Phase = 'events' | 'replenish' | 'actions';

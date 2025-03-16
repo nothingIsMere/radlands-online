@@ -158,6 +158,7 @@ const PersonSlot = ({
                     }
                   : slot
               ),
+              peoplePlayedThisTurn: prev.peoplePlayedThisTurn + 1,
             };
           });
 
@@ -404,6 +405,7 @@ const PersonSlot = ({
               campSlots,
               waterCount: prev.waterCount - playCost, // Deduct water cost (will be 0 for free plays)
               handCards: prev.handCards.filter((card) => card.id !== cardId),
+              peoplePlayedThisTurn: prev.peoplePlayedThisTurn + 1,
             };
           });
 
