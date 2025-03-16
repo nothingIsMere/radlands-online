@@ -298,7 +298,7 @@ const GameBoard = () => {
           isCurrentPlayerElement &&
           gameState.currentPhase === 'actions' &&
           card &&
-          card.isReady && // Add this check
+          card.isReady &&
           card.abilities &&
           card.abilities.length > 0
         );
@@ -572,7 +572,7 @@ const GameBoard = () => {
 
     // Camp slots with Nest of Spies for testing
     campSlots: [
-      createCamp('nest-of-spies'), // Put Nest of Spies in first column
+      createCamp('garage'), // Put Nest of Spies in first column
       createCamp('atomic-garden'),
       createCamp('pillbox'),
     ],
@@ -1318,6 +1318,21 @@ const GameBoard = () => {
 
     let finalWaterCost = ability.cost;
 
+    if (location.type === 'camp') {
+      // Update the player state directly
+      if (gameState.currentTurn === 'left') {
+        setLeftPlayerState((prev) => ({
+          ...prev,
+          campSlots: prev.campSlots.map((camp, idx) => (idx === location.index ? { ...camp, isReady: false } : camp)),
+        }));
+      } else {
+        setRightPlayerState((prev) => ({
+          ...prev,
+          campSlots: prev.campSlots.map((camp, idx) => (idx === location.index ? { ...camp, isReady: false } : camp)),
+        }));
+      }
+    }
+
     // Apply cost modifiers if any
     if (ability.costModifier === 'destroyed_camps') {
       // For Pillbox: cost reduced by number of destroyed camps
@@ -1349,10 +1364,16 @@ const GameBoard = () => {
       setRightPlayerState
     );
 
+    // Add to list of cards that used abilities this turn
+    if (gameState.currentTurn === 'left') {
+      setLeftCardsUsedAbility((prev) => [...prev, card.id]);
+    } else {
+      setRightCardsUsedAbility((prev) => [...prev, card.id]);
+    }
+
     // Check if Vera Vosh's trait is active
     const hasVeraVoshEffect = hasVeraVoshTrait(playerState);
 
-    // Use our helper to mark the card as used
     markCardUsedAbility(
       card,
       location,
@@ -2009,51 +2030,67 @@ const GameBoard = () => {
               transform: 'translate(-50%, -50%)',
             }}
           >
-            {selectedCard.abilities?.map((ability, index) => {
-              const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
-
-              // Calculate modified cost if applicable
-              let displayCost = ability.cost;
-              if (ability.costModifier === 'destroyed_camps') {
-                const destroyedCamps = playerState.campSlots.filter((camp) => camp === null).length;
-                displayCost = Math.max(0, ability.cost - destroyedCamps);
-              } else if (ability.costModifier === 'punks_owned') {
-                const punksInPlay = playerState.personSlots.filter((person) => person && person.isPunk).length;
-                displayCost = Math.max(0, ability.cost - punksInPlay);
-              }
-
-              const hasEnoughWater = playerState.waterCount >= displayCost;
-
-              return (
-                <div key={index} className="mb-4 p-2 border border-gray-600 rounded">
-                  <div className="text-white mb-2">{ability.effect}</div>
-                  <div className="text-blue-300 mb-2">
-                    Cost: {displayCost} water
-                    {displayCost !== ability.cost && ` (reduced from ${ability.cost})`}
-                  </div>
-                  <button
-                    className={`bg-purple-600 text-white px-4 py-2 rounded w-full
-                ${!hasEnoughWater ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-500'}`}
-                    disabled={!hasEnoughWater}
-                    title={!hasEnoughWater ? 'Not enough water' : ''}
-                    onClick={() => {
-                      if (selectedCardLocation) {
-                        executeAbility(selectedCard, ability, selectedCardLocation);
-                      }
-                      setIsAbilityModalOpen(false);
-                    }}
-                  >
-                    Use Ability {!hasEnoughWater && `(Not enough water)`}
-                  </button>
+            {/* Add this check for camp cards that are not ready */}
+            {selectedCardLocation && selectedCardLocation.type === 'camp' && !selectedCard.isReady ? (
+              <div>
+                <div className="text-white mb-4 text-center">
+                  <h3 className="text-xl font-bold mb-2 text-red-400">Camp Already Used</h3>
+                  <p>This camp has already used its ability this turn and cannot be used again until next turn.</p>
                 </div>
-              );
-            })}
-            <button
-              className="mt-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded w-full"
-              onClick={() => setIsAbilityModalOpen(false)}
-            >
-              Cancel
-            </button>
+                <button
+                  className="mt-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded w-full"
+                  onClick={() => setIsAbilityModalOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              /* Regular ability display for ready cards */
+              <>
+                {selectedCard.abilities?.map((ability, index) => {
+                  const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+                  // Calculate modified cost if applicable
+                  let displayCost = ability.cost;
+                  if (ability.costModifier === 'destroyed_camps') {
+                    const destroyedCamps = playerState.campSlots.filter((camp) => camp === null).length;
+                    displayCost = Math.max(0, ability.cost - destroyedCamps);
+                  } else if (ability.costModifier === 'punks_owned') {
+                    const punksInPlay = playerState.personSlots.filter((person) => person && person.isPunk).length;
+                    displayCost = Math.max(0, ability.cost - punksInPlay);
+                  }
+                  const hasEnoughWater = playerState.waterCount >= displayCost;
+                  return (
+                    <div key={index} className="mb-4 p-2 border border-gray-600 rounded">
+                      <div className="text-white mb-2">{ability.effect}</div>
+                      <div className="text-blue-300 mb-2">
+                        Cost: {displayCost} water
+                        {displayCost !== ability.cost && ` (reduced from ${ability.cost})`}
+                      </div>
+                      <button
+                        className={`bg-purple-600 text-white px-4 py-2 rounded w-full
+                  ${!hasEnoughWater ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-500'}`}
+                        disabled={!hasEnoughWater}
+                        title={!hasEnoughWater ? 'Not enough water' : ''}
+                        onClick={() => {
+                          if (selectedCardLocation) {
+                            executeAbility(selectedCard, ability, selectedCardLocation);
+                          }
+                          setIsAbilityModalOpen(false);
+                        }}
+                      >
+                        Use Ability {!hasEnoughWater && `(Not enough water)`}
+                      </button>
+                    </div>
+                  );
+                })}
+                <button
+                  className="mt-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded w-full"
+                  onClick={() => setIsAbilityModalOpen(false)}
+                >
+                  Cancel
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2564,7 +2601,17 @@ const GameBoard = () => {
                       // Handle restore targeting
                       applyRestore(leftPlayerState.campSlots[0], 0, false);
                     } else if (isInteractable('camp', 'left', 0)) {
-                      setSelectedCard(leftPlayerState.campSlots[0]);
+                      // Get the camp card
+                      const campCard = leftPlayerState.campSlots[0];
+
+                      // Add an additional safety check for isReady
+                      if (!campCard.isReady) {
+                        alert('This camp has already used its ability this turn!');
+                        return; // Don't open the modal
+                      }
+
+                      // If we passed the check, proceed as normal
+                      setSelectedCard(campCard);
                       setSelectedCardLocation({ type: 'camp', index: 0 });
                       setIsAbilityModalOpen(true);
                     }
@@ -2808,7 +2855,17 @@ const GameBoard = () => {
                       // Handle restore targeting
                       applyRestore(leftPlayerState.campSlots[1], 1, false);
                     } else if (isInteractable('camp', 'left', 1)) {
-                      setSelectedCard(leftPlayerState.campSlots[1]);
+                      // Get the camp card
+                      const campCard = leftPlayerState.campSlots[1];
+
+                      // Add an additional safety check for isReady
+                      if (!campCard.isReady) {
+                        alert('This camp has already used its ability this turn!');
+                        return; // Don't open the modal
+                      }
+
+                      // If we passed the check, proceed as normal
+                      setSelectedCard(campCard);
                       setSelectedCardLocation({ type: 'camp', index: 1 });
                       setIsAbilityModalOpen(true);
                     }
@@ -3052,7 +3109,17 @@ const GameBoard = () => {
                       // Handle restore targeting
                       applyRestore(leftPlayerState.campSlots[2], 2, false);
                     } else if (isInteractable('camp', 'left', 2)) {
-                      setSelectedCard(leftPlayerState.campSlots[2]);
+                      // Get the camp card
+                      const campCard = leftPlayerState.campSlots[2];
+
+                      // Add an additional safety check for isReady
+                      if (!campCard.isReady) {
+                        alert('This camp has already used its ability this turn!');
+                        return; // Don't open the modal
+                      }
+
+                      // If we passed the check, proceed as normal
+                      setSelectedCard(campCard);
                       setSelectedCardLocation({ type: 'camp', index: 2 });
                       setIsAbilityModalOpen(true);
                     }
@@ -3487,10 +3554,20 @@ const GameBoard = () => {
                         () => {
                           setLeftPlayedEventThisTurn(false);
                           setLeftCardsUsedAbility([]);
+                          // Add this line to reset left player's camps to ready state
+                          setLeftPlayerState((prev) => ({
+                            ...prev,
+                            campSlots: prev.campSlots.map((camp) => (camp ? { ...camp, isReady: true } : null)),
+                          }));
                         },
                         () => {
                           setRightPlayedEventThisTurn(false);
                           setRightCardsUsedAbility([]);
+                          // Add this line to reset right player's camps to ready state
+                          setRightPlayerState((prev) => ({
+                            ...prev,
+                            campSlots: prev.campSlots.map((camp) => (camp ? { ...camp, isReady: true } : null)),
+                          }));
                         }
                       );
                     }}
@@ -3866,7 +3943,17 @@ const GameBoard = () => {
                       // Handle restore targeting
                       applyRestore(rightPlayerState.campSlots[0], 0, true);
                     } else if (isInteractable('camp', 'right', 0)) {
-                      setSelectedCard(rightPlayerState.campSlots[0]);
+                      // Get the camp card
+                      const campCard = rightPlayerState.campSlots[0];
+
+                      // Add an additional safety check for isReady
+                      if (!campCard.isReady) {
+                        alert('This camp has already used its ability this turn!');
+                        return; // Don't open the modal
+                      }
+
+                      // If we passed the check, proceed as normal
+                      setSelectedCard(campCard);
                       setSelectedCardLocation({ type: 'camp', index: 0 });
                       setIsAbilityModalOpen(true);
                     }
@@ -4104,7 +4191,17 @@ const GameBoard = () => {
                       // Handle restore targeting
                       applyRestore(rightPlayerState.campSlots[1], 1, true);
                     } else if (isInteractable('camp', 'right', 1)) {
-                      setSelectedCard(rightPlayerState.campSlots[1]);
+                      // Get the camp card
+                      const campCard = rightPlayerState.campSlots[1];
+
+                      // Add an additional safety check for isReady
+                      if (!campCard.isReady) {
+                        alert('This camp has already used its ability this turn!');
+                        return; // Don't open the modal
+                      }
+
+                      // If we passed the check, proceed as normal
+                      setSelectedCard(campCard);
                       setSelectedCardLocation({ type: 'camp', index: 1 });
                       setIsAbilityModalOpen(true);
                     }
@@ -4342,7 +4439,17 @@ const GameBoard = () => {
                       // Handle restore targeting
                       applyRestore(rightPlayerState.campSlots[2], 2, true);
                     } else if (isInteractable('camp', 'right', 2)) {
-                      setSelectedCard(rightPlayerState.campSlots[2]);
+                      // Get the camp card
+                      const campCard = rightPlayerState.campSlots[2];
+
+                      // Add an additional safety check for isReady
+                      if (!campCard.isReady) {
+                        alert('This camp has already used its ability this turn!');
+                        return; // Don't open the modal
+                      }
+
+                      // If we passed the check, proceed as normal
+                      setSelectedCard(campCard);
                       setSelectedCardLocation({ type: 'camp', index: 2 });
                       setIsAbilityModalOpen(true);
                     }
