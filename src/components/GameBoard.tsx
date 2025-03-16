@@ -121,10 +121,6 @@ const GameBoard = () => {
         const targetCamp =
           elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
 
-        if (targetCamp && targetCamp.traits?.includes('cannot_restore')) {
-          return false;
-        }
-
         return isCurrentPlayerElement && targetCamp && targetCamp.isDamaged;
       }
 
@@ -341,11 +337,6 @@ const GameBoard = () => {
       if (element === 'camp') {
         const targetCamp =
           elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
-
-        // Add check for cannot_restore trait
-        return (
-          isCurrentPlayerElement && targetCamp && targetCamp.isDamaged && !targetCamp.traits?.includes('cannot_restore')
-        );
       }
 
       // Camps are not valid targets for Atomic Garden
