@@ -50,6 +50,7 @@ interface PersonSlotProps {
   setSelectedCardLocation?: (location: { type: 'person' | 'camp'; index: number } | null) => void;
   setIsAbilityModalOpen?: (isOpen: boolean) => void;
   destroyPersonMode?: boolean;
+  multiRestoreMode?: boolean;
 }
 
 const PersonSlot = ({
@@ -91,6 +92,7 @@ const PersonSlot = ({
   setIsAbilityModalOpen,
   mimicMode = false,
   restorePersonReadyMode = false,
+  multiRestoreMode = false,
 }: PersonSlotProps) => {
   React.useEffect(() => {
     if (restoreMode && card?.name === 'Repair Bot') {
@@ -111,6 +113,7 @@ const PersonSlot = ({
           (restoreMode && card?.isDamaged && player === restorePlayer) ||
           (restorePersonReadyMode && player === gameState.currentTurn && card?.isDamaged) ||
           (injureMode && card && !card.isProtected) ||
+          (multiRestoreMode && player === gameState.currentTurn && card?.isDamaged) ||
           (destroyPersonMode && card) ||
           (damageMode && card) ||
           (sacrificeMode && player === gameState.currentTurn && card) ||
@@ -128,6 +131,13 @@ const PersonSlot = ({
         console.log('Current turn:', gameState.currentTurn);
         console.log('Card player:', player);
 
+        if (multiRestoreMode && card?.isDamaged && player === gameState.currentTurn) {
+          // Use the proper applyRestore function that was passed as a prop
+          if (applyRestore) {
+            applyRestore(card, index, player === 'right');
+          }
+          return; //
+        }
         // Only allow interaction if the element is interactable
         if (!isInteractable('person', player, index)) return;
         if (punkPlacementMode && !card && punkCardToPlace) {
