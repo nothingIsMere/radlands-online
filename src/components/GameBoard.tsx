@@ -1503,6 +1503,32 @@ const GameBoard = () => {
 
       case 'restore_person_ready':
         // For Atomic Garden
+        // First check if there are any damaged person cards
+        const hasDamagedPerson = playerState.personSlots.some((card) => card && card.isDamaged);
+
+        if (!hasDamagedPerson) {
+          alert('No damaged person cards to restore!');
+
+          // Refund the water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          // Mark the camp as ready again since the ability wasn't actually used
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          }
+
+          return; // Exit without entering restore mode
+        }
+
+        // If we have damaged persons, proceed as normal
         setRestorePersonReadyMode(true);
         setRestoreSource(card);
         alert(`Select a damaged person to restore and make them ready`);
@@ -1645,7 +1671,41 @@ const GameBoard = () => {
         break;
 
       case 'restore':
-        // Enter restore targeting mode
+        // Check if there are any damaged cards (person or camp)
+        const hasDamagedCard = [...playerState.personSlots, ...playerState.campSlots].some(
+          (card) => card && card.isDamaged
+        );
+
+        if (!hasDamagedCard) {
+          alert('No damaged cards to restore!');
+
+          // Refund the water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          // Mark the card as ready again since the ability wasn't actually used
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          } else if (location.type === 'person') {
+            setPlayerState((prev) => ({
+              ...prev,
+              personSlots: prev.personSlots.map((person, idx) =>
+                idx === location.index ? { ...person, isReady: true } : person
+              ),
+            }));
+          }
+
+          return; // Exit without entering restore mode
+        }
+
+        // If we have damaged cards, proceed as normal
         setAbilityRestoreMode(true);
         setRestoreSource(card);
         alert(`Select a damaged card to restore`);
