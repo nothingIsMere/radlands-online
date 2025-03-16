@@ -107,7 +107,6 @@ const GameBoard = () => {
     // Default: Players can only interact with their own elements during their turn
     const isCurrentPlayerElement = gameState.currentTurn === elementPlayer;
 
-    // Add this as a new condition in isInteractable
     if (multiRestoreMode) {
       // In multi-restore mode, player can target their own damaged cards (person or camp)
       const isCurrentPlayerElement = gameState.currentTurn === elementPlayer;
@@ -122,7 +121,6 @@ const GameBoard = () => {
         const targetCamp =
           elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
 
-        // Bonfire cannot be restored, so exclude it from eligible targets
         if (targetCamp && targetCamp.traits?.includes('cannot_restore')) {
           return false;
         }
@@ -340,10 +338,14 @@ const GameBoard = () => {
 
     if (restorePersonReadyMode) {
       // Only allow targeting damaged person cards
-      if (element === 'person') {
-        const targetCard =
-          elementPlayer === 'left' ? leftPlayerState.personSlots[slotIndex] : rightPlayerState.personSlots[slotIndex];
-        return gameState.currentTurn === elementPlayer && targetCard && targetCard.isDamaged;
+      if (element === 'camp') {
+        const targetCamp =
+          elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
+
+        // Add check for cannot_restore trait
+        return (
+          isCurrentPlayerElement && targetCamp && targetCamp.isDamaged && !targetCamp.traits?.includes('cannot_restore')
+        );
       }
 
       // Camps are not valid targets for Atomic Garden
@@ -544,7 +546,7 @@ const GameBoard = () => {
     // Hand cards: several random people plus two with "gain_punk" junk effect
     handCards: [
       // Regular person cards
-      { ...createPerson('scout'), id: 'test-scout-1' },
+      { ...createPerson('repair-bot'), id: 'test-repair-bot-1', isReady: true },
       { ...createPerson('assassin'), id: 'test-assassin-1' },
       { ...createPerson('gunner'), id: 'test-gunner-1' },
 
@@ -572,7 +574,12 @@ const GameBoard = () => {
 
     // Camp slots with Nest of Spies for testing
     campSlots: [
-      createCamp('garage'), // Put Nest of Spies in first column
+      {
+        ...createCamp('bonfire'),
+        id: 'test-damaged-bonfire',
+        isDamaged: true,
+        isReady: true,
+      },
       createCamp('atomic-garden'),
       createCamp('pillbox'),
     ],
@@ -624,6 +631,22 @@ const GameBoard = () => {
     raidersLocation: 'default',
     peoplePlayedThisTurn: 0,
   });
+
+  // Run this in a useEffect or a button click handler to damage existing cards
+  const addDamagedPersons = () => {
+    setLeftPlayerState((prev) => ({
+      ...prev,
+      personSlots: [
+        { ...createPerson('scout'), id: 'left-damaged-person-1', isDamaged: true, isReady: false },
+        { ...createPerson('assassin'), id: 'left-damaged-person-2', isDamaged: true, isReady: false },
+        { ...createPerson('gunner'), id: 'left-damaged-person-3', isDamaged: true, isReady: false },
+        ...prev.personSlots.slice(3), // Keep any existing cards in the last three slots
+      ],
+    }));
+  };
+
+  // Call this function when needed
+  // addDamagedPersons();
 
   const [drawDeck, setDrawDeck] = useState<Card[]>(drawDeckCards);
   const [discardPile, setDiscardPile] = useState<Card[]>([]);
@@ -2547,10 +2570,7 @@ const GameBoard = () => {
       (sniperMode || !leftPlayerState.campSlots[0]?.isProtected)) ||
     (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) ||
     (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[0]?.isDamaged) ||
-    (multiRestoreMode &&
-      gameState.currentTurn === 'left' &&
-      leftPlayerState.campSlots[0]?.isDamaged &&
-      !leftPlayerState.campSlots[0]?.traits?.includes('cannot_restore')) ||
+    (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[0]?.isDamaged) ||
     (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[0]?.isDamaged) ||
     (damageColumnMode && gameState.currentTurn !== 'right')
       ? 'border-purple-400 animate-pulse cursor-pointer'
@@ -2564,8 +2584,7 @@ const GameBoard = () => {
                       multiRestoreMode &&
                       gameState.currentTurn === 'left' &&
                       leftPlayerState.campSlots[0] &&
-                      leftPlayerState.campSlots[0].isDamaged &&
-                      !leftPlayerState.campSlots[0].traits?.includes('cannot_restore')
+                      leftPlayerState.campSlots[0].isDamaged
                     ) {
                       // Use applyRestore function
                       applyRestore(leftPlayerState.campSlots[0], 0, false);
@@ -2645,11 +2664,17 @@ const GameBoard = () => {
                       // Handle damage targeting
                       applyDamage(leftPlayerState.campSlots[0], 0, false);
                     } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[0]?.isDamaged) {
-                      // Restore the camp
-                      setLeftPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 0 ? { ...camp, isDamaged: false } : camp)),
-                      }));
+                      // Use the restoreCard utility instead of directly modifying state
+                      const wasRestored = restoreCard(
+                        leftPlayerState.campSlots[0],
+                        0, // slotIndex
+                        false, // isRightPlayer
+                        setLeftPlayerState
+                      );
+
+                      if (wasRestored) {
+                        alert(`Restored ${leftPlayerState.campSlots[0].name}`);
+                      }
 
                       // Exit restore mode
                       if (setRestoreMode) setRestoreMode(false);
@@ -2801,10 +2826,7 @@ const GameBoard = () => {
       (sniperMode || !leftPlayerState.campSlots[1]?.isProtected)) ||
     (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) ||
     (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[1]?.isDamaged) ||
-    (multiRestoreMode &&
-      gameState.currentTurn === 'left' &&
-      leftPlayerState.campSlots[1]?.isDamaged &&
-      !leftPlayerState.campSlots[1]?.traits?.includes('cannot_restore')) ||
+    (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[1]?.isDamaged) ||
     (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[1]?.isDamaged) ||
     (damageColumnMode && gameState.currentTurn !== 'right')
       ? 'border-purple-400 animate-pulse cursor-pointer'
@@ -2817,12 +2839,11 @@ const GameBoard = () => {
                     if (
                       multiRestoreMode &&
                       gameState.currentTurn === 'left' &&
-                      leftPlayerState.campSlots[1] &&
-                      leftPlayerState.campSlots[1].isDamaged &&
-                      !leftPlayerState.campSlots[1].traits?.includes('cannot_restore')
+                      lefttPlayerState.campSlots[1] &&
+                      leftPlayerState.campSlots[1].isDamaged
                     ) {
                       // Use applyRestore function
-                      applyRestore(leftPlayerState.campSlots[0], 0, false);
+                      applyRestore(leftPlayerState.campSlots[1], 1, false);
                       return; // Exit early to prevent other conditions
                     }
                     if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[1]) {
@@ -2899,11 +2920,17 @@ const GameBoard = () => {
                       // Handle damage targeting
                       applyDamage(leftPlayerState.campSlots[1], 1, false);
                     } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[1]?.isDamaged) {
-                      // Restore the camp
-                      setLeftPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 1 ? { ...camp, isDamaged: false } : camp)),
-                      }));
+                      // Use the restoreCard utility instead of directly modifying state
+                      const wasRestored = restoreCard(
+                        leftPlayerState.campSlots[1],
+                        1, // slotIndex
+                        false, // isRightPlayer
+                        setLeftPlayerState
+                      );
+
+                      if (wasRestored) {
+                        alert(`Restored ${leftPlayerState.campSlots[1].name}`);
+                      }
 
                       // Exit restore mode
                       if (setRestoreMode) setRestoreMode(false);
@@ -3055,10 +3082,7 @@ const GameBoard = () => {
       (sniperMode || !leftPlayerState.campSlots[2]?.isProtected)) ||
     (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) ||
     (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
-    (multiRestoreMode &&
-      gameState.currentTurn === 'left' &&
-      leftPlayerState.campSlots[2]?.isDamaged &&
-      !leftPlayerState.campSlots[2]?.traits?.includes('cannot_restore')) ||
+    (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
     (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
     (damageColumnMode && gameState.currentTurn !== 'right')
       ? 'border-purple-400 animate-pulse cursor-pointer'
@@ -3072,11 +3096,10 @@ const GameBoard = () => {
                       multiRestoreMode &&
                       gameState.currentTurn === 'left' &&
                       leftPlayerState.campSlots[2] &&
-                      leftPlayerState.campSlots[2].isDamaged &&
-                      !leftPlayerState.campSlots[2].traits?.includes('cannot_restore')
+                      leftPlayerState.campSlots[2].isDamaged
                     ) {
                       // Use applyRestore function
-                      applyRestore(leftPlayerState.campSlots[0], 0, false);
+                      applyRestore(leftPlayerState.campSlots[2], 2, false);
                       return; // Exit early to prevent other conditions
                     }
                     if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[2]) {
@@ -3153,11 +3176,17 @@ const GameBoard = () => {
                       // Handle damage targeting
                       applyDamage(leftPlayerState.campSlots[2], 2, false);
                     } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[2]?.isDamaged) {
-                      // Restore the camp
-                      setLeftPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 2 ? { ...camp, isDamaged: false } : camp)),
-                      }));
+                      // Use the restoreCard utility instead of directly modifying state
+                      const wasRestored = restoreCard(
+                        leftPlayerState.campSlots[2],
+                        2, // slotIndex
+                        false, // isRightPlayer
+                        setLeftPlayerState
+                      );
+
+                      if (wasRestored) {
+                        alert(`Restored ${leftPlayerState.campSlots[2].name}`);
+                      }
 
                       // Exit restore mode
                       if (setRestoreMode) setRestoreMode(false);
@@ -3244,6 +3273,10 @@ const GameBoard = () => {
                   )}
                 </div>
               </div>
+
+              <button className="bg-red-600 text-white px-4 py-2 rounded" onClick={addDamagedPersons}>
+                Add Damaged Persons
+              </button>
 
               {/* Add this somewhere visible during gameplay, like in the center area */}
               {showRestoreDoneButton && (
@@ -3889,10 +3922,7 @@ const GameBoard = () => {
       (sniperMode || !rightPlayerState.campSlots[0]?.isProtected)) ||
     (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) ||
     (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
-    (multiRestoreMode &&
-      gameState.currentTurn === 'right' &&
-      rightPlayerState.campSlots[0]?.isDamaged &&
-      !rightPlayerState.campSlots[0]?.traits?.includes('cannot_restore')) ||
+    (multiRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
     (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
     (damageColumnMode && gameState.currentTurn !== 'left')
       ? 'border-purple-400 animate-pulse cursor-pointer'
@@ -3906,8 +3936,7 @@ const GameBoard = () => {
                       multiRestoreMode &&
                       gameState.currentTurn === 'right' &&
                       rightPlayerState.campSlots[0] &&
-                      rightPlayerState.campSlots[0].isDamaged &&
-                      !rightPlayerState.campSlots[0].traits?.includes('cannot_restore')
+                      rightPlayerState.campSlots[0].isDamaged
                     ) {
                       // Use applyRestore function
                       applyRestore(rightPlayerState.campSlots[0], 0, false);
@@ -3987,11 +4016,17 @@ const GameBoard = () => {
                       // Handle damage targeting
                       applyDamage(rightPlayerState.campSlots[0], 0, true);
                     } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[0]?.isDamaged) {
-                      // Restore the camp
-                      setRightPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 0 ? { ...camp, isDamaged: false } : camp)),
-                      }));
+                      // Use the restoreCard utility instead of directly modifying state
+                      const wasRestored = restoreCard(
+                        rightPlayerState.campSlots[0],
+                        0, // slotIndex
+                        false, // isLeftPlayer
+                        setRightPlayerState
+                      );
+
+                      if (wasRestored) {
+                        alert(`Restored ${rightPlayerState.campSlots[0].name}`);
+                      }
 
                       // Exit restore mode
                       if (setRestoreMode) setRestoreMode(false);
@@ -4137,10 +4172,7 @@ const GameBoard = () => {
       (sniperMode || !rightPlayerState.campSlots[1]?.isProtected)) ||
     (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) ||
     (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
-    (multiRestoreMode &&
-      gameState.currentTurn === 'right' &&
-      rightPlayerState.campSlots[1]?.isDamaged &&
-      !rightPlayerState.campSlots[1]?.traits?.includes('cannot_restore')) ||
+    (multiRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
     (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
     (damageColumnMode && gameState.currentTurn !== 'left')
       ? 'border-purple-400 animate-pulse cursor-pointer'
@@ -4154,8 +4186,7 @@ const GameBoard = () => {
                       multiRestoreMode &&
                       gameState.currentTurn === 'right' &&
                       rightPlayerState.campSlots[1] &&
-                      rightPlayerState.campSlots[1].isDamaged &&
-                      !rightPlayerState.campSlots[1].traits?.includes('cannot_restore')
+                      rightPlayerState.campSlots[1].isDamaged
                     ) {
                       // Use applyRestore function
                       applyRestore(rightPlayerState.campSlots[1], 1, false);
@@ -4235,11 +4266,17 @@ const GameBoard = () => {
                       // Handle damage targeting
                       applyDamage(rightPlayerState.campSlots[1], 1, true);
                     } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[1]?.isDamaged) {
-                      // Restore the camp
-                      setRightPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 1 ? { ...camp, isDamaged: false } : camp)),
-                      }));
+                      // Use the restoreCard utility instead of directly modifying state
+                      const wasRestored = restoreCard(
+                        rightPlayerState.campSlots[1],
+                        1, // slotIndex
+                        false, // isLeftPlayer
+                        setRightPlayerState
+                      );
+
+                      if (wasRestored) {
+                        alert(`Restored ${rightPlayerState.campSlots[1].name}`);
+                      }
 
                       // Exit restore mode
                       if (setRestoreMode) setRestoreMode(false);
@@ -4385,10 +4422,7 @@ const GameBoard = () => {
       (sniperMode || !rightPlayerState.campSlots[2]?.isProtected)) ||
     (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) ||
     (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[2]?.isDamaged) ||
-    (multiRestoreMode &&
-      gameState.currentTurn === 'right' &&
-      rightPlayerState.campSlots[2]?.isDamaged &&
-      !rightPlayerState.campSlots[2]?.traits?.includes('cannot_restore')) ||
+    (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
     (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[2]?.isDamaged) ||
     (damageColumnMode && gameState.currentTurn !== 'left')
       ? 'border-purple-400 animate-pulse cursor-pointer'
@@ -4402,8 +4436,7 @@ const GameBoard = () => {
                       multiRestoreMode &&
                       gameState.currentTurn === 'right' &&
                       rightPlayerState.campSlots[2] &&
-                      rightPlayerState.campSlots[2].isDamaged &&
-                      !rightPlayerState.campSlots[2].traits?.includes('cannot_restore')
+                      rightPlayerState.campSlots[2].isDamaged
                     ) {
                       // Use applyRestore function
                       applyRestore(rightPlayerState.campSlots[2], 2, false);
@@ -4483,11 +4516,17 @@ const GameBoard = () => {
                       // Handle damage targeting
                       applyDamage(rightPlayerState.campSlots[2], 2, true);
                     } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[2]?.isDamaged) {
-                      // Restore the camp
-                      setRightPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 2 ? { ...camp, isDamaged: false } : camp)),
-                      }));
+                      // Use the restoreCard utility instead of directly modifying state
+                      const wasRestored = restoreCard(
+                        rightPlayerState.campSlots[2],
+                        2, // slotIndex
+                        false, // isLeftPlayer
+                        setRightPlayerState
+                      );
+
+                      if (wasRestored) {
+                        alert(`Restored ${rightPlayerState.campSlots[2].name}`);
+                      }
 
                       // Exit restore mode
                       if (setRestoreMode) setRestoreMode(false);

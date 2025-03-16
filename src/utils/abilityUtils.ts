@@ -67,12 +67,18 @@ export const applyDamageToTarget = (
  * @param setPlayerState Function to update the target player's state
  * @returns True if the card was successfully restored
  */
-export const restoreCard = (
+ export const restoreCard = (
   target: Card,
   slotIndex: number,
   isRightPlayer: boolean,
   setPlayerState: (updater: (prevState: PlayerState) => PlayerState) => void
 ): boolean => {
+  // Check if card has the cannot_restore trait
+  if (target.traits?.includes('cannot_restore')) {
+    alert(`${target.name} cannot be restored due to its special trait!`);
+    return false;
+  }
+
   if (!target.isDamaged) {
     return false; // Card wasn't damaged, so couldn't be restored
   }
@@ -87,7 +93,7 @@ export const restoreCard = (
   } else if (target.type === 'camp') {
     setPlayerState((prev) => ({
       ...prev,
-      campSlots: prev.campSlots.map((slot, i) => 
+      campSlots: prev.campSlots.map((slot, i) =>
         i === slotIndex ? { ...slot, isDamaged: false } : slot
       ),
     }));
