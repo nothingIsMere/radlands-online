@@ -549,16 +549,7 @@ const GameBoard = () => {
       { ...createPerson('scout'), id: 'left-damaged-person-1', isDamaged: true, isReady: false },
       // Create a damaged warrior
       { ...createPerson('assassin'), id: 'left-damaged-person-2', isDamaged: true, isReady: false },
-      {
-        id: 'punk-card-test',
-        name: 'Punk',
-        type: 'person',
-        isDamaged: false,
-        isProtected: false,
-        isPunk: true,
-        isReady: false,
-      },
-      // Add a punk card
+      null,
       {
         id: 'punk-card-test',
         name: 'Punk',
@@ -3702,9 +3693,9 @@ const GameBoard = () => {
                 <div
                   className={`w-24 h-32 border-2 rounded
   ${
-    leftPlayerState.campSlots[0] === null
+    rightPlayerState.campSlots[0] === null
       ? 'bg-black'
-      : leftPlayerState.campSlots[0]?.isDamaged
+      : rightPlayerState.campSlots[0]?.isDamaged
       ? 'bg-red-900'
       : 'bg-gray-700'
   }
@@ -3940,9 +3931,9 @@ const GameBoard = () => {
                 <div
                   className={`w-24 h-32 border-2 rounded
   ${
-    leftPlayerState.campSlots[1] === null
+    rightPlayerState.campSlots[1] === null
       ? 'bg-black'
-      : leftPlayerState.campSlots[1]?.isDamaged
+      : rightPlayerState.campSlots[1]?.isDamaged
       ? 'bg-red-900'
       : 'bg-gray-700'
   }
@@ -4178,9 +4169,9 @@ const GameBoard = () => {
                 <div
                   className={`w-24 h-32 border-2 rounded
   ${
-    leftPlayerState.campSlots[2] === null
+    rightPlayerState.campSlots[2] === null
       ? 'bg-black'
-      : leftPlayerState.campSlots[2]?.isDamaged
+      : rightPlayerState.campSlots[2]?.isDamaged
       ? 'bg-red-900'
       : 'bg-gray-700'
   }
