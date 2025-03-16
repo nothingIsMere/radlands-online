@@ -549,7 +549,15 @@ const GameBoard = () => {
       { ...createPerson('scout'), id: 'left-damaged-person-1', isDamaged: true, isReady: false },
       // Create a damaged warrior
       { ...createPerson('assassin'), id: 'left-damaged-person-2', isDamaged: true, isReady: false },
-      null,
+      {
+        id: 'punk-card-test',
+        name: 'Punk',
+        type: 'person',
+        isDamaged: false,
+        isProtected: false,
+        isPunk: true,
+        isReady: false,
+      },
       // Add a punk card
       {
         id: 'punk-card-test',
@@ -560,11 +568,27 @@ const GameBoard = () => {
         isPunk: true,
         isReady: false,
       },
-      null,
-      null,
+      {
+        id: 'punk-card-test',
+        name: 'Punk',
+        type: 'person',
+        isDamaged: false,
+        isProtected: false,
+        isPunk: true,
+        isReady: false,
+      },
+      {
+        id: 'punk-card-test',
+        name: 'Punk',
+        type: 'person',
+        isDamaged: false,
+        isProtected: false,
+        isPunk: true,
+        isReady: false,
+      },
     ],
     eventSlots: [null, null, null],
-    campSlots: [createCamp('bonfire'), createCamp('atomic-garden'), createCamp('pillbox')],
+    campSlots: [createCamp('command-post'), createCamp('atomic-garden'), createCamp('pillbox')],
     waterSiloInHand: false,
     waterCount: 30,
     raidersLocation: 'default',
@@ -1294,15 +1318,12 @@ const GameBoard = () => {
   };
 
   const executeAbility = (card: Card, ability: any, location: { type: 'person' | 'camp'; index: number }) => {
-    console.log('Executing ability:', ability.effect, 'for card:', card.name);
-
     const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
     const setPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
     const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
     const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
     const setOpponentState = opponentPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
-    // Add this inside executeAbility function in GameBoard.tsx, somewhere before the switch statement
     let finalWaterCost = ability.cost;
 
     // Apply cost modifiers if any
@@ -1315,19 +1336,25 @@ const GameBoard = () => {
 
       // Reduce cost, but never below 0
       finalWaterCost = Math.max(0, ability.cost - destroyedCamps);
+    } else if (ability.costModifier === 'punks_owned') {
+      // For Command Post: cost reduced by number of punks in play
+      const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
 
-      console.log(`Cost modified by destroyed camps: ${ability.cost} -> ${finalWaterCost}`);
+      // Count punks in play
+      const punksInPlay = playerState.personSlots.filter((person) => person && person.isPunk).length;
+
+      // Reduce cost, but never below 0
+      finalWaterCost = Math.max(0, ability.cost - punksInPlay);
     }
 
     // Use our helper to deduct water cost
     deductWaterCost(
       gameState.currentTurn,
-      ability.cost,
+      finalWaterCost,
       leftPlayerState,
       rightPlayerState,
       setLeftPlayerState,
-      setRightPlayerState,
-      finalWaterCost
+      setRightPlayerState
     );
 
     // Check if Vera Vosh's trait is active
@@ -1954,6 +1981,9 @@ const GameBoard = () => {
               if (ability.costModifier === 'destroyed_camps') {
                 const destroyedCamps = playerState.campSlots.filter((camp) => camp === null).length;
                 displayCost = Math.max(0, ability.cost - destroyedCamps);
+              } else if (ability.costModifier === 'punks_owned') {
+                const punksInPlay = playerState.personSlots.filter((person) => person && person.isPunk).length;
+                displayCost = Math.max(0, ability.cost - punksInPlay);
               }
 
               const hasEnoughWater = playerState.waterCount >= displayCost;
@@ -1967,7 +1997,7 @@ const GameBoard = () => {
                   </div>
                   <button
                     className={`bg-purple-600 text-white px-4 py-2 rounded w-full
-          ${!hasEnoughWater ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-500'}`}
+                ${!hasEnoughWater ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-500'}`}
                     disabled={!hasEnoughWater}
                     title={!hasEnoughWater ? 'Not enough water' : ''}
                     onClick={() => {
@@ -1982,7 +2012,6 @@ const GameBoard = () => {
                 </div>
               );
             })}
-
             <button
               className="mt-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded w-full"
               onClick={() => setIsAbilityModalOpen(false)}
