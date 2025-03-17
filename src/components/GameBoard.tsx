@@ -462,6 +462,17 @@ const GameBoard = () => {
       }
     }
 
+    if (card.name === 'Mulcher' && card.abilities && card.abilities[0]?.type === 'sacrifice_for_draw') {
+      // Check if player has any people
+      const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+      const hasPeople = playerState.personSlots.some((slot) => slot !== null);
+
+      if (!hasPeople) {
+        alert('You need a person to use this ability!');
+        return false; // Ability cannot be used
+      }
+    }
+
     if (card.name === 'Doomsayer' && card.abilities && card.abilities[0]?.type === 'damage_conditional_event') {
       // Check if opponent has any event in queue
       const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
@@ -1425,7 +1436,35 @@ const GameBoard = () => {
         break;
 
       case 'sacrifice_for_draw':
-        // Use the utility function from abilityUtils.ts
+        // Get the current player's state
+        const currentPlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+        // Check if the player has any people in their tableau
+        const hasPeople = currentPlayerState.personSlots.some((slot) => slot !== null);
+
+        if (!hasPeople) {
+          alert('You need a person to use this ability!');
+
+          // Refund the water cost since the ability cannot be used
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          // Don't mark the camp as unready since the ability wasn't used
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          }
+
+          return; // Exit the function early
+        }
+
+        // If we have people, proceed with the sacrifice mode
         initiateSacrificeMode('draw', card, location, setSacrificeMode, setSacrificeEffect, setSacrificeSource);
         break;
 
