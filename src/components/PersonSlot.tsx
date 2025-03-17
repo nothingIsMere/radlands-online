@@ -58,6 +58,7 @@ interface PersonSlotProps {
   setSacrificeSource?: (card: Card | null) => void;
   drawDeck?: Card[];
   setDrawDeck?: (updater: (prevDeck: Card[]) => Card[]) => void;
+  setRestorePlayer?: (player: 'left' | 'right' | null) => void;
 }
 
 const PersonSlot = ({
@@ -106,6 +107,7 @@ const PersonSlot = ({
   setSacrificeSource,
   drawDeck = [],
   setDrawDeck,
+  setRestorePlayer,
 }: PersonSlotProps) => {
   React.useEffect(() => {
     if (restoreMode && card?.name === 'Repair Bot') {
@@ -202,6 +204,15 @@ const PersonSlot = ({
             }));
 
             alert(`Sacrificed ${card.name} and gained 1 water`);
+          } else if (sacrificeEffect === 'restore') {
+            // Enter restore mode
+            if (setRestoreMode) {
+              setRestoreMode(true);
+              if (setRestorePlayer) {
+                setRestorePlayer(player);
+              }
+              alert(`Sacrificed ${card.name}. Now select a damaged card to restore.`);
+            }
           }
 
           // Reset sacrifice mode

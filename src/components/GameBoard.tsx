@@ -160,6 +160,17 @@ const GameBoard = () => {
       const playerState = elementPlayer === 'left' ? leftPlayerState : rightPlayerState;
       const card = element === 'person' ? playerState.personSlots[slotIndex] : null;
 
+      if (element === 'camp' && card && card.traits?.includes('cannot_self_restore')) {
+        // Check if this camp is the source of the restore effect
+        const gameBoard = document.getElementById('game-board');
+        const restoreSourceIndex = gameBoard && (gameBoard as any).restoreSourceIndex;
+
+        // If this is the same camp that activated the restore, it can't target itself
+        if (restoreSourceIndex !== undefined && restoreSourceIndex === slotIndex) {
+          return false;
+        }
+      }
+
       if (!card || !card.isDamaged) return false;
 
       // Special case: if we're in restore mode AND this is a Repair Bot that just entered play
@@ -579,7 +590,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('blood-bank'), createCamp('mulcher'), createCamp('pillbox')],
+    campSlots: [createCamp('labor-camp'), createCamp('mulcher'), createCamp('pillbox')],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1416,6 +1427,34 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'sacrifice_for_restore':
+        // Get the current player's state
+        const sacrificeRestorePlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+        // Check if the player has any people in their tableau
+        const hasPeopleForRestoreSacrifice = sacrificeRestorePlayerState.personSlots.some((slot) => slot !== null);
+
+        if (!hasPeopleForRestoreSacrifice) {
+          alert('You need a person to use this ability!');
+          return; // Exit the function early
+        }
+
+        // Store the source camp location for the "cannot_self_restore" check
+        if (card.type === 'camp') {
+          const gameBoard = document.getElementById('game-board');
+          if (gameBoard) {
+            (gameBoard as any).restoreSourceIndex = location.index;
+          }
+        }
+
+        // If we have people, proceed with the sacrifice mode
+        initiateSacrificeMode('restore', card, location, setSacrificeMode, setSacrificeEffect, setSacrificeSource);
+        break;
+
+        // If we have people, proceed with the sacrifice mode
+        initiateSacrificeMode('restore', card, location, setSacrificeMode, setSacrificeEffect, setSacrificeSource);
+        break;
+
       case 'sacrifice_for_water':
         // Get the current player's state
         const currentPlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -2550,6 +2589,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <PersonSlot
                   index={1}
@@ -2600,6 +2640,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -2826,6 +2867,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <PersonSlot
                   index={3}
@@ -2876,6 +2918,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3102,6 +3145,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <PersonSlot
                   index={5}
@@ -3152,6 +3196,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4036,6 +4081,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <PersonSlot
                   index={1}
@@ -4083,6 +4129,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4306,6 +4353,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <PersonSlot
                   index={3}
@@ -4353,6 +4401,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4576,6 +4625,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <PersonSlot
                   index={5}
@@ -4623,6 +4673,7 @@ const GameBoard = () => {
                   rightPlayerState={rightPlayerState}
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
+                  setRestorePlayer={setRestorePlayer}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
