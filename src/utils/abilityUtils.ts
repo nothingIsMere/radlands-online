@@ -6,6 +6,173 @@ import { Card, PlayerState } from '@/types/game';
  */
 
 /**
+ * Handles the draw then discard pattern
+ * @param drawCount Number of cards to draw
+ * @param discardCount Number of cards to discard
+ * @param drawDeck Current draw deck
+ * @param setDrawDeck Function to update draw deck
+ * @param currentPlayer Current player ('left' or 'right')
+ * @param leftPlayerState Left player state
+ * @param rightPlayerState Right player state
+ * @param setLeftPlayerState Function to update left player state
+ * @param setRightPlayerState Function to update right player state
+ * @param setDiscardPile Function to update discard pile
+ * @param onComplete Callback to run when process is complete
+ */
+export const handleDrawThenDiscard = (
+  drawCount: number,
+  discardCount: number,
+  drawDeck: Card[],
+  setDrawDeck: (updater: (prevDeck: Card[]) => Card[]) => void,
+  currentPlayer: 'left' | 'right',
+  leftPlayerState: PlayerState,
+  rightPlayerState: PlayerState,
+  setLeftPlayerState: (updater: (prevState: PlayerState) => PlayerState) => void,
+  setRightPlayerState: (updater: (prevState: PlayerState) => PlayerState) => void,
+  setDiscardPile: (updater: (prevPile: Card[]) => Card[]) => void,
+  setSupplyDepotDrawnCards: (cards: Card[]) => void,
+  setSupplyDepotDiscardMode: (active: boolean) => void
+): boolean => {
+  // Check if there are enough cards in the draw deck
+  if (drawDeck.length < drawCount) {
+    alert(`Not enough cards in the draw deck. Needed ${drawCount}, but only ${drawDeck.length} available.`);
+    return false; // Indicate failure
+  }
+  
+  // Draw cards from the top of the deck
+  const drawnCards = drawDeck.slice(-drawCount);
+  
+  // Save these cards for the discard selection
+  setSupplyDepotDrawnCards(drawnCards);
+  
+  // Remove the cards from the draw deck
+  setDrawDeck(prev => prev.slice(0, prev.length - drawCount));
+  
+  // Enter discard mode
+  setSupplyDepotDiscardMode(true);
+  
+  // Show a message
+  alert(`Drew ${drawCount} cards. Now select ${discardCount} card(s) to discard.`);
+  
+  return true; // Indicate success
+};
+
+/**
+ * Initiates the sacrifice mode for various sacrifice abilities
+ * @param sacrificeEffect The effect to apply after sacrifice ('draw', 'water', 'restore')
+ * @param card The source card initiating the sacrifice
+ * @param location The location of the source card
+ * @param setSacrificeMode Function to set sacrifice mode state
+ * @param setSacrificeEffect Function to set the effect to apply after sacrifice
+ * @param setSacrificeSource Function to set the source card
+ */
+export const initiateSacrificeMode = (
+  sacrificeEffect: 'draw' | 'water' | 'restore',
+  card: Card,
+  location: { type: 'person' | 'camp'; index: number },
+  setSacrificeMode: (active: boolean) => void,
+  setSacrificeEffect: (effect: 'draw' | 'water' | 'restore' | null) => void,
+  setSacrificeSource: (card: Card | null) => void
+): void => {
+  // Enter sacrifice mode with the specified effect
+  setSacrificeMode(true);
+  setSacrificeEffect(sacrificeEffect);
+  setSacrificeSource(card);
+  
+  // Show appropriate message based on effect
+  let message = 'Select one of your people to sacrifice';
+  if (sacrificeEffect === 'draw') {
+    message = 'Select one of your people to sacrifice. You will draw a card.';
+  } else if (sacrificeEffect === 'water') {
+    message = 'Select one of your people to sacrifice. You will gain 1 water.';
+  } else if (sacrificeEffect === 'restore') {
+    message = 'Select one of your people to sacrifice. You will be able to restore a card.';
+  }
+  
+  alert(message);
+};
+
+/**
+ * Handles the completion of a sacrifice based on the chosen effect
+ * @param sacrificedCard The card that was sacrificed
+ * @param sacrificeEffect The effect to apply ('draw', 'water', 'restore')
+ * @param player Current player ('left' or 'right')
+ * @param drawDeck Current draw deck
+ * @param setDrawDeck Function to update draw deck
+ * @param leftPlayerState Left player state
+ * @param rightPlayerState Right player state
+ * @param setLeftPlayerState Function to update left player state
+ * @param setRightPlayerState Function to update right player state
+ * @param setSacrificeMode Function to set sacrifice mode state
+ * @param setSacrificeEffect Function to set the current sacrifice effect
+ * @param setSacrificeSource Function to set the source card
+ * @param setRestoreMode Function to enter restore mode
+ * @param setRestorePlayer Function to set which player can restore
+ */
+export const handleSacrificeEffect = (
+  sacrificedCard: Card,
+  sacrificeEffect: 'draw' | 'water' | 'restore' | null,
+  player: 'left' | 'right',
+  drawDeck: Card[],
+  setDrawDeck: (updater: (prevDeck: Card[]) => Card[]) => void,
+  leftPlayerState: PlayerState,
+  rightPlayerState: PlayerState,
+  setLeftPlayerState: (updater: (prevState: PlayerState) => PlayerState) => void,
+  setRightPlayerState: (updater: (prevState: PlayerState) => PlayerState) => void,
+  setSacrificeMode: (active: boolean) => void,
+  setSacrificeEffect: (effect: 'draw' | 'water' | 'restore' | null) => void,
+  setSacrificeSource: (card: Card | null) => void,
+  setRestoreMode?: (active: boolean) => void,
+  setRestorePlayer?: (player: 'left' | 'right' | null) => void
+): void => {
+  // Get the correct player state and setter
+  const setPlayerState = player === 'left' ? setLeftPlayerState : setRightPlayerState;
+  
+  // Apply the effect based on the sacrifice type
+  switch (sacrificeEffect) {
+    case 'draw':
+      // Draw a card if available
+      if (drawDeck.length > 0) {
+        const drawnCard = drawDeck[drawDeck.length - 1];
+        
+        setPlayerState((prev) => ({
+          ...prev,
+          handCards: [...prev.handCards, drawnCard]
+        }));
+        
+        setDrawDeck(prev => prev.slice(0, -1));
+        alert(`Sacrificed ${sacrificedCard.name} and drew a card: ${drawnCard.name}`);
+      } else {
+        alert(`Sacrificed ${sacrificedCard.name}, but the draw deck is empty!`);
+      }
+      break;
+      
+    case 'water':
+      // Gain 1 water
+      setPlayerState((prev) => ({
+        ...prev,
+        waterCount: prev.waterCount + 1
+      }));
+      alert(`Sacrificed ${sacrificedCard.name} and gained 1 water`);
+      break;
+      
+    case 'restore':
+      // Enter restore mode
+      if (setRestoreMode && setRestorePlayer) {
+        setRestoreMode(true);
+        setRestorePlayer(player);
+        alert(`Sacrificed ${sacrificedCard.name}. Now select a card to restore.`);
+      }
+      break;
+  }
+  
+  // Reset sacrifice mode
+  setSacrificeMode(false);
+  setSacrificeEffect(null);
+  setSacrificeSource(null);
+};
+
+/**
  * Applies damage to a target card
  * @param target The target card to damage
  * @param slotIndex The index of the target card's slot

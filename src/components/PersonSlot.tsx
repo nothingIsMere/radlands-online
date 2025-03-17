@@ -2,6 +2,7 @@
 import React from 'react';
 import { Card, PlayerState } from '@/types/game';
 import { hasCardTrait, hasKarliBlazeTrait, hasArgoYeskyTrait } from '@/utils/gameUtils';
+import { handleSacrificeEffect } from '@/utils/abilityUtils';
 
 interface PersonSlotProps {
   index: number;
@@ -51,6 +52,12 @@ interface PersonSlotProps {
   setIsAbilityModalOpen?: (isOpen: boolean) => void;
   destroyPersonMode?: boolean;
   multiRestoreMode?: boolean;
+  sacrificeEffect?: 'draw' | 'water' | 'restore' | null;
+  sacrificeSource?: Card | null;
+  setSacrificeEffect?: (effect: 'draw' | 'water' | 'restore' | null) => void;
+  setSacrificeSource?: (card: Card | null) => void;
+  drawDeck?: Card[];
+  setDrawDeck?: (updater: (prevDeck: Card[]) => Card[]) => void;
 }
 
 const PersonSlot = ({
@@ -93,6 +100,12 @@ const PersonSlot = ({
   mimicMode = false,
   restorePersonReadyMode = false,
   multiRestoreMode = false,
+  sacrificeEffect = null,
+  sacrificeSource = null,
+  setSacrificeEffect,
+  setSacrificeSource,
+  drawDeck = [],
+  setDrawDeck,
 }: PersonSlotProps) => {
   React.useEffect(() => {
     if (restoreMode && card?.name === 'Repair Bot') {
@@ -164,6 +177,51 @@ const PersonSlot = ({
 
           if (setPunkPlacementMode) setPunkPlacementMode(false);
           if (setPunkCardToPlace) setPunkCardToPlace(null);
+        } else if (sacrificeMode && card && player === gameState.currentTurn) {
+          // Destroy the card
+          destroyCard(card, index, player === 'right');
+
+          // Use the handleSacrificeEffect utility function
+          if (setSacrificeEffect && setSacrificeSource && setDrawDeck) {
+            handleSacrificeEffect(
+              card,
+              sacrificeEffect,
+              player,
+              drawDeck,
+              setDrawDeck,
+              leftPlayerState || {
+                handCards: [],
+                personSlots: [],
+                campSlots: [],
+                eventSlots: [],
+                waterCount: 0,
+                waterSiloInHand: false,
+                raidersLocation: 'default',
+                peoplePlayedThisTurn: 0,
+              },
+              rightPlayerState || {
+                handCards: [],
+                personSlots: [],
+                campSlots: [],
+                eventSlots: [],
+                waterCount: 0,
+                waterSiloInHand: false,
+                raidersLocation: 'default',
+                peoplePlayedThisTurn: 0,
+              },
+              setLeftPlayerState || (() => {}),
+              setRightPlayerState || (() => {}),
+              setSacrificeMode,
+              setSacrificeEffect,
+              setSacrificeSource,
+              setRestoreMode,
+              setRestorePlayer
+            );
+          } else {
+            // Fallback handling if required props aren't provided
+            setSacrificeMode(false);
+            alert(`${card.name} sacrificed!`);
+          }
         } else if (restorePersonReadyMode && player === gameState.currentTurn && card?.isDamaged) {
           applyRestore(card, index, player === 'right');
         } else if (returnToHandMode && card && player === gameState.currentTurn) {

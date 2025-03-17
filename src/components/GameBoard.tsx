@@ -9,6 +9,9 @@ import { createPerson } from '@/cards/personCards';
 import { createCamp } from '@/cards/campCards';
 import { createEvent } from '@/cards/eventCards';
 import {
+  handleDrawThenDiscard,
+  initiateSacrificeMode,
+  handleSacrificeEffect,
   applyDamageToTarget,
   restoreCard,
   deductWaterCost,
@@ -652,7 +655,7 @@ const GameBoard = () => {
   const [mutantDamageChosen, setMutantDamageChosen] = useState(false);
   const [mutantRestoreChosen, setMutantRestoreChosen] = useState(false);
   const [mutantPendingAction, setMutantPendingAction] = useState<'damage' | 'restore' | null>(null);
-  const [sacrificeMode, setSacrificeMode] = useState(false);
+
   const [sacrificePendingDamage, setSacrificePendingDamage] = useState(false);
 
   // Ability modal state
@@ -698,6 +701,9 @@ const GameBoard = () => {
   const [multiRestoreMode, setMultiRestoreMode] = useState(false);
   const [restoreModeCount, setRestoreModeCount] = useState(0);
   const [showRestoreDoneButton, setShowRestoreDoneButton] = useState(false);
+  const [sacrificeMode, setSacrificeMode] = useState(false);
+  const [sacrificeEffect, setSacrificeEffect] = useState<'draw' | 'water' | 'restore' | null>(null);
+  const [sacrificeSource, setSacrificeSource] = useState<Card | null>(null);
   const [supplyDepotDrawnCards, setSupplyDepotDrawnCards] = useState<Card[]>([]);
   const [supplyDepotDiscardMode, setSupplyDepotDiscardMode] = useState(false);
 
@@ -1398,86 +1404,28 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      // For Supply Depot
       case 'draw_then_discard':
-        // Check if there are enough cards in the draw deck
-        if (drawDeck.length < 2) {
-          alert(`Not enough cards in the draw deck. Needed 2, but only ${drawDeck.length} available.`);
-
-          // Refund the water cost
-          setPlayerState((prev) => ({
-            ...prev,
-            waterCount: prev.waterCount + ability.cost,
-          }));
-
-          // Mark the camp as ready again since the ability wasn't actually used
-          if (location.type === 'camp') {
-            setPlayerState((prev) => ({
-              ...prev,
-              campSlots: prev.campSlots.map((camp, idx) =>
-                idx === location.index ? { ...camp, isReady: true } : camp
-              ),
-            }));
-          }
-
-          return; // Exit without drawing cards
-        }
-
-        // Draw 2 cards from the top of the deck - use a more specific variable name
-        const supplyDepotCards = drawDeck.slice(-2);
-
-        // Save these cards to state for the discard selection
-        setSupplyDepotDrawnCards(supplyDepotCards);
-
-        // Remove the cards from the draw deck
-        setDrawDeck((prev) => prev.slice(0, prev.length - 2));
-
-        // Enter discard mode
-        setSupplyDepotDiscardMode(true);
-
-        // Show a message
-        alert('Drew 2 cards. Now select 1 card to discard.');
+        // Use the utility function
+        handleDrawThenDiscard(
+          2, // drawCount
+          1, // discardCount
+          drawDeck,
+          setDrawDeck,
+          gameState.currentTurn,
+          leftPlayerState,
+          rightPlayerState,
+          setLeftPlayerState,
+          setRightPlayerState,
+          setDiscardPile,
+          setSupplyDepotDrawnCards,
+          setSupplyDepotDiscardMode
+        );
         break;
 
-      case 'conditional_damage':
-        // For cards like Cannon with conditional abilities
-        let nestOfSpiesConditionMet = false; // Declare a new variable with a unique name
-
-        if (ability.condition === 'self_undamaged') {
-          // For Cannon: "If this card is undamaged, Damage"
-          nestOfSpiesConditionMet = !card.isDamaged;
-        } else if (ability.condition === 'played_two_people') {
-          // For Nest of Spies: "If you have put 2 or more people into play this turn Damage."
-          nestOfSpiesConditionMet = playerState.peoplePlayedThisTurn >= 2;
-
-          if (!nestOfSpiesConditionMet) {
-            alert('Not enough people played this turn! You need to play at least 2 people.');
-
-            // Refund the water cost
-            setPlayerState((prev) => ({
-              ...prev,
-              waterCount: prev.waterCount + ability.cost,
-            }));
-
-            return; // Exit without entering damage mode
-          }
-        }
-
-        // If condition is met, proceed with damage effect
-        if (nestOfSpiesConditionMet) {
-          setDamageMode(true);
-          setDamageSource(card);
-          setDamageValue(ability.value || 1);
-          alert(`Select an unprotected enemy card to damage`);
-        } else {
-          // Condition not met
-          alert('Condition not met for this ability.');
-
-          // Refund the water cost
-          setPlayerState((prev) => ({
-            ...prev,
-            waterCount: prev.waterCount + ability.cost,
-          }));
-        }
+      case 'sacrifice_for_draw':
+        // Use the utility function from abilityUtils.ts
+        initiateSacrificeMode('draw', card, location, setSacrificeMode, setSacrificeEffect, setSacrificeSource);
         break;
 
       case 'self_damage_then_restore_any':
@@ -2536,6 +2484,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <PersonSlot
                   index={1}
@@ -2576,6 +2534,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -2792,6 +2760,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <PersonSlot
                   index={3}
@@ -2832,6 +2810,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3048,6 +3036,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <PersonSlot
                   index={5}
@@ -3088,6 +3086,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3962,6 +3970,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <PersonSlot
                   index={1}
@@ -3999,6 +4017,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4212,6 +4240,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <PersonSlot
                   index={3}
@@ -4249,6 +4287,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4462,6 +4510,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <PersonSlot
                   index={5}
@@ -4499,6 +4557,16 @@ const GameBoard = () => {
                   mimicMode={mimicMode}
                   restorePersonReadyMode={restorePersonReadyMode}
                   multiRestoreMode={multiRestoreMode}
+                  sacrificeEffect={sacrificeEffect}
+                  sacrificeSource={sacrificeSource}
+                  setSacrificeEffect={setSacrificeEffect}
+                  setSacrificeSource={setSacrificeSource}
+                  drawDeck={drawDeck}
+                  setDrawDeck={setDrawDeck}
+                  leftPlayerState={leftPlayerState}
+                  rightPlayerState={rightPlayerState}
+                  setLeftPlayerState={setLeftPlayerState}
+                  setRightPlayerState={setRightPlayerState}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
