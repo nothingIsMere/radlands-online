@@ -139,11 +139,6 @@ const PersonSlot = ({
           : 'border-gray-400'
       } rounded bg-gray-700 mb-4`}
       onClick={() => {
-        console.log('Card clicked!', card);
-        console.log('Current phase:', gameState.currentPhase);
-        console.log('Current turn:', gameState.currentTurn);
-        console.log('Card player:', player);
-
         if (multiRestoreMode && card?.isDamaged && player === gameState.currentTurn) {
           // Use the proper applyRestore function that was passed as a prop
           if (applyRestore) {
@@ -181,47 +176,34 @@ const PersonSlot = ({
           // Destroy the card
           destroyCard(card, index, player === 'right');
 
-          // Use the handleSacrificeEffect utility function
-          if (setSacrificeEffect && setSacrificeSource && setDrawDeck) {
-            handleSacrificeEffect(
-              card,
-              sacrificeEffect,
-              player,
-              drawDeck,
-              setDrawDeck,
-              leftPlayerState || {
-                handCards: [],
-                personSlots: [],
-                campSlots: [],
-                eventSlots: [],
-                waterCount: 0,
-                waterSiloInHand: false,
-                raidersLocation: 'default',
-                peoplePlayedThisTurn: 0,
-              },
-              rightPlayerState || {
-                handCards: [],
-                personSlots: [],
-                campSlots: [],
-                eventSlots: [],
-                waterCount: 0,
-                waterSiloInHand: false,
-                raidersLocation: 'default',
-                peoplePlayedThisTurn: 0,
-              },
-              setLeftPlayerState || (() => {}),
-              setRightPlayerState || (() => {}),
-              setSacrificeMode,
-              setSacrificeEffect,
-              setSacrificeSource,
-              setRestoreMode,
-              setRestorePlayer
-            );
-          } else {
-            // Fallback handling if required props aren't provided
-            setSacrificeMode(false);
-            alert(`${card.name} sacrificed!`);
+          // Get access to the drawDeck and other required variables
+          const gameBoard = document.getElementById('game-board');
+          if (gameBoard) {
+            // Direct draw implementation as a fallback
+            if (sacrificeEffect === 'draw') {
+              if (drawDeck && drawDeck.length > 0 && setDrawDeck) {
+                const drawnCard = drawDeck[drawDeck.length - 1];
+
+                // Add to player's hand
+                setPlayerState((prev) => ({
+                  ...prev,
+                  handCards: [...prev.handCards, drawnCard],
+                }));
+
+                // Remove from draw deck
+                setDrawDeck((prev) => prev.slice(0, -1));
+
+                alert(`Sacrificed ${card.name} and drew a card: ${drawnCard.name}`);
+              } else {
+                alert(`Sacrificed ${card.name}, but couldn't draw a card.`);
+              }
+            }
           }
+
+          // Reset sacrifice mode
+          setSacrificeMode(false);
+          if (setSacrificeEffect) setSacrificeEffect(null);
+          if (setSacrificeSource) setSacrificeSource(null);
         } else if (restorePersonReadyMode && player === gameState.currentTurn && card?.isDamaged) {
           applyRestore(card, index, player === 'right');
         } else if (returnToHandMode && card && player === gameState.currentTurn) {

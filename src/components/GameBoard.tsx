@@ -543,6 +543,7 @@ const GameBoard = () => {
       { ...createPerson('repair-bot'), id: 'test-repair-bot-1', isReady: true },
       { ...createPerson('assassin'), id: 'test-assassin-1' },
       { ...createPerson('gunner'), id: 'test-gunner-1' },
+      { ...createPerson('sniper'), id: 'test-sniper-1' },
 
       // Two cards with gain_punk junk effect
       {
@@ -567,7 +568,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('supply-depot'), createCamp('atomic-garden'), createCamp('pillbox')],
+    campSlots: [createCamp('mulcher'), createCamp('atomic-garden'), createCamp('pillbox')],
 
     // Other properties
     eventSlots: [null, null, null],
