@@ -564,16 +564,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [
-      {
-        ...createCamp('bonfire'),
-        id: 'test-damaged-bonfire',
-        isDamaged: true,
-        isReady: true,
-      },
-      createCamp('atomic-garden'),
-      createCamp('pillbox'),
-    ],
+    campSlots: [createCamp('supply-depot'), createCamp('atomic-garden'), createCamp('pillbox')],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -707,6 +698,8 @@ const GameBoard = () => {
   const [multiRestoreMode, setMultiRestoreMode] = useState(false);
   const [restoreModeCount, setRestoreModeCount] = useState(0);
   const [showRestoreDoneButton, setShowRestoreDoneButton] = useState(false);
+  const [supplyDepotDrawnCards, setSupplyDepotDrawnCards] = useState<Card[]>([]);
+  const [supplyDepotDiscardMode, setSupplyDepotDiscardMode] = useState(false);
 
   const gameBoardRef = useRef(null);
 
@@ -1405,6 +1398,46 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'draw_then_discard':
+        // Check if there are enough cards in the draw deck
+        if (drawDeck.length < 2) {
+          alert(`Not enough cards in the draw deck. Needed 2, but only ${drawDeck.length} available.`);
+
+          // Refund the water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          // Mark the camp as ready again since the ability wasn't actually used
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          }
+
+          return; // Exit without drawing cards
+        }
+
+        // Draw 2 cards from the top of the deck - use a more specific variable name
+        const supplyDepotCards = drawDeck.slice(-2);
+
+        // Save these cards to state for the discard selection
+        setSupplyDepotDrawnCards(supplyDepotCards);
+
+        // Remove the cards from the draw deck
+        setDrawDeck((prev) => prev.slice(0, prev.length - 2));
+
+        // Enter discard mode
+        setSupplyDepotDiscardMode(true);
+
+        // Show a message
+        alert('Drew 2 cards. Now select 1 card to discard.');
+        break;
+
       case 'conditional_damage':
         // For cards like Cannon with conditional abilities
         let nestOfSpiesConditionMet = false; // Declare a new variable with a unique name
@@ -3283,6 +3316,77 @@ const GameBoard = () => {
                   >
                     Done Restoring
                   </button>
+                </div>
+              )}
+
+              {/* Supply Depot Discard Modal */}
+              {supplyDepotDiscardMode && supplyDepotDrawnCards.length > 0 && (
+                <div
+                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                  style={{ height: '100vh', width: '100vw' }}
+                >
+                  <div
+                    className="bg-gray-800 p-4 rounded-lg border-2 border-gray-600 shadow-xl"
+                    style={{
+                      maxWidth: '90%',
+                      width: '400px',
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    <h2 className="text-white text-xl font-bold mb-4">Supply Depot</h2>
+                    <p className="text-white mb-4">
+                      Select one card to discard. The other card will be added to your hand.
+                    </p>
+
+                    <div className="flex justify-center gap-4 mb-4">
+                      {supplyDepotDrawnCards.map((card, index) => (
+                        <div
+                          key={index}
+                          className="w-24 h-36 border border-gray-400 rounded bg-gray-700 hover:border-purple-400 hover:bg-gray-600 cursor-pointer"
+                          onClick={() => {
+                            // Discard this card
+                            setDiscardPile((prev) => [...prev, card]);
+
+                            // Add the other card to hand
+                            const otherCard = supplyDepotDrawnCards.find((c) => c.id !== card.id);
+                            if (otherCard) {
+                              // Use the correct setState based on current player
+                              if (gameState.currentTurn === 'left') {
+                                setLeftPlayerState((prev) => ({
+                                  ...prev,
+                                  handCards: [...prev.handCards, otherCard],
+                                }));
+                              } else {
+                                setRightPlayerState((prev) => ({
+                                  ...prev,
+                                  handCards: [...prev.handCards, otherCard],
+                                }));
+                              }
+                            }
+
+                            // Clear state and exit discard mode
+                            setSupplyDepotDrawnCards([]);
+                            setSupplyDepotDiscardMode(false);
+
+                            alert(`Discarded ${card.name}. Added ${otherCard?.name} to your hand.`);
+                          }}
+                        >
+                          <div className="text-white text-center text-xs mt-4">
+                            {card.name}
+                            <br />
+                            {card.type}
+                            <br />
+                            {card.type === 'person' && card.playCost !== undefined ? `Cost: ${card.playCost}` : ''}
+                            <br />
+                            {card.junkEffect && `Junk: ${card.junkEffect}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 
