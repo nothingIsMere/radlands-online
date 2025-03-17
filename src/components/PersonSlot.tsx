@@ -176,28 +176,32 @@ const PersonSlot = ({
           // Destroy the card
           destroyCard(card, index, player === 'right');
 
-          // Get access to the drawDeck and other required variables
-          const gameBoard = document.getElementById('game-board');
-          if (gameBoard) {
-            // Direct draw implementation as a fallback
-            if (sacrificeEffect === 'draw') {
-              if (drawDeck && drawDeck.length > 0 && setDrawDeck) {
-                const drawnCard = drawDeck[drawDeck.length - 1];
+          // Handle different sacrifice effects
+          if (sacrificeEffect === 'draw') {
+            if (drawDeck && drawDeck.length > 0 && setDrawDeck) {
+              const drawnCard = drawDeck[drawDeck.length - 1];
 
-                // Add to player's hand
-                setPlayerState((prev) => ({
-                  ...prev,
-                  handCards: [...prev.handCards, drawnCard],
-                }));
+              // Add to player's hand
+              setPlayerState((prev) => ({
+                ...prev,
+                handCards: [...prev.handCards, drawnCard],
+              }));
 
-                // Remove from draw deck
-                setDrawDeck((prev) => prev.slice(0, -1));
+              // Remove from draw deck
+              setDrawDeck((prev) => prev.slice(0, -1));
 
-                alert(`Sacrificed ${card.name} and drew a card: ${drawnCard.name}`);
-              } else {
-                alert(`Sacrificed ${card.name}, but couldn't draw a card.`);
-              }
+              alert(`Sacrificed ${card.name} and drew a card: ${drawnCard.name}`);
+            } else {
+              alert(`Sacrificed ${card.name}, but couldn't draw a card.`);
             }
+          } else if (sacrificeEffect === 'water') {
+            // Use the current setPlayerState prop that's already available
+            setPlayerState((prev) => ({
+              ...prev,
+              waterCount: prev.waterCount + 1,
+            }));
+
+            alert(`Sacrificed ${card.name} and gained 1 water`);
           }
 
           // Reset sacrifice mode

@@ -579,7 +579,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('mulcher'), createCamp('atomic-garden'), createCamp('pillbox')],
+    campSlots: [createCamp('blood-bank'), createCamp('mulcher'), createCamp('pillbox')],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1416,6 +1416,22 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'sacrifice_for_water':
+        // Get the current player's state
+        const currentPlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+        // Check if the player has any people in their tableau
+        const hasPeople = currentPlayerState.personSlots.some((slot) => slot !== null);
+
+        if (!hasPeople) {
+          alert('You need a person to use this ability!');
+          return; // Exit the function early
+        }
+
+        // If we have people, proceed with the sacrifice mode
+        initiateSacrificeMode('water', card, location, setSacrificeMode, setSacrificeEffect, setSacrificeSource);
+        break;
+
       // For Supply Depot
       case 'draw_then_discard':
         // Use the utility function
@@ -1437,12 +1453,12 @@ const GameBoard = () => {
 
       case 'sacrifice_for_draw':
         // Get the current player's state
-        const currentPlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+        const sacrificePlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
 
         // Check if the player has any people in their tableau
-        const hasPeople = currentPlayerState.personSlots.some((slot) => slot !== null);
+        const hasPeopleForSacrifice = sacrificePlayerState.personSlots.some((slot) => slot !== null);
 
-        if (!hasPeople) {
+        if (!hasPeopleForSacrifice) {
           alert('You need a person to use this ability!');
 
           // Refund the water cost since the ability cannot be used
