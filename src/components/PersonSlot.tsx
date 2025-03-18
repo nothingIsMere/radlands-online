@@ -59,6 +59,12 @@ interface PersonSlotProps {
   drawDeck?: Card[];
   setDrawDeck?: (updater: (prevDeck: Card[]) => Card[]) => void;
   setRestorePlayer?: (player: 'left' | 'right' | null) => void;
+  opponentChoiceDamageMode?: boolean;
+  setOpponentChoiceDamageMode?: (mode: boolean) => void;
+  opponentChoiceDamageSource?: Card | null;
+  setOpponentChoiceDamageSource?: (card: Card | null) => void;
+  opponentChoiceDamageValue?: number;
+  setOpponentChoiceDamageValue?: (value: number) => void;
 }
 
 const PersonSlot = ({
@@ -108,6 +114,7 @@ const PersonSlot = ({
   drawDeck = [],
   setDrawDeck,
   setRestorePlayer,
+  opponentChoiceDamageMode = false,
 }: PersonSlotProps) => {
   React.useEffect(() => {
     if (restoreMode && card?.name === 'Repair Bot') {
@@ -135,7 +142,8 @@ const PersonSlot = ({
           (damageColumnMode && player !== gameState.currentTurn) ||
           (abilityRestoreMode && card?.isDamaged) ||
           (returnToHandMode && card && player === gameState.currentTurn) ||
-          (mimicMode && card)) &&
+          (mimicMode && card) ||
+          (opponentChoiceDamageMode && gameState.currentTurn !== player && card)) &&
         isInteractable('person', player, index)
           ? 'border-purple-400 animate-pulse cursor-pointer'
           : 'border-gray-400'
@@ -174,6 +182,14 @@ const PersonSlot = ({
 
           if (setPunkPlacementMode) setPunkPlacementMode(false);
           if (setPunkCardToPlace) setPunkCardToPlace(null);
+        } else if (opponentChoiceDamageMode && gameState.currentTurn !== player && card) {
+          // Apply damage to the card
+          if (applyDamage) {
+            applyDamage(card, index, player === 'right');
+          }
+
+          // Reset the opponent choice mode is handled in applyDamage function
+          return;
         } else if (sacrificeMode && card && player === gameState.currentTurn) {
           // Destroy the card
           destroyCard(card, index, player === 'right');

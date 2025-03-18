@@ -284,6 +284,25 @@ const GameBoard = () => {
     // Default: Players can only interact with their own elements during their turn
     const isCurrentPlayerElement = gameState.currentTurn === elementPlayer;
 
+    if (opponentChoiceDamageMode) {
+      // Allow the opponent to select their own UNPROTECTED cards
+      const isOpponentElement = gameState.currentTurn !== elementPlayer;
+
+      if (element === 'person') {
+        const targetCard =
+          elementPlayer === 'left' ? leftPlayerState.personSlots[slotIndex] : rightPlayerState.personSlots[slotIndex];
+        return isOpponentElement && targetCard && !targetCard.isProtected;
+      }
+
+      if (element === 'camp') {
+        const targetCamp =
+          elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
+        return isOpponentElement && targetCamp && !targetCamp.isProtected;
+      }
+
+      return false;
+    }
+
     if (multiRestoreMode) {
       // In multi-restore mode, player can target their own damaged cards (person or camp)
       const isCurrentPlayerElement = gameState.currentTurn === elementPlayer;
@@ -847,7 +866,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('arcade'), createCamp('mulcher'), createCamp('training-camp')],
+    campSlots: [createCamp('arcade'), createCamp('scud-launcher'), createCamp('victory-totem')],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -991,6 +1010,9 @@ const GameBoard = () => {
   const [campRaidMode, setCampRaidMode] = useState(false);
   const [pendingPunkGain, setPendingPunkGain] = useState(false);
   const [pendingRaidAfterPunk, setPendingRaidAfterPunk] = useState(false);
+  const [opponentChoiceDamageMode, setOpponentChoiceDamageMode] = useState(false);
+  const [opponentChoiceDamageValue, setOpponentChoiceDamageValue] = useState(0);
+  const [opponentChoiceDamageSource, setOpponentChoiceDamageSource] = useState<Card | null>(null);
 
   const gameBoardRef = useRef(null);
 
@@ -1287,20 +1309,35 @@ const GameBoard = () => {
 
     const targetType = target.type;
 
-    // Use our new helper to apply damage
+    // Use the correct damage value based on the active mode
+    const damageValueToApply = opponentChoiceDamageMode ? opponentChoiceDamageValue : damageValue;
+
     const wasDestroyed = applyDamageToTarget(
       target,
       slotIndex,
       isRightPlayer,
       setPlayerState,
       destroyCard,
-      damageValue
+      damageValueToApply
     );
 
+    // Reset all targeting modes
+    setDamageMode(false);
+    setDamageSource(null);
+    setDamageValue(0);
+    setSniperMode(false);
+    setCampDamageMode(false);
+    setSacrificePendingDamage(false);
+    setOpponentChoiceDamageMode(false);
+    setOpponentChoiceDamageSource(null);
+    setOpponentChoiceDamageValue(0);
+
+    // Show appropriate message based on result
     if (wasDestroyed) {
       alert(`${target.isPunk ? 'Punk' : 'Damaged card'} destroyed!`);
     } else {
-      alert(`Applied ${damageValue} damage to ${target.name}`);
+      // Use the correct damage value in the message
+      alert(`Applied ${damageValueToApply} damage to ${target.name}`);
     }
 
     // Check for secondary effects based on the damage source
@@ -1359,14 +1396,6 @@ const GameBoard = () => {
       setDamageValue(1);
       return; // Don't reset targeting mode yet
     }
-
-    // Reset targeting mode
-    setDamageMode(false);
-    setDamageSource(null);
-    setDamageValue(0);
-    setSniperMode(false); // Reset sniper mode
-    setCampDamageMode(false); // Reset camp damage mode
-    setSacrificePendingDamage(false);
 
     // If this is the counter-damage for Vanguard, reset all Vanguard states
     if (vanguardCounterActive) {
@@ -1765,6 +1794,21 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'opponent_choice_damage':
+        // Determine the opponent player
+        const opponentPlayerForChoice = gameState.currentTurn === 'left' ? 'right' : 'left';
+
+        // Enter opponent choice damage targeting mode
+        setOpponentChoiceDamageMode(true);
+        setOpponentChoiceDamageSource(card);
+        setOpponentChoiceDamageValue(ability.value || 1);
+
+        // Show message to instruct both players
+        alert(
+          `${opponentPlayerForChoice.toUpperCase()} PLAYER: Select one of your UNPROTECTED cards to receive damage!`
+        );
+        break;
+
       case 'conditional_restore':
         // Get the current player state
         const restorePlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -3107,6 +3151,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <PersonSlot
                   index={1}
@@ -3158,6 +3208,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3178,7 +3234,11 @@ const GameBoard = () => {
     (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[0]?.isDamaged) ||
     (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[0]?.isDamaged) ||
     (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[0]?.isDamaged) ||
-    (damageColumnMode && gameState.currentTurn !== 'right')
+    (damageColumnMode && gameState.currentTurn !== 'right') ||
+    (opponentChoiceDamageMode &&
+      gameState.currentTurn === 'right' &&
+      leftPlayerState.campSlots[0] &&
+      !leftPlayerState.campSlots[0]?.isProtected)
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[0]?.isDamaged
       ? 'border-red-700'
@@ -3186,6 +3246,16 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (
+                      opponentChoiceDamageMode &&
+                      gameState.currentTurn === 'right' &&
+                      leftPlayerState.campSlots[0] &&
+                      !leftPlayerState.campSlots[0]?.isProtected
+                    ) {
+                      // Apply damage to the camp
+                      applyDamage(leftPlayerState.campSlots[0], 0, false);
+                      return;
+                    }
                     if (
                       multiRestoreMode &&
                       gameState.currentTurn === 'left' &&
@@ -3278,8 +3348,11 @@ const GameBoard = () => {
                         setLeftPlayerState
                       );
 
-                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 0) {
-                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                      if (
+                        leftPlayerState.campSlots[0]?.traits?.includes('cannot_self_restore') &&
+                        restoreSourceIndex === 0
+                      ) {
+                        alert(`${leftPlayerState.campSlots[0].name} cannot restore itself due to its special trait!`);
                         return;
                       }
 
@@ -3390,6 +3463,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <PersonSlot
                   index={3}
@@ -3441,6 +3520,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3461,6 +3546,10 @@ const GameBoard = () => {
     (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[1]?.isDamaged) ||
     (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[1]?.isDamaged) ||
     (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[1]?.isDamaged) ||
+    (opponentChoiceDamageMode &&
+      gameState.currentTurn === 'right' &&
+      leftPlayerState.campSlots[1] &&
+      !leftPlayerState.campSlots[1]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'right')
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[1]?.isDamaged
@@ -3469,6 +3558,16 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (
+                      opponentChoiceDamageMode &&
+                      gameState.currentTurn === 'right' &&
+                      leftPlayerState.campSlots[1] &&
+                      !leftPlayerState.campSlots[1]?.isProtected
+                    ) {
+                      // Apply damage to the camp
+                      applyDamage(leftPlayerState.campSlots[1], 1, false);
+                      return;
+                    }
                     if (
                       multiRestoreMode &&
                       gameState.currentTurn === 'left' &&
@@ -3561,8 +3660,11 @@ const GameBoard = () => {
                         setLeftPlayerState
                       );
 
-                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 1) {
-                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                      if (
+                        leftPlayerState.campSlots[1]?.traits?.includes('cannot_self_restore') &&
+                        restoreSourceIndex === 1
+                      ) {
+                        alert(`${leftPlayerState.campSlots[1].name} cannot restore itself due to its special trait!`);
                         return;
                       }
 
@@ -3673,6 +3775,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <PersonSlot
                   index={5}
@@ -3724,6 +3832,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3744,6 +3858,10 @@ const GameBoard = () => {
     (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
     (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
     (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
+    (opponentChoiceDamageMode &&
+      gameState.currentTurn === 'right' &&
+      leftPlayerState.campSlots[2] &&
+      !leftPlayerState.campSlots[2]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'right')
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[2]?.isDamaged
@@ -3752,6 +3870,16 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (
+                      opponentChoiceDamageMode &&
+                      gameState.currentTurn === 'right' &&
+                      leftPlayerState.campSlots[2] &&
+                      !leftPlayerState.campSlots[2]?.isProtected
+                    ) {
+                      // Apply damage to the camp
+                      applyDamage(leftPlayerState.campSlots[2], 2, false);
+                      return;
+                    }
                     if (
                       multiRestoreMode &&
                       gameState.currentTurn === 'left' &&
@@ -3844,8 +3972,11 @@ const GameBoard = () => {
                         setLeftPlayerState
                       );
 
-                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 2) {
-                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                      if (
+                        leftPlayerState.campSlots[2]?.traits?.includes('cannot_self_restore') &&
+                        restoreSourceIndex === 2
+                      ) {
+                        alert(`${leftPlayerState.campSlots[2].name} cannot restore itself due to its special trait!`);
                         return;
                       }
 
@@ -3938,11 +4069,19 @@ const GameBoard = () => {
                   )}
                 </div>
               </div>
-
               <button className="bg-red-600 text-white px-4 py-2 rounded" onClick={addDamagedPersons}>
                 Add Damaged Persons
               </button>
 
+              {opponentChoiceDamageMode && (
+                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                  <div className="inline-block bg-red-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                    {`${
+                      gameState.currentTurn === 'left' ? 'RIGHT' : 'LEFT'
+                    } PLAYER: Choose one of your cards to receive damage!`}
+                  </div>
+                </div>
+              )}
               {/* Add this somewhere visible during gameplay, like in the center area */}
               {showRestoreDoneButton && (
                 <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2">
@@ -3959,7 +4098,6 @@ const GameBoard = () => {
                   </button>
                 </div>
               )}
-
               {/* Cache Ability Order Modal */}
               {showCacheModal && cacheCard && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -3993,7 +4131,6 @@ const GameBoard = () => {
                   </div>
                 </div>
               )}
-
               {/* Supply Depot Discard Modal */}
               {supplyDepotDiscardMode && supplyDepotDrawnCards.length > 0 && (
                 <div
@@ -4064,7 +4201,6 @@ const GameBoard = () => {
                   </div>
                 </div>
               )}
-
               {/* Discard Modal */}
               {showDiscardModal && cardToDiscard && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -4331,7 +4467,6 @@ const GameBoard = () => {
                   </div>
                 </div>
               )}
-
               <div
                 className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700"
                 onDragOver={(e) => e.preventDefault()}
@@ -4648,6 +4783,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <PersonSlot
                   index={1}
@@ -4696,6 +4837,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4716,6 +4863,10 @@ const GameBoard = () => {
     (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
     (multiRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
     (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
+    (opponentChoiceDamageMode &&
+      gameState.currentTurn === 'left' &&
+      rightPlayerState.campSlots[0] &&
+      !rightPlayerState.campSlots[0]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'left')
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[0]?.isDamaged
@@ -4724,6 +4875,16 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (
+                      opponentChoiceDamageMode &&
+                      gameState.currentTurn === 'left' &&
+                      rightPlayerState.campSlots[0] &&
+                      !rightPlayerState.campSlots[0]?.isProtected
+                    ) {
+                      // Apply damage to the camp
+                      applyDamage(rightPlayerState.campSlots[0], 0, true);
+                      return;
+                    }
                     if (
                       multiRestoreMode &&
                       gameState.currentTurn === 'right' &&
@@ -4816,8 +4977,11 @@ const GameBoard = () => {
                         setRightPlayerState
                       );
 
-                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 0) {
-                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                      if (
+                        rightPlayerState.campSlots[0]?.traits?.includes('cannot_self_restore') &&
+                        restoreSourceIndex === 0
+                      ) {
+                        alert(`${rightPlayerState.campSlots[0].name} cannot restore itself due to its special trait!`);
                         return;
                       }
 
@@ -4925,6 +5089,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <PersonSlot
                   index={3}
@@ -4973,6 +5143,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4993,6 +5169,10 @@ const GameBoard = () => {
     (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
     (multiRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
     (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
+    (opponentChoiceDamageMode &&
+      gameState.currentTurn === 'left' &&
+      rightPlayerState.campSlots[1] &&
+      !rightPlayerState.campSlots[1]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'left')
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[1]?.isDamaged
@@ -5001,6 +5181,16 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (
+                      opponentChoiceDamageMode &&
+                      gameState.currentTurn === 'left' &&
+                      rightPlayerState.campSlots[1] &&
+                      !rightPlayerState.campSlots[1]?.isProtected
+                    ) {
+                      // Apply damage to the camp
+                      applyDamage(rightPlayerState.campSlots[1], 1, true);
+                      return;
+                    }
                     if (
                       multiRestoreMode &&
                       gameState.currentTurn === 'right' &&
@@ -5093,8 +5283,11 @@ const GameBoard = () => {
                         setRightPlayerState
                       );
 
-                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 1) {
-                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                      if (
+                        rightPlayerState.campSlots[1]?.traits?.includes('cannot_self_restore') &&
+                        restoreSourceIndex === 1
+                      ) {
+                        alert(`${rightPlayerState.campSlots[1].name} cannot restore itself due to its special trait!`);
                         return;
                       }
 
@@ -5202,6 +5395,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <PersonSlot
                   index={5}
@@ -5250,6 +5449,12 @@ const GameBoard = () => {
                   setLeftPlayerState={setLeftPlayerState}
                   setRightPlayerState={setRightPlayerState}
                   setRestorePlayer={setRestorePlayer}
+                  opponentChoiceDamageMode={opponentChoiceDamageMode}
+                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                  opponentChoiceDamageSource={opponentChoiceDamageSource}
+                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                  opponentChoiceDamageValue={opponentChoiceDamageValue}
+                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -5270,6 +5475,10 @@ const GameBoard = () => {
     (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[2]?.isDamaged) ||
     (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
     (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[2]?.isDamaged) ||
+    (opponentChoiceDamageMode &&
+      gameState.currentTurn === 'left' &&
+      rightPlayerState.campSlots[2] &&
+      !rightPlayerState.campSlots[2]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'left')
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[2]?.isDamaged
@@ -5278,6 +5487,16 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (
+                      opponentChoiceDamageMode &&
+                      gameState.currentTurn === 'left' &&
+                      rightPlayerState.campSlots[1] &&
+                      !rightPlayerState.campSlots[1]?.isProtected
+                    ) {
+                      // Apply damage to the camp
+                      applyDamage(rightPlayerState.campSlots[1], 1, true);
+                      return;
+                    }
                     if (
                       multiRestoreMode &&
                       gameState.currentTurn === 'right' &&
@@ -5370,8 +5589,11 @@ const GameBoard = () => {
                         setRightPlayerState
                       );
 
-                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 2) {
-                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                      if (
+                        rightPlayerState.campSlots[2]?.traits?.includes('cannot_self_restore') &&
+                        restoreSourceIndex === 2
+                      ) {
+                        alert(`${rightPlayerState.campSlots[2].name} cannot restore itself due to its special trait!`);
                         return;
                       }
 
