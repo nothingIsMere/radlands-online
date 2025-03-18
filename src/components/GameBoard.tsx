@@ -329,11 +329,18 @@ const GameBoard = () => {
     }
 
     if (restoreMode) {
-      // In restore mode, a player can only interact with their own damaged person cards
-      // BUT explicitly exclude Repair Bot if it's in restore mode due to its own entry effect
+      // In restore mode, a player can only interact with their own damaged cards
       const playerState = elementPlayer === 'left' ? leftPlayerState : rightPlayerState;
-      const card = element === 'person' ? playerState.personSlots[slotIndex] : null;
 
+      // Get the correct card based on element type
+      const card =
+        element === 'person'
+          ? playerState.personSlots[slotIndex]
+          : element === 'camp'
+          ? playerState.campSlots[slotIndex]
+          : null;
+
+      // Handle camps with cannot_self_restore trait
       if (element === 'camp' && card && card.traits?.includes('cannot_self_restore')) {
         // Check if this camp is the source of the restore effect
         const gameBoard = document.getElementById('game-board');
@@ -347,9 +354,8 @@ const GameBoard = () => {
 
       if (!card || !card.isDamaged) return false;
 
-      // Special case: if we're in restore mode AND this is a Repair Bot that just entered play
-      // AND we're in the entry-triggered restore mode (not an ability-triggered restore)
-      if (card.name === 'Repair Bot' && gameState.currentPhase === 'actions') {
+      // Special case for Repair Bot
+      if (element === 'person' && card.name === 'Repair Bot' && gameState.currentPhase === 'actions') {
         return false; // Exclude the Repair Bot from being a valid target for its own entry effect
       }
 
@@ -514,6 +520,19 @@ const GameBoard = () => {
       if (element === 'camp') {
         const targetCamp =
           elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
+
+        // Add check for cannot_self_restore trait (this is the missing part!)
+        if (targetCamp && targetCamp.traits?.includes('cannot_self_restore')) {
+          // Check if this camp is the source of the restore effect
+          const gameBoard = document.getElementById('game-board');
+          const restoreSourceIndex = gameBoard && (gameBoard as any).restoreSourceIndex;
+
+          // If this is the same camp that activated the restore, it can't target itself
+          if (restoreSourceIndex !== undefined && restoreSourceIndex === slotIndex) {
+            return false;
+          }
+        }
+
         return isCurrentPlayerElement && targetCamp && targetCamp.isDamaged;
       }
 
@@ -609,6 +628,30 @@ const GameBoard = () => {
   // };
 
   const checkAbilityEnabled = (card: Card) => {
+    if (card.name === 'Transplant Lab' && card.abilities && card.abilities[0]?.type === 'conditional_restore') {
+      // Get the current player state
+      const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+      // Check if player has played 2 or more people this turn
+      const conditionMet = playerState.peoplePlayedThisTurn >= 2;
+
+      if (!conditionMet) {
+        alert(
+          `You've only played ${playerState.peoplePlayedThisTurn} people this turn. You need to play at least 2 people to use this ability.`
+        );
+        return false; // Ability cannot be used
+      }
+
+      // Check if there are any damaged cards to restore (excluding self if cannot_self_restore trait exists)
+      const hasDamagedCard = [...playerState.personSlots, ...playerState.campSlots].some(
+        (slot) => slot && slot.isDamaged && (!card.traits?.includes('cannot_self_restore') || slot.id !== card.id)
+      );
+
+      if (!hasDamagedCard) {
+        alert('No valid damaged cards to restore!');
+        return false; // Ability cannot be used
+      }
+    }
     if (card.name === 'Arcade' && card.abilities && card.abilities[0]?.type === 'conditional_gain_punk') {
       // Get the current player state
       const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -779,7 +822,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('arcade'), createCamp('mulcher'), createCamp('command-post')],
+    campSlots: [createCamp('arcade'), createCamp('mulcher'), { ...createCamp('transplant-lab'), isDamaged: true }],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1460,6 +1503,21 @@ const GameBoard = () => {
   };
 
   const applyRestore = (target: Card, slotIndex: number, isRightPlayer: boolean) => {
+    // Get the game board element to check for the stored source index
+    const gameBoard = document.getElementById('game-board');
+    const restoreSourceIndex = gameBoard ? (gameBoard as any).restoreSourceIndex : undefined;
+
+    // Check if this is a camp with cannot_self_restore trait trying to restore itself
+    if (
+      target.type === 'camp' &&
+      target.traits?.includes('cannot_self_restore') &&
+      restoreSourceIndex !== undefined &&
+      slotIndex === restoreSourceIndex
+    ) {
+      alert(`${target.name} cannot restore itself due to its special trait!`);
+      return;
+    }
+
     if (multiRestoreMode) {
       // When in multi-restore mode, just restore the card without exiting the mode
       const wasRestored = restoreCard(
@@ -1553,6 +1611,11 @@ const GameBoard = () => {
       // Restore action completed, now damage the Mutant
       applyDamageToMutant();
     }
+    // Clear the source index when we're done with restoration
+    const gameBoardElement = document.getElementById('game-board');
+    if (gameBoardElement) {
+      (gameBoardElement as any).restoreSourceIndex = undefined;
+    }
   };
 
   const executeAbility = (card: Card, ability: any, location: { type: 'person' | 'camp'; index: number }) => {
@@ -1637,6 +1700,94 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'conditional_restore':
+        // Get the current player state
+        const restorePlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+        // Check the condition based on the specific condition type
+        let restoreConditionMet = false;
+
+        if (card.type === 'camp' && card.traits?.includes('cannot_self_restore')) {
+          const gameBoard = document.getElementById('game-board');
+          if (gameBoard) {
+            (gameBoard as any).restoreSourceIndex = location.index;
+          }
+        }
+
+        if (ability.condition === 'played_two_people') {
+          // Check if player has played 2 or more people this turn
+          restoreConditionMet = restorePlayerState.peoplePlayedThisTurn >= 2;
+        }
+        // Add other conditions as needed
+
+        if (restoreConditionMet) {
+          // Check if there are any damaged cards to restore
+          const hasDamagedCard = [...restorePlayerState.personSlots, ...restorePlayerState.campSlots].some(
+            (slot) => slot && slot.isDamaged && (!card.traits?.includes('cannot_self_restore') || slot.id !== card.id)
+          );
+
+          if (!hasDamagedCard) {
+            alert('No valid damaged cards to restore!');
+
+            // Refund the water cost
+            setPlayerState((prev) => ({
+              ...prev,
+              waterCount: prev.waterCount + ability.cost,
+            }));
+
+            // Don't mark the card as used
+            if (location.type === 'camp') {
+              setPlayerState((prev) => ({
+                ...prev,
+                campSlots: prev.campSlots.map((camp, idx) =>
+                  idx === location.index ? { ...camp, isReady: true } : camp
+                ),
+              }));
+            }
+
+            return; // Exit without entering restore mode
+          }
+
+          // Store the source camp location for the "cannot_self_restore" check
+          if (card.type === 'camp') {
+            const gameBoard = document.getElementById('game-board');
+            if (gameBoard) {
+              (gameBoard as any).restoreSourceIndex = location.index;
+            }
+          }
+
+          // If condition is met and there are damaged cards, enter restore mode
+          setAbilityRestoreMode(true);
+          setRestoreSource(card);
+          alert(
+            `Condition met: You've played ${restorePlayerState.peoplePlayedThisTurn} people this turn. Select a damaged card to restore.`
+          );
+        } else {
+          // Condition not met, show message and refund water cost
+          alert(
+            `Condition not met: You've only played ${restorePlayerState.peoplePlayedThisTurn} people this turn. You need to play at least 2 people.`
+          );
+
+          // Refund the water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          // Don't mark the card as used
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          }
+
+          return; // Exit without executing ability
+        }
+        break;
+
       case 'conditional_gain_punk':
         // Get the current player state
         const arcadePlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -3020,6 +3171,11 @@ const GameBoard = () => {
                         setLeftPlayerState
                       );
 
+                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 0) {
+                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                        return;
+                      }
+
                       if (wasRestored) {
                         alert(`Restored ${leftPlayerState.campSlots[0].name}`);
                       }
@@ -3298,6 +3454,11 @@ const GameBoard = () => {
                         setLeftPlayerState
                       );
 
+                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 1) {
+                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                        return;
+                      }
+
                       if (wasRestored) {
                         alert(`Restored ${leftPlayerState.campSlots[1].name}`);
                       }
@@ -3575,6 +3736,11 @@ const GameBoard = () => {
                         false, // isRightPlayer
                         setLeftPlayerState
                       );
+
+                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 2) {
+                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                        return;
+                      }
 
                       if (wasRestored) {
                         alert(`Restored ${leftPlayerState.campSlots[2].name}`);
@@ -4543,6 +4709,11 @@ const GameBoard = () => {
                         setRightPlayerState
                       );
 
+                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 0) {
+                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                        return;
+                      }
+
                       if (wasRestored) {
                         alert(`Restored ${rightPlayerState.campSlots[0].name}`);
                       }
@@ -4815,6 +4986,11 @@ const GameBoard = () => {
                         setRightPlayerState
                       );
 
+                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 1) {
+                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                        return;
+                      }
+
                       if (wasRestored) {
                         alert(`Restored ${rightPlayerState.campSlots[1].name}`);
                       }
@@ -5086,6 +5262,11 @@ const GameBoard = () => {
                         false, // isLeftPlayer
                         setRightPlayerState
                       );
+
+                      if (camp.traits?.includes('cannot_self_restore') && restoreSourceIndex === 2) {
+                        alert(`${camp.name} cannot restore itself due to its special trait!`);
+                        return;
+                      }
 
                       if (wasRestored) {
                         alert(`Restored ${rightPlayerState.campSlots[2].name}`);

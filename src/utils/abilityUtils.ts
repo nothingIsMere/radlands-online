@@ -246,6 +246,21 @@ export const applyDamageToTarget = (
     return false;
   }
 
+  // Get the game board element to check for the stored source index
+  const gameBoard = document.getElementById('game-board');
+  const restoreSourceIndex = gameBoard ? (gameBoard as any).restoreSourceIndex : undefined;
+
+  // Check if this is a camp with cannot_self_restore trait trying to restore itself
+  if (
+    target.type === 'camp' && 
+    target.traits?.includes('cannot_self_restore') &&
+    restoreSourceIndex !== undefined && 
+    slotIndex === restoreSourceIndex
+  ) {
+    alert(`${target.name} cannot restore itself due to its special trait!`);
+    return false;
+  }
+
   if (!target.isDamaged) {
     return false; // Card wasn't damaged, so couldn't be restored
   }
