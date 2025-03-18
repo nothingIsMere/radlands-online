@@ -106,6 +106,180 @@ const GameBoard = () => {
     alert(`DEBUG: ${message}`);
   };
 
+  const executeCacheAbility = (
+    card: Card,
+    location: { type: 'person' | 'camp'; index: number } | null,
+    order: 'punk_first' | 'raid_first'
+  ) => {
+    if (!location) return;
+
+    const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+    const setPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+    // Execute abilities in the specified order
+    if (order === 'punk_first') {
+      // 1. First gain punk, and set a flag to do the raid after punk placement
+      gainPunk(gameState.currentTurn);
+      setPendingRaidAfterPunk(true);
+      // The raid will be executed after punk placement by a useEffect
+    } else {
+      // 1. First execute raid
+      executeRaidEffect(gameState.currentTurn);
+
+      // 2. Then gain punk
+      // Note: We'll need to delay this if raid requires interaction
+      setTimeout(() => {
+        // Only proceed with punk gain if raid is complete
+        if (!campRaidMode) {
+          gainPunk(gameState.currentTurn);
+        } else {
+          // Store that we need to gain a punk after raid completes
+          setPendingPunkGain(true);
+        }
+      }, 100);
+    }
+
+    // Mark the card as having used an ability
+    markCardUsedAbility(
+      card,
+      location,
+      gameState.currentTurn,
+      leftPlayerState,
+      rightPlayerState,
+      setLeftPlayerState,
+      setRightPlayerState,
+      leftCardsUsedAbility,
+      rightCardsUsedAbility,
+      setLeftCardsUsedAbility,
+      setRightCardsUsedAbility,
+      hasVeraVoshTrait(playerState)
+    );
+  };
+
+  // Helper function for gaining a punk
+  const gainPunk = (playerSide: 'left' | 'right') => {
+    // Check if there are cards in the draw deck
+    if (drawDeck.length > 0) {
+      const punkCard = drawDeck[drawDeck.length - 1];
+      setPunkCardToPlace(punkCard);
+      setPunkPlacementMode(true);
+      setDrawDeck((prev) => prev.slice(0, prev.length - 1));
+      alert(`Gain a punk!`);
+    } else {
+      alert('Draw deck is empty, cannot gain a punk!');
+    }
+  };
+
+  // Helper function for executing raid
+  const executeRaidEffect = (playerSide: 'left' | 'right') => {
+    // Mark that an event is being played (for Zeto Kahn effect)
+    markEventPlayed(playerSide, setLeftPlayedEventThisTurn, setRightPlayedEventThisTurn);
+
+    // Check for Zeto Kahn's immediate effect
+    const shouldExecuteImmediately = checkZetoKahnEffect(
+      playerSide,
+      leftPlayerState,
+      rightPlayerState,
+      leftPlayedEventThisTurn,
+      rightPlayedEventThisTurn
+    );
+
+    if (shouldExecuteImmediately) {
+      // Execute raid immediately
+      executeRaid(playerSide);
+    } else {
+      // Normal Raiders movement logic
+      const playerState = playerSide === 'left' ? leftPlayerState : rightPlayerState;
+      const setPlayerState = playerSide === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+      // Handle Raiders movement based on current location
+      handleRaidersMovement(playerSide, playerState, setPlayerState);
+    }
+  };
+
+  // Handle Raiders movement based on current location
+  const handleRaidersMovement = (
+    playerSide: 'left' | 'right',
+    playerState: PlayerState,
+    setPlayerState: React.Dispatch<React.SetStateAction<PlayerState>>
+  ) => {
+    switch (playerState.raidersLocation) {
+      case 'default':
+        // Create Raiders card
+        const raidersCard = {
+          id: 'raiders',
+          name: 'Raiders',
+          type: 'event',
+          startingQueuePosition: 2,
+          owner: playerSide,
+        };
+
+        // Simple logic to manually place Raiders in the right slot
+        // First try slot 2 (index 1)
+        if (playerState.eventSlots[1] === null) {
+          // Slot 2 is available, place Raiders there
+          setPlayerState((prev) => ({
+            ...prev,
+            eventSlots: [prev.eventSlots[0], raidersCard, prev.eventSlots[2]],
+            raidersLocation: 'event2',
+          }));
+        }
+        // If slot 2 is occupied, try slot 3 (index 0)
+        else if (playerState.eventSlots[0] === null) {
+          // Slot 3 is available, place Raiders there
+          setPlayerState((prev) => ({
+            ...prev,
+            eventSlots: [raidersCard, prev.eventSlots[1], prev.eventSlots[2]],
+            raidersLocation: 'event3',
+          }));
+        }
+        // If both slots are occupied
+        else {
+          alert('No valid slot available for Raiders!');
+        }
+        break;
+
+      case 'event2':
+        // Move to slot 1 if empty
+        if (!playerState.eventSlots[2]) {
+          setPlayerState((prev) => ({
+            ...prev,
+            eventSlots: [
+              prev.eventSlots[0],
+              null,
+              { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 1 },
+            ],
+            raidersLocation: 'event1',
+          }));
+        } else {
+          alert('Event slot 1 occupied - cannot advance');
+        }
+        break;
+
+      case 'event1':
+        // Execute raid from slot 1
+        executeRaid(playerSide);
+        break;
+
+      case 'event3':
+        // Move from slot 3 to slot 2 if empty
+        if (!playerState.eventSlots[1]) {
+          setPlayerState((prev) => ({
+            ...prev,
+            eventSlots: [
+              null, // Clear slot 3
+              { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
+              prev.eventSlots[2],
+            ],
+            raidersLocation: 'event2',
+          }));
+        } else {
+          alert('Event slot 2 is occupied. Raiders cannot advance.');
+        }
+        break;
+    }
+  };
+
   const isInteractable = (element: 'person' | 'event' | 'camp', elementPlayer: 'left' | 'right', slotIndex: number) => {
     // Default: Players can only interact with their own elements during their turn
     const isCurrentPlayerElement = gameState.currentTurn === elementPlayer;
@@ -564,7 +738,7 @@ const GameBoard = () => {
       // Regular person cards
       { ...createPerson('repair-bot'), id: 'test-repair-bot-1', isReady: true },
       { ...createPerson('assassin'), id: 'test-assassin-1' },
-      { ...createPerson('gunner'), id: 'test-gunner-1' },
+      { ...createPerson('scientist'), id: 'test-scientist-1' },
       { ...createPerson('sniper'), id: 'test-sniper-1' },
 
       // Two cards with gain_punk junk effect
@@ -590,7 +764,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('labor-camp'), createCamp('mulcher'), createCamp('pillbox')],
+    campSlots: [createCamp('cache'), createCamp('mulcher'), createCamp('command-post')],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -697,7 +871,6 @@ const GameBoard = () => {
   const [isAbilityModalOpen, setIsAbilityModalOpen] = useState(false);
   const [sniperMode, setSniperMode] = useState(false);
   const [campDamageMode, setCampDamageMode] = useState(false);
-  const [campRaidMode, setCampRaidMode] = useState(false);
   const [raidingPlayer, setRaidingPlayer] = useState<'left' | 'right' | null>(null);
   const [raidMessage, setRaidMessage] = useState('');
   const [returnToHandMode, setReturnToHandMode] = useState(false);
@@ -729,6 +902,12 @@ const GameBoard = () => {
   const [sacrificeSource, setSacrificeSource] = useState<Card | null>(null);
   const [supplyDepotDrawnCards, setSupplyDepotDrawnCards] = useState<Card[]>([]);
   const [supplyDepotDiscardMode, setSupplyDepotDiscardMode] = useState(false);
+  const [showCacheModal, setShowCacheModal] = useState(false);
+  const [cacheCard, setCacheCard] = useState<Card | null>(null);
+  const [cacheLocation, setCacheLocation] = useState<{ type: 'person' | 'camp'; index: number } | null>(null);
+  const [campRaidMode, setCampRaidMode] = useState(false);
+  const [pendingPunkGain, setPendingPunkGain] = useState(false);
+  const [pendingRaidAfterPunk, setPendingRaidAfterPunk] = useState(false);
 
   const gameBoardRef = useRef(null);
 
@@ -855,7 +1034,6 @@ const GameBoard = () => {
       return; // User canceled
     }
 
-    // Apply the changes
     setOpponentState((prev) => ({
       ...prev,
       eventSlots: newEvents,
@@ -863,6 +1041,23 @@ const GameBoard = () => {
 
     alert(`Opponent's events have been delayed in the queue!`);
   };
+
+  useEffect(() => {
+    // Check if punk placement is complete and we need to execute a raid
+    if (!punkPlacementMode && pendingRaidAfterPunk) {
+      executeRaidEffect(gameState.currentTurn);
+      setPendingRaidAfterPunk(false);
+    }
+  }, [punkPlacementMode, pendingRaidAfterPunk]);
+
+  // Handle the pending punk gain after raid completes
+  useEffect(() => {
+    if (pendingPunkGain && !campRaidMode) {
+      // Raid has completed, now gain the punk
+      gainPunk(gameState.currentTurn);
+      setPendingPunkGain(false);
+    }
+  }, [campRaidMode, pendingPunkGain]);
 
   useEffect(() => {
     if (gameBoardRef.current) {
@@ -1427,6 +1622,15 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'raid_and_punk':
+        // Store the card and location for use in the modal
+        setCacheCard(card);
+        setCacheLocation(location);
+
+        // Show modal to let player choose execution order
+        setShowCacheModal(true);
+        break;
+
       case 'sacrifice_for_restore':
         // Get the current player's state
         const sacrificeRestorePlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -1846,7 +2050,6 @@ const GameBoard = () => {
                 eventSlots: [prev.eventSlots[0], raidersCard, prev.eventSlots[2]],
                 raidersLocation: 'event2',
               }));
-              alert('Raiders moved to event slot 2');
             }
             // If slot 2 is occupied, try slot 3 (index 0)
             else if (playerState.eventSlots[0] === null) {
@@ -1856,7 +2059,6 @@ const GameBoard = () => {
                 eventSlots: [raidersCard, prev.eventSlots[1], prev.eventSlots[2]],
                 raidersLocation: 'event3',
               }));
-              alert('Raiders moved to event slot 3');
             }
             // If both slots are occupied
             else {
@@ -1876,7 +2078,6 @@ const GameBoard = () => {
                 ],
                 raidersLocation: 'event1',
               }));
-              alert('Raiders advanced to event slot 1');
             } else {
               alert('Event slot 1 is occupied. Raiders cannot advance.');
             }
@@ -1915,7 +2116,6 @@ const GameBoard = () => {
                 ],
                 raidersLocation: 'event2',
               }));
-              alert('Raiders advanced to event slot 2');
             } else {
               alert('Event slot 2 is occupied. Raiders cannot advance.');
             }
@@ -2950,7 +3150,7 @@ const GameBoard = () => {
                     if (
                       multiRestoreMode &&
                       gameState.currentTurn === 'left' &&
-                      lefttPlayerState.campSlots[1] &&
+                      leftPlayerState.campSlots[1] &&
                       leftPlayerState.campSlots[1].isDamaged
                     ) {
                       // Use applyRestore function
@@ -3425,6 +3625,40 @@ const GameBoard = () => {
                   >
                     Done Restoring
                   </button>
+                </div>
+              )}
+
+              {/* Cache Ability Order Modal */}
+              {showCacheModal && cacheCard && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-gray-800 p-4 rounded-lg max-w-md w-full">
+                    <h2 className="text-white text-xl mb-4">Cache Ability Order</h2>
+                    <p className="text-white mb-4">Choose the order to execute abilities:</p>
+
+                    <div className="flex flex-col gap-4">
+                      <button
+                        className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded"
+                        onClick={() => {
+                          setShowCacheModal(false);
+                          // First gain punk, then raid
+                          executeCacheAbility(cacheCard, cacheLocation, 'punk_first');
+                        }}
+                      >
+                        1. Gain Punk → 2. Raid
+                      </button>
+
+                      <button
+                        className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded"
+                        onClick={() => {
+                          setShowCacheModal(false);
+                          // First raid, then gain punk
+                          executeCacheAbility(cacheCard, cacheLocation, 'raid_first');
+                        }}
+                      >
+                        1. Raid → 2. Gain Punk
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
 
