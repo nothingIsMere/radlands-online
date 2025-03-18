@@ -609,6 +609,21 @@ const GameBoard = () => {
   // };
 
   const checkAbilityEnabled = (card: Card) => {
+    if (card.name === 'Arcade' && card.abilities && card.abilities[0]?.type === 'conditional_gain_punk') {
+      // Get the current player state
+      const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+      // Count how many people the player has (excluding punks)
+      const peopleCount = playerState.personSlots.filter((card) => card !== null && !card.isPunk).length;
+
+      // Check if the player has 0 or 1 people
+      const conditionMet = peopleCount <= 1;
+
+      if (!conditionMet) {
+        alert(`You have ${peopleCount} people. You need 0 or 1 people to use this ability.`);
+        return false; // Ability cannot be used
+      }
+    }
     if (card.name === 'Exterminator' && card.abilities && card.abilities[0]?.type === 'destroy_damaged_all') {
       // Check if opponent has any damaged cards
       const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
@@ -764,7 +779,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('cache'), createCamp('mulcher'), createCamp('command-post')],
+    campSlots: [createCamp('arcade'), createCamp('mulcher'), createCamp('command-post')],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1622,6 +1637,50 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'conditional_gain_punk':
+        // Get the current player state
+        const arcadePlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+        // Count how many people the player has (excluding punks)
+        const peopleCount = arcadePlayerState.personSlots.filter((card) => card !== null && !card.isPunk).length;
+
+        // Check if the player has 0 or 1 people
+        const conditionMet = peopleCount <= 1;
+
+        if (conditionMet) {
+          // If condition is met, gain a punk
+          if (drawDeck.length > 0) {
+            const punkCard = drawDeck[drawDeck.length - 1];
+            setPunkCardToPlace(punkCard);
+            setPunkPlacementMode(true);
+            setDrawDeck((prev) => prev.slice(0, prev.length - 1));
+            alert(`Condition met: You have ${peopleCount} people. Gain a punk!`);
+          } else {
+            alert('Draw deck is empty, cannot gain a punk!');
+          }
+        } else {
+          // Condition not met, show message and refund water cost
+          alert(`Condition not met: You have ${peopleCount} people. You need 0 or 1 people.`);
+
+          // Refund the water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          // Don't mark the card as used since the ability couldn't be activated
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          }
+
+          return; // Exit without executing ability
+        }
+        break;
       case 'raid_and_punk':
         // Store the card and location for use in the modal
         setCacheCard(card);
@@ -1766,15 +1825,15 @@ const GameBoard = () => {
 
       case 'conditional_damage':
         // For cards like Cannon with conditional abilities
-        let conditionMet = false;
+        let isConditionSatisfied = false; // Use a completely different name
 
         if (ability.condition === 'self_undamaged') {
           // For Cannon: "If this card is undamaged, Damage"
-          conditionMet = !card.isDamaged;
+          isConditionSatisfied = !card.isDamaged;
         }
         // We'll add more conditions later as needed
 
-        if (conditionMet) {
+        if (isConditionSatisfied) {
           // Condition is met, proceed with damage effect
           setDamageMode(true);
           setDamageSource(card);
