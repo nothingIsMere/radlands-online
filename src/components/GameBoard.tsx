@@ -628,6 +628,31 @@ const GameBoard = () => {
   // };
 
   const checkAbilityEnabled = (card: Card) => {
+    if (card.name === 'Training Camp' && card.abilities && card.abilities[0]?.type === 'conditional_damage') {
+      // Check the column condition
+      const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+      // Determine which column this camp is in
+      const campColumnIndex =
+        card.type === 'camp' ? playerState.campSlots.findIndex((camp) => camp && camp.id === card.id) : -1;
+
+      if (campColumnIndex >= 0) {
+        // Count people in this column
+        const frontRowIndex = campColumnIndex * 2;
+        const backRowIndex = frontRowIndex + 1;
+
+        const frontRowPerson = playerState.personSlots[frontRowIndex];
+        const backRowPerson = playerState.personSlots[backRowIndex];
+
+        const peopleInColumn =
+          (frontRowPerson && !frontRowPerson.isPunk ? 1 : 0) + (backRowPerson && !backRowPerson.isPunk ? 1 : 0);
+
+        if (peopleInColumn < 2) {
+          alert(`You need 2 people in this column to use this ability. Current count: ${peopleInColumn}`);
+          return false;
+        }
+      }
+    }
     if (card.name === 'Transplant Lab' && card.abilities && card.abilities[0]?.type === 'conditional_restore') {
       // Get the current player state
       const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -822,7 +847,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('arcade'), createCamp('mulcher'), { ...createCamp('transplant-lab'), isDamaged: true }],
+    campSlots: [createCamp('arcade'), createCamp('mulcher'), createCamp('training-camp')],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1208,6 +1233,46 @@ const GameBoard = () => {
 
   const getColumnFromSlotIndex = (slotIndex: number) => {
     return Math.floor(slotIndex / 2);
+  };
+
+  const checkAbilityCondition = (
+    condition: string,
+    card: Card,
+    location: { type: 'person' | 'camp'; index: number },
+    playerState: PlayerState
+  ): { satisfied: boolean; message?: string } => {
+    switch (condition) {
+      case 'self_undamaged':
+        return {
+          satisfied: !card.isDamaged,
+          message: card.isDamaged ? 'This card must be undamaged to use this ability.' : undefined,
+        };
+
+      case 'two_people_in_column':
+        // Determine which column this camp is in
+        const campColumnIndex = location.index; // Camp slots align with columns
+
+        // Count people in this column (front and back row)
+        const frontRowIndex = campColumnIndex * 2; // Convert column to person slot index
+        const backRowIndex = frontRowIndex + 1;
+
+        const frontRowPerson = playerState.personSlots[frontRowIndex];
+        const backRowPerson = playerState.personSlots[backRowIndex];
+
+        // Check if both slots in the column have people (not null and not punks)
+        const peopleInColumn =
+          (frontRowPerson && !frontRowPerson.isPunk ? 1 : 0) + (backRowPerson && !backRowPerson.isPunk ? 1 : 0);
+
+        return {
+          satisfied: peopleInColumn >= 2,
+          message: `You need 2 people in this column. Current count: ${peopleInColumn}`,
+        };
+
+      // Add more conditions as needed
+
+      default:
+        return { satisfied: false, message: 'Unknown condition' };
+    }
   };
 
   const addToDiscardPile = (card: Card) => {
@@ -1981,6 +2046,28 @@ const GameBoard = () => {
         if (ability.condition === 'self_undamaged') {
           // For Cannon: "If this card is undamaged, Damage"
           isConditionSatisfied = !card.isDamaged;
+        } else if (ability.condition === 'two_people_in_column') {
+          // For Training Camp: "If you have 2 people in this column, Damage"
+          // Determine which column this camp is in
+          const campColumnIndex = location.index; // Camp slots align with columns
+
+          // Count people in this column (front and back row)
+          const frontRowIndex = campColumnIndex * 2; // Convert column to person slot index
+          const backRowIndex = frontRowIndex + 1;
+
+          const frontRowPerson = playerState.personSlots[frontRowIndex];
+          const backRowPerson = playerState.personSlots[backRowIndex];
+
+          // Check if both slots in the column have people (not null and not punks)
+          const peopleInColumn =
+            (frontRowPerson && !frontRowPerson.isPunk ? 1 : 0) + (backRowPerson && !backRowPerson.isPunk ? 1 : 0);
+
+          isConditionSatisfied = peopleInColumn >= 2;
+
+          // Let the player know why the condition wasn't met
+          if (!isConditionSatisfied) {
+            alert(`Condition not met: You need 2 people in this column. Current count: ${peopleInColumn}`);
+          }
         }
         // We'll add more conditions later as needed
 
@@ -1992,7 +2079,10 @@ const GameBoard = () => {
           alert(`Select an unprotected enemy card to damage`);
         } else {
           // Condition not met, show message and refund water cost
-          alert('Condition not met: This card must be undamaged to use this ability.');
+          if (ability.condition !== 'two_people_in_column') {
+            // General message for other conditions (already handled specially for two_people_in_column)
+            alert('Condition not met: This ability cannot be used right now.');
+          }
 
           // Refund the water cost
           const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -2002,6 +2092,23 @@ const GameBoard = () => {
             ...prev,
             waterCount: prev.waterCount + ability.cost,
           }));
+
+          // Don't mark the card as unready since the ability wasn't used
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          } else if (location.type === 'person') {
+            setPlayerState((prev) => ({
+              ...prev,
+              personSlots: prev.personSlots.map((person, idx) =>
+                idx === location.index ? { ...person, isReady: true } : person
+              ),
+            }));
+          }
         }
         break;
 
