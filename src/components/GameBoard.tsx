@@ -648,6 +648,31 @@ const GameBoard = () => {
   // };
 
   const checkAbilityEnabled = (card: Card) => {
+    if (card.name === 'Warehouse' && card.abilities && card.abilities[0]?.type === 'conditional_restore') {
+      // Get the opponent player
+      const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
+      const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
+
+      // Check if opponent has any unprotected camps
+      const hasUnprotectedCamp = opponentState.campSlots.some((camp) => camp !== null && !camp.isProtected);
+
+      if (!hasUnprotectedCamp) {
+        alert('Opponent has no unprotected camps. Ability cannot be used.');
+        return false; // Ability cannot be used
+      }
+
+      // Also check if the player has any damaged cards to restore
+      const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+      const hasDamagedCard = [...playerState.personSlots, ...playerState.campSlots].some(
+        (slot) => slot && slot.isDamaged && (!card.traits?.includes('cannot_self_restore') || slot.id !== card.id)
+      );
+
+      if (!hasDamagedCard) {
+        alert('No damaged cards to restore!');
+        return false; // Ability cannot be used
+      }
+    }
+
     if (card.name === 'Mercenary Camp' && card.abilities && card.abilities[0]?.type === 'conditional_damage_camp') {
       // Get the current player state
       const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -892,7 +917,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('mercenary-camp'), createCamp('scud-launcher'), createCamp('victory-totem')],
+    campSlots: [createCamp('warehouse'), createCamp('scud-launcher'), createCamp('victory-totem')],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -903,7 +928,7 @@ const GameBoard = () => {
   });
 
   const rightTestPersonSlots: (Card | null)[] = [
-    // { ...createPerson('assassin'), id: 'right-person-1', name: 'Guard' }, // Front row, column 1
+    { ...createPerson('assassin'), id: 'right-person-1', name: 'Guard' }, // Front row, column 1
     null,
     null, // Back row, column 1
     { ...createPerson('assassin'), id: 'right-person-3', name: 'Assassin' }, // Front row, column 2
@@ -1886,6 +1911,7 @@ const GameBoard = () => {
 
         // Check the condition based on the specific condition type
         let restoreConditionMet = false;
+        let conditionMessage = '';
 
         if (card.type === 'camp' && card.traits?.includes('cannot_self_restore')) {
           const gameBoard = document.getElementById('game-board');
@@ -1897,6 +1923,19 @@ const GameBoard = () => {
         if (ability.condition === 'played_two_people') {
           // Check if player has played 2 or more people this turn
           restoreConditionMet = restorePlayerState.peoplePlayedThisTurn >= 2;
+          conditionMessage = restoreConditionMet
+            ? `You've played ${restorePlayerState.peoplePlayedThisTurn} people this turn.`
+            : `You've only played ${restorePlayerState.peoplePlayedThisTurn} people this turn. You need to play at least 2 people.`;
+        } else if (ability.condition === 'opponent_has_unprotected_camp') {
+          // Get the opponent player
+          const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
+          const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
+
+          // Check if opponent has any unprotected camps
+          restoreConditionMet = opponentState.campSlots.some((camp) => camp !== null && !camp.isProtected);
+          conditionMessage = restoreConditionMet
+            ? `Opponent has an unprotected camp.`
+            : `Opponent has no unprotected camps.`;
         }
         // Add other conditions as needed
 
@@ -1939,14 +1978,10 @@ const GameBoard = () => {
           // If condition is met and there are damaged cards, enter restore mode
           setAbilityRestoreMode(true);
           setRestoreSource(card);
-          alert(
-            `Condition met: You've played ${restorePlayerState.peoplePlayedThisTurn} people this turn. Select a damaged card to restore.`
-          );
+          alert(`Condition met: ${conditionMessage} Select a damaged card to restore.`);
         } else {
           // Condition not met, show message and refund water cost
-          alert(
-            `Condition not met: You've only played ${restorePlayerState.peoplePlayedThisTurn} people this turn. You need to play at least 2 people.`
-          );
+          alert(`Condition not met: ${conditionMessage}`);
 
           // Refund the water cost
           setPlayerState((prev) => ({
