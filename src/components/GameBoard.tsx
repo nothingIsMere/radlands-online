@@ -487,12 +487,13 @@ const GameBoard = () => {
         return false;
       }
 
-      // Special case for Pyromaniac: can only target camps
+      // Special case for Pyromaniac or Mercenary Camp: can only target camps
       if (campDamageMode) {
         if (element === 'camp') {
           const targetCamp =
             elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
-          return isOpponentElement && targetCamp && !targetCamp.isProtected;
+          // Allow targeting protected camps if sniperMode is active
+          return isOpponentElement && targetCamp && (sniperMode || !targetCamp.isProtected);
         }
         return false;
       }
@@ -647,6 +648,30 @@ const GameBoard = () => {
   // };
 
   const checkAbilityEnabled = (card: Card) => {
+    if (card.name === 'Mercenary Camp' && card.abilities && card.abilities[0]?.type === 'conditional_damage_camp') {
+      // Get the current player state
+      const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+      // Count how many people the player has (excluding punks)
+      const peopleCount = playerState.personSlots.filter((card) => card !== null && !card.isPunk).length;
+
+      // Check if the player has 4 or more people
+      if (peopleCount < 4) {
+        alert(`You only have ${peopleCount} people. You need at least 4 people to use this ability.`);
+        return false; // Ability cannot be used
+      }
+
+      // Check if there are any enemy camps to target
+      const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
+      const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
+      const hasCamps = opponentState.campSlots.some((camp) => camp !== null);
+
+      if (!hasCamps) {
+        alert('No enemy camps to target!');
+        return false; // Ability cannot be used
+      }
+    }
+
     if (card.name === 'Training Camp' && card.abilities && card.abilities[0]?.type === 'conditional_damage') {
       // Check the column condition
       const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -672,6 +697,7 @@ const GameBoard = () => {
         }
       }
     }
+
     if (card.name === 'Transplant Lab' && card.abilities && card.abilities[0]?.type === 'conditional_restore') {
       // Get the current player state
       const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -866,7 +892,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('arcade'), createCamp('scud-launcher'), createCamp('victory-totem')],
+    campSlots: [createCamp('mercenary-camp'), createCamp('scud-launcher'), createCamp('victory-totem')],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1794,6 +1820,51 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'conditional_damage_camp':
+        // Get the current player state
+        const mercenaryPlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+
+        // Count how many people the player has (excluding punks)
+        const playerPeopleCount = mercenaryPlayerState.personSlots.filter(
+          (card) => card !== null && !card.isPunk
+        ).length;
+
+        // Check if the player has 4 or more people
+        const hasFourOrMorePeople = playerPeopleCount >= 4;
+
+        if (hasFourOrMorePeople) {
+          // If condition is met, enter camp damage mode and sniper mode to ignore protection
+          setCampDamageMode(true);
+          setSniperMode(true); // This will allow targeting protected camps
+          setDamageSource(card);
+          setDamageValue(ability.value || 1);
+          alert(
+            `Condition met: You have ${playerPeopleCount} people. Select any enemy camp to damage (protection is ignored).`
+          );
+        } else {
+          // Condition not met, show message and refund water cost
+          alert(`Condition not met: You have ${playerPeopleCount} people. You need at least 4 people.`);
+
+          // Refund the water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          // Don't mark the card as used since the ability couldn't be activated
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          }
+
+          return; // Exit without executing ability
+        }
+        break;
+
       case 'opponent_choice_damage':
         // Determine the opponent player
         const opponentPlayerForChoice = gameState.currentTurn === 'left' ? 'right' : 'left';
@@ -3238,7 +3309,9 @@ const GameBoard = () => {
     (opponentChoiceDamageMode &&
       gameState.currentTurn === 'right' &&
       leftPlayerState.campSlots[0] &&
-      !leftPlayerState.campSlots[0]?.isProtected)
+      !leftPlayerState.campSlots[0]?.isProtected) ||
+    (damageColumnMode && gameState.currentTurn !== 'right') ||
+    (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[0]?.isDamaged
       ? 'border-red-700'
@@ -3255,6 +3328,19 @@ const GameBoard = () => {
                       // Apply damage to the camp
                       applyDamage(leftPlayerState.campSlots[0], 0, false);
                       return;
+                    }
+                    if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
+                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                      applyDamage(leftPlayerState.campSlots[0], 0, false);
+
+                      // Reset targeting modes
+                      setDamageMode(false);
+                      setDamageSource(null);
+                      setDamageValue(0);
+                      setCampDamageMode(false);
+                      setSniperMode(false);
+
+                      return; // Exit early
                     }
                     if (
                       multiRestoreMode &&
@@ -3550,7 +3636,8 @@ const GameBoard = () => {
       gameState.currentTurn === 'right' &&
       leftPlayerState.campSlots[1] &&
       !leftPlayerState.campSlots[1]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'right')
+    (damageColumnMode && gameState.currentTurn !== 'right') ||
+    (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[1]?.isDamaged
       ? 'border-red-700'
@@ -3567,6 +3654,19 @@ const GameBoard = () => {
                       // Apply damage to the camp
                       applyDamage(leftPlayerState.campSlots[1], 1, false);
                       return;
+                    }
+                    if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
+                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                      applyDamage(leftPlayerState.campSlots[1], 1, false);
+
+                      // Reset targeting modes
+                      setDamageMode(false);
+                      setDamageSource(null);
+                      setDamageValue(0);
+                      setCampDamageMode(false);
+                      setSniperMode(false);
+
+                      return; // Exit early
                     }
                     if (
                       multiRestoreMode &&
@@ -3862,7 +3962,8 @@ const GameBoard = () => {
       gameState.currentTurn === 'right' &&
       leftPlayerState.campSlots[2] &&
       !leftPlayerState.campSlots[2]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'right')
+    (damageColumnMode && gameState.currentTurn !== 'right') ||
+    (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[2]?.isDamaged
       ? 'border-red-700'
@@ -3879,6 +3980,19 @@ const GameBoard = () => {
                       // Apply damage to the camp
                       applyDamage(leftPlayerState.campSlots[2], 2, false);
                       return;
+                    }
+                    if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
+                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                      applyDamage(leftPlayerState.campSlots[2], 2, false);
+
+                      // Reset targeting modes
+                      setDamageMode(false);
+                      setDamageSource(null);
+                      setDamageValue(0);
+                      setCampDamageMode(false);
+                      setSniperMode(false);
+
+                      return; // Exit early
                     }
                     if (
                       multiRestoreMode &&
@@ -4867,7 +4981,8 @@ const GameBoard = () => {
       gameState.currentTurn === 'left' &&
       rightPlayerState.campSlots[0] &&
       !rightPlayerState.campSlots[0]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'left')
+    (damageColumnMode && gameState.currentTurn !== 'left') ||
+    (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[0]?.isDamaged
       ? 'border-red-700'
@@ -4884,6 +4999,19 @@ const GameBoard = () => {
                       // Apply damage to the camp
                       applyDamage(rightPlayerState.campSlots[0], 0, true);
                       return;
+                    }
+                    if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) {
+                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                      applyDamage(rightPlayerState.campSlots[0], 0, true);
+
+                      // Reset targeting modes
+                      setDamageMode(false);
+                      setDamageSource(null);
+                      setDamageValue(0);
+                      setCampDamageMode(false);
+                      setSniperMode(false);
+
+                      return; // Exit early
                     }
                     if (
                       multiRestoreMode &&
@@ -5173,7 +5301,8 @@ const GameBoard = () => {
       gameState.currentTurn === 'left' &&
       rightPlayerState.campSlots[1] &&
       !rightPlayerState.campSlots[1]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'left')
+    (damageColumnMode && gameState.currentTurn !== 'left') ||
+    (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[1]?.isDamaged
       ? 'border-red-700'
@@ -5190,6 +5319,19 @@ const GameBoard = () => {
                       // Apply damage to the camp
                       applyDamage(rightPlayerState.campSlots[1], 1, true);
                       return;
+                    }
+                    if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) {
+                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                      applyDamage(rightPlayerState.campSlots[1], 1, true);
+
+                      // Reset targeting modes
+                      setDamageMode(false);
+                      setDamageSource(null);
+                      setDamageValue(0);
+                      setCampDamageMode(false);
+                      setSniperMode(false);
+
+                      return; // Exit early
                     }
                     if (
                       multiRestoreMode &&
@@ -5479,7 +5621,8 @@ const GameBoard = () => {
       gameState.currentTurn === 'left' &&
       rightPlayerState.campSlots[2] &&
       !rightPlayerState.campSlots[2]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'left')
+    (damageColumnMode && gameState.currentTurn !== 'left') ||
+    (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[2]?.isDamaged
       ? 'border-red-700'
@@ -5496,6 +5639,19 @@ const GameBoard = () => {
                       // Apply damage to the camp
                       applyDamage(rightPlayerState.campSlots[1], 1, true);
                       return;
+                    }
+                    if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) {
+                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                      applyDamage(rightPlayerState.campSlots[2], 2, true);
+
+                      // Reset targeting modes
+                      setDamageMode(false);
+                      setDamageSource(null);
+                      setDamageValue(0);
+                      setCampDamageMode(false);
+                      setSniperMode(false);
+
+                      return; // Exit early
                     }
                     if (
                       multiRestoreMode &&
