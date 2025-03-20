@@ -25,6 +25,7 @@ interface PersonSlotProps {
   damageMode?: boolean;
   sacrificeMode?: boolean;
   setSacrificeMode?: (value: boolean) => void;
+  sacrificePendingDamage?: boolean;
   setSacrificePendingDamage?: (value: boolean) => void;
   setDamageMode?: (value: boolean) => void;
   setDamageValue?: (value: number) => void;
@@ -81,9 +82,9 @@ const PersonSlot = ({
   setRestoreMode,
   sacrificeMode = false,
   setSacrificeMode,
+  sacrificePendingDamage,
   setSacrificePendingDamage,
   setDamageMode,
-  setDamageValue,
   injureMode = false,
   setInjureMode,
   damageMode = false,
@@ -115,6 +116,9 @@ const PersonSlot = ({
   setDrawDeck,
   setRestorePlayer,
   opponentChoiceDamageMode = false,
+  setDamageSource,
+  setDamageValue,
+  setSniperMode,
 }: PersonSlotProps) => {
   React.useEffect(() => {
     if (restoreMode && card?.name === 'Repair Bot') {
@@ -194,20 +198,30 @@ const PersonSlot = ({
           // Destroy the card
           destroyCard(card, index, player === 'right');
 
-          // Handle different sacrifice effects
-          if (sacrificeEffect === 'draw') {
+          // Check if this sacrifice is part of the Catapult ability sequence
+          if (sacrificePendingDamage) {
+            // Reset the pending damage flag
+            setSacrificePendingDamage(false);
+
+            // Reset other targeting modes
+            setDamageMode(false);
+            setDamageSource(null);
+            setDamageValue(0);
+            setSniperMode(false);
+
+            alert(`Sacrificed ${card.name}. Catapult ability complete.`);
+          }
+          // Handle other sacrifice effects
+          else if (sacrificeEffect === 'draw') {
             if (drawDeck && drawDeck.length > 0 && setDrawDeck) {
               const drawnCard = drawDeck[drawDeck.length - 1];
-
               // Add to player's hand
               setPlayerState((prev) => ({
                 ...prev,
                 handCards: [...prev.handCards, drawnCard],
               }));
-
               // Remove from draw deck
               setDrawDeck((prev) => prev.slice(0, -1));
-
               alert(`Sacrificed ${card.name} and drew a card: ${drawnCard.name}`);
             } else {
               alert(`Sacrificed ${card.name}, but couldn't draw a card.`);
@@ -218,7 +232,6 @@ const PersonSlot = ({
               ...prev,
               waterCount: prev.waterCount + 1,
             }));
-
             alert(`Sacrificed ${card.name} and gained 1 water`);
           } else if (sacrificeEffect === 'restore') {
             // Enter restore mode

@@ -917,7 +917,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('warehouse'), createCamp('scud-launcher'), createCamp('victory-totem')],
+    campSlots: [createCamp('catapult'), createCamp('scud-launcher'), createCamp('victory-totem')],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1372,17 +1372,6 @@ const GameBoard = () => {
       damageValueToApply
     );
 
-    // Reset all targeting modes
-    setDamageMode(false);
-    setDamageSource(null);
-    setDamageValue(0);
-    setSniperMode(false);
-    setCampDamageMode(false);
-    setSacrificePendingDamage(false);
-    setOpponentChoiceDamageMode(false);
-    setOpponentChoiceDamageSource(null);
-    setOpponentChoiceDamageValue(0);
-
     // Show appropriate message based on result
     if (wasDestroyed) {
       alert(`${target.isPunk ? 'Punk' : 'Damaged card'} destroyed!`);
@@ -1430,6 +1419,27 @@ const GameBoard = () => {
       }
     }
 
+    // Check if this is part of the Catapult ability (damage then sacrifice)
+    // This needs to be checked BEFORE resetting modes
+    if (sacrificePendingDamage) {
+      // Don't reset sacrifice mode or related flags
+      // Only reset damage-specific modes
+      setDamageMode(false);
+      setDamageSource(null);
+      setDamageValue(0);
+      setSniperMode(false);
+      setCampDamageMode(false);
+      setOpponentChoiceDamageMode(false);
+      setOpponentChoiceDamageSource(null);
+      setOpponentChoiceDamageValue(0);
+
+      // Now enter sacrifice mode
+      setSacrificeMode(true);
+
+      alert(`Now select one of your people to sacrifice.`);
+      return; // Don't reset any more targeting modes
+    }
+
     // Check if this is part of Vanguard's ability
     if (vanguardPendingCounter) {
       setVanguardPendingCounter(false);
@@ -1447,6 +1457,17 @@ const GameBoard = () => {
       setDamageValue(1);
       return; // Don't reset targeting mode yet
     }
+
+    // If none of the special cases above, reset all targeting modes
+    setDamageMode(false);
+    setDamageSource(null);
+    setDamageValue(0);
+    setSniperMode(false);
+    setCampDamageMode(false);
+    setSacrificePendingDamage(false);
+    setOpponentChoiceDamageMode(false);
+    setOpponentChoiceDamageSource(null);
+    setOpponentChoiceDamageValue(0);
 
     // If this is the counter-damage for Vanguard, reset all Vanguard states
     if (vanguardCounterActive) {
@@ -1845,6 +1866,19 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'damage_then_sacrifice':
+        // First step: Enter damage targeting mode with ability to hit protected cards
+        setDamageMode(true);
+        setDamageSource(card);
+        setDamageValue(ability.value || 1);
+        setSniperMode(true); // Allow targeting protected cards
+
+        // Store that we need to sacrifice after damaging
+        setSacrificePendingDamage(true);
+
+        alert(`Select any card to damage (protection is ignored). Then you will need to sacrifice one of your people.`);
+        break;
+
       case 'conditional_damage_camp':
         // Get the current player state
         const mercenaryPlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -3240,6 +3274,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   setSacrificeMode={setSacrificeMode}
+                  sacrificePendingDamage={sacrificePendingDamage}
                   setSacrificePendingDamage={setSacrificePendingDamage}
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
@@ -3263,6 +3298,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <PersonSlot
                   index={1}
@@ -3297,6 +3334,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   setSacrificeMode={setSacrificeMode}
+                  sacrificePendingDamage={sacrificePendingDamage}
                   setSacrificePendingDamage={setSacrificePendingDamage}
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
@@ -3320,6 +3358,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3567,6 +3607,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   setSacrificeMode={setSacrificeMode}
+                  sacrificePendingDamage={sacrificePendingDamage}
                   setSacrificePendingDamage={setSacrificePendingDamage}
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
@@ -3590,6 +3631,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <PersonSlot
                   index={3}
@@ -3624,6 +3667,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   setSacrificeMode={setSacrificeMode}
+                  sacrificePendingDamage={sacrificePendingDamage}
                   setSacrificePendingDamage={setSacrificePendingDamage}
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
@@ -3647,6 +3691,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3893,6 +3939,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   setSacrificeMode={setSacrificeMode}
+                  sacrificePendingDamage={sacrificePendingDamage}
                   setSacrificePendingDamage={setSacrificePendingDamage}
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
@@ -3916,6 +3963,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <PersonSlot
                   index={5}
@@ -3950,6 +3999,7 @@ const GameBoard = () => {
                   damageColumnMode={damageColumnMode}
                   sacrificeMode={sacrificeMode}
                   setSacrificeMode={setSacrificeMode}
+                  sacrificePendingDamage={sacrificePendingDamage}
                   setSacrificePendingDamage={setSacrificePendingDamage}
                   setDamageMode={setDamageMode}
                   setDamageValue={setDamageValue}
@@ -3973,6 +4023,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4938,6 +4990,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <PersonSlot
                   index={1}
@@ -4992,6 +5046,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -5258,6 +5314,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <PersonSlot
                   index={3}
@@ -5312,6 +5370,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -5578,6 +5638,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <PersonSlot
                   index={5}
@@ -5632,6 +5694,8 @@ const GameBoard = () => {
                   setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
                   opponentChoiceDamageValue={opponentChoiceDamageValue}
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                  setSniperMode={setSniperMode}
+                  setDamageSource={setDamageSource}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
