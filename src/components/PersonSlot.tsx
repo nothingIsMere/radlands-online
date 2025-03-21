@@ -119,6 +119,8 @@ const PersonSlot = ({
   setDamageSource,
   setDamageValue,
   setSniperMode,
+  anyCardDamageMode,
+  setAnyCardDamageMode,
 }: PersonSlotProps) => {
   React.useEffect(() => {
     if (restoreMode && card?.name === 'Repair Bot') {
@@ -147,6 +149,7 @@ const PersonSlot = ({
           (abilityRestoreMode && card?.isDamaged) ||
           (returnToHandMode && card && player === gameState.currentTurn) ||
           (mimicMode && card) ||
+          (damageMode && anyCardDamageMode && card && (sniperMode || !card.isProtected)) ||
           (opponentChoiceDamageMode && gameState.currentTurn !== player && card)) &&
         isInteractable('person', player, index)
           ? 'border-purple-400 animate-pulse cursor-pointer'

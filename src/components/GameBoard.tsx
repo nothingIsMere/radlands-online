@@ -452,11 +452,10 @@ const GameBoard = () => {
     }
 
     if (damageMode) {
-      // In damage mode, similar to injure mode - only opponent's unprotected cards
       const isOpponentElement = gameState.currentTurn !== elementPlayer;
 
+      // During Vanguard counter phase, target the original player's cards
       if (vanguardCounterActive) {
-        // During counter phase, target the original player's cards
         const shouldTargetOriginalPlayer = elementPlayer === vanguardOriginalPlayer;
 
         if (element === 'person') {
@@ -472,7 +471,22 @@ const GameBoard = () => {
         return false;
       }
 
-      // Special case for Sniper: can target any card, even protected ones
+      // For Catapult - can target ANY card (own or opponent's)
+      if (anyCardDamageMode) {
+        if (element === 'person') {
+          const targetCard =
+            elementPlayer === 'left' ? leftPlayerState.personSlots[slotIndex] : rightPlayerState.personSlots[slotIndex];
+          return targetCard && (sniperMode || !targetCard.isProtected);
+        }
+        if (element === 'camp') {
+          const targetCamp =
+            elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
+          return targetCamp && (sniperMode || !targetCamp.isProtected);
+        }
+        return false;
+      }
+
+      // Special case for Sniper: can target any opponent card, even protected ones
       if (sniperMode) {
         if (element === 'person') {
           const targetCard =
@@ -498,21 +512,7 @@ const GameBoard = () => {
         return false;
       }
 
-      if (element === 'camp') {
-        const card =
-          elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
-
-        return (
-          isCurrentPlayerElement &&
-          gameState.currentPhase === 'actions' &&
-          card &&
-          card.isReady &&
-          card.abilities &&
-          card.abilities.length > 0
-        );
-      }
-
-      // Normal damage logic for other cards
+      // Normal damage logic for other cards - only opponent's unprotected cards
       if (element === 'person') {
         const targetCard =
           elementPlayer === 'left' ? leftPlayerState.personSlots[slotIndex] : rightPlayerState.personSlots[slotIndex];
@@ -524,6 +524,7 @@ const GameBoard = () => {
           elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
         return isOpponentElement && targetCamp && !targetCamp.isProtected;
       }
+
       return false;
     }
 
@@ -648,6 +649,17 @@ const GameBoard = () => {
   // };
 
   const checkAbilityEnabled = (card: Card) => {
+    if (card.name === 'Catapult' && card.abilities && card.abilities[0]?.type === 'damage_then_sacrifice') {
+      // Check if player has at least one person in play
+      const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+      const hasPerson = playerState.personSlots.some((slot) => slot !== null && !slot.isPunk);
+
+      if (!hasPerson) {
+        alert('You need at least one person in play to use this ability!');
+        return false; // Ability cannot be used
+      }
+    }
+
     if (card.name === 'Warehouse' && card.abilities && card.abilities[0]?.type === 'conditional_restore') {
       // Get the opponent player
       const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
@@ -1064,6 +1076,7 @@ const GameBoard = () => {
   const [opponentChoiceDamageMode, setOpponentChoiceDamageMode] = useState(false);
   const [opponentChoiceDamageValue, setOpponentChoiceDamageValue] = useState(0);
   const [opponentChoiceDamageSource, setOpponentChoiceDamageSource] = useState<Card | null>(null);
+  const [anyCardDamageMode, setAnyCardDamageMode] = useState(false);
 
   const gameBoardRef = useRef(null);
 
@@ -1430,6 +1443,7 @@ const GameBoard = () => {
       setSniperMode(false);
       setCampDamageMode(false);
       setOpponentChoiceDamageMode(false);
+      setAnyCardDamageMode(false);
       setOpponentChoiceDamageSource(null);
       setOpponentChoiceDamageValue(0);
 
@@ -1466,6 +1480,7 @@ const GameBoard = () => {
     setCampDamageMode(false);
     setSacrificePendingDamage(false);
     setOpponentChoiceDamageMode(false);
+    setAnyCardDamageMode(false);
     setOpponentChoiceDamageSource(null);
     setOpponentChoiceDamageValue(0);
 
@@ -1867,16 +1882,17 @@ const GameBoard = () => {
     // Handle ability effects based on type
     switch (ability.type) {
       case 'damage_then_sacrifice':
-        // First step: Enter damage targeting mode with ability to hit protected cards
+        // First step: Enter damage targeting mode with ability to hit any card
         setDamageMode(true);
         setDamageSource(card);
         setDamageValue(ability.value || 1);
         setSniperMode(true); // Allow targeting protected cards
+        setAnyCardDamageMode(true); // Allow targeting own cards
 
         // Store that we need to sacrifice after damaging
         setSacrificePendingDamage(true);
 
-        alert(`Select any card to damage (protection is ignored). Then you will need to sacrifice one of your people.`);
+        alert(`Select ANY card to damage (including your own). Then you will need to sacrifice one of your people.`);
         break;
 
       case 'conditional_damage_camp':
@@ -3386,7 +3402,11 @@ const GameBoard = () => {
       leftPlayerState.campSlots[0] &&
       !leftPlayerState.campSlots[0]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'right') ||
-    (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0])
+    (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) ||
+    (damageMode &&
+      anyCardDamageMode &&
+      leftPlayerState.campSlots[0] &&
+      (sniperMode || !leftPlayerState.campSlots[0].isProtected))
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[0]?.isDamaged
       ? 'border-red-700'
@@ -3394,6 +3414,11 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[0]) {
+                      // Apply damage to the camp
+                      applyDamage(leftPlayerState.campSlots[0], 0, false);
+                      return; // Exit early
+                    }
                     if (
                       opponentChoiceDamageMode &&
                       gameState.currentTurn === 'right' &&
@@ -3538,6 +3563,10 @@ const GameBoard = () => {
                       if (!campCard.isReady) {
                         alert('This camp has already used its ability this turn!');
                         return; // Don't open the modal
+                      }
+
+                      if (!checkAbilityEnabled(campCard)) {
+                        return; // Don't open the modal if the ability can't be used
                       }
 
                       // If we passed the check, proceed as normal
@@ -3718,6 +3747,10 @@ const GameBoard = () => {
       leftPlayerState.campSlots[1] &&
       !leftPlayerState.campSlots[1]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'right') ||
+    (damageMode &&
+      anyCardDamageMode &&
+      leftPlayerState.campSlots[1] &&
+      (sniperMode || !leftPlayerState.campSlots[1].isProtected)) ||
     (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[1]?.isDamaged
@@ -3726,6 +3759,11 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[1]) {
+                      // Apply damage to the camp
+                      applyDamage(leftPlayerState.campSlots[1], 1, false);
+                      return; // Exit early
+                    }
                     if (
                       opponentChoiceDamageMode &&
                       gameState.currentTurn === 'right' &&
@@ -3870,6 +3908,10 @@ const GameBoard = () => {
                       if (!campCard.isReady) {
                         alert('This camp has already used its ability this turn!');
                         return; // Don't open the modal
+                      }
+
+                      if (!checkAbilityEnabled(campCard)) {
+                        return; // Don't open the modal if the ability can't be used
                       }
 
                       // If we passed the check, proceed as normal
@@ -4050,6 +4092,10 @@ const GameBoard = () => {
       leftPlayerState.campSlots[2] &&
       !leftPlayerState.campSlots[2]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'right') ||
+    (damageMode &&
+      anyCardDamageMode &&
+      leftPlayerState.campSlots[2] &&
+      (sniperMode || !leftPlayerState.campSlots[2].isProtected)) ||
     (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[2]?.isDamaged
@@ -4058,6 +4104,11 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[2]) {
+                      // Apply damage to the camp
+                      applyDamage(leftPlayerState.campSlots[2], 2, false);
+                      return; // Exit early
+                    }
                     if (
                       opponentChoiceDamageMode &&
                       gameState.currentTurn === 'right' &&
@@ -4202,6 +4253,10 @@ const GameBoard = () => {
                       if (!campCard.isReady) {
                         alert('This camp has already used its ability this turn!');
                         return; // Don't open the modal
+                      }
+
+                      if (!checkAbilityEnabled(campCard)) {
+                        return; // Don't open the modal if the ability can't be used
                       }
 
                       // If we passed the check, proceed as normal
@@ -5073,6 +5128,10 @@ const GameBoard = () => {
       rightPlayerState.campSlots[0] &&
       !rightPlayerState.campSlots[0]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'left') ||
+    (damageMode &&
+      anyCardDamageMode &&
+      rightPlayerState.campSlots[0] &&
+      (sniperMode || !rightPlayerState.campSlots[0].isProtected)) ||
     (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[0]?.isDamaged
@@ -5081,6 +5140,11 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (damageMode && anyCardDamageMode && rightPlayerState.campSlots[0]) {
+                      // Apply damage to the camp
+                      applyDamage(rightPlayerState.campSlots[0], 0, false);
+                      return; // Exit early
+                    }
                     if (
                       opponentChoiceDamageMode &&
                       gameState.currentTurn === 'left' &&
@@ -5225,6 +5289,10 @@ const GameBoard = () => {
                       if (!campCard.isReady) {
                         alert('This camp has already used its ability this turn!');
                         return; // Don't open the modal
+                      }
+
+                      if (!checkAbilityEnabled(campCard)) {
+                        return; // Don't open the modal if the ability can't be used
                       }
 
                       // If we passed the check, proceed as normal
@@ -5397,6 +5465,10 @@ const GameBoard = () => {
       rightPlayerState.campSlots[1] &&
       !rightPlayerState.campSlots[1]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'left') ||
+    (damageMode &&
+      anyCardDamageMode &&
+      rightPlayerState.campSlots[1] &&
+      (sniperMode || !rightPlayerState.campSlots[1].isProtected)) ||
     (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[1]?.isDamaged
@@ -5405,6 +5477,11 @@ const GameBoard = () => {
   }
 `}
                   onClick={() => {
+                    if (damageMode && anyCardDamageMode && rightPlayerState.campSlots[1]) {
+                      // Apply damage to the camp
+                      applyDamage(rightPlayerState.campSlots[1], 1, false);
+                      return; // Exit early
+                    }
                     if (
                       opponentChoiceDamageMode &&
                       gameState.currentTurn === 'left' &&
@@ -5549,6 +5626,10 @@ const GameBoard = () => {
                       if (!campCard.isReady) {
                         alert('This camp has already used its ability this turn!');
                         return; // Don't open the modal
+                      }
+
+                      if (!checkAbilityEnabled(campCard)) {
+                        return; // Don't open the modal if the ability can't be used
                       }
 
                       // If we passed the check, proceed as normal
@@ -5721,6 +5802,10 @@ const GameBoard = () => {
       rightPlayerState.campSlots[2] &&
       !rightPlayerState.campSlots[2]?.isProtected) ||
     (damageColumnMode && gameState.currentTurn !== 'left') ||
+    (damageMode &&
+      anyCardDamageMode &&
+      rightPlayerState.campSlots[2] &&
+      (sniperMode || !rightPlayerState.campSlots[2].isProtected)) ||
     (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2])
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[2]?.isDamaged
@@ -5732,11 +5817,11 @@ const GameBoard = () => {
                     if (
                       opponentChoiceDamageMode &&
                       gameState.currentTurn === 'left' &&
-                      rightPlayerState.campSlots[1] &&
-                      !rightPlayerState.campSlots[1]?.isProtected
+                      rightPlayerState.campSlots[2] &&
+                      !rightPlayerState.campSlots[2]?.isProtected
                     ) {
                       // Apply damage to the camp
-                      applyDamage(rightPlayerState.campSlots[1], 1, true);
+                      applyDamage(rightPlayerState.campSlots[2], 2, true);
                       return;
                     }
                     if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) {
@@ -5873,6 +5958,10 @@ const GameBoard = () => {
                       if (!campCard.isReady) {
                         alert('This camp has already used its ability this turn!');
                         return; // Don't open the modal
+                      }
+
+                      if (!checkAbilityEnabled(campCard)) {
+                        return; // Don't open the modal if the ability can't be used
                       }
 
                       // If we passed the check, proceed as normal
