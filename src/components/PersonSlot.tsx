@@ -66,6 +66,10 @@ interface PersonSlotProps {
   setOpponentChoiceDamageSource?: (card: Card | null) => void;
   opponentChoiceDamageValue?: number;
   setOpponentChoiceDamageValue?: (value: number) => void;
+  octagonSacrificeMode?: boolean;
+  octagonOpponentSacrificeMode?: boolean;
+  handleOctagonSacrifice?: (person: Card, slotIndex: number, isRightPlayer: boolean) => void;
+  handleOctagonOpponentSacrifice?: (person: Card, slotIndex: number, isRightPlayer: boolean) => void;
 }
 
 const PersonSlot = ({
@@ -121,6 +125,10 @@ const PersonSlot = ({
   setSniperMode,
   anyCardDamageMode,
   setAnyCardDamageMode,
+  octagonSacrificeMode,
+  octagonOpponentSacrificeMode,
+  handleOctagonSacrifice,
+  handleOctagonOpponentSacrifice,
 }: PersonSlotProps) => {
   React.useEffect(() => {
     if (restoreMode && card?.name === 'Repair Bot') {
@@ -189,6 +197,17 @@ const PersonSlot = ({
 
           if (setPunkPlacementMode) setPunkPlacementMode(false);
           if (setPunkCardToPlace) setPunkCardToPlace(null);
+        } // In the PersonSlot component's onClick handler:
+        else if (octagonSacrificeMode && isInteractable('person', player, index) && handleOctagonSacrifice) {
+          // Handle the current player sacrificing their person
+          handleOctagonSacrifice(card, index, player === 'right');
+        } else if (
+          octagonOpponentSacrificeMode &&
+          isInteractable('person', player, index) &&
+          handleOctagonOpponentSacrifice
+        ) {
+          // Handle the opponent sacrificing their person
+          handleOctagonOpponentSacrifice(card, index, player === 'right');
         } else if (opponentChoiceDamageMode && gameState.currentTurn !== player && card) {
           // Apply damage to the card
           if (applyDamage) {
@@ -197,6 +216,12 @@ const PersonSlot = ({
 
           // Reset the opponent choice mode is handled in applyDamage function
           return;
+        } else if (octagonSacrificeMode && isInteractable('person', player, index)) {
+          // Handle the current player sacrificing their person
+          handleOctagonSacrifice(card, index, player === 'right');
+        } else if (octagonOpponentSacrificeMode && isInteractable('person', player, index)) {
+          // Handle the opponent sacrificing their person
+          handleOctagonOpponentSacrifice(card, index, player === 'right');
         } else if (sacrificeMode && card && player === gameState.currentTurn) {
           // Destroy the card
           destroyCard(card, index, player === 'right');

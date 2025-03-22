@@ -114,7 +114,7 @@ const GameBoard = () => {
 
     // Execute abilities in the specified order
     if (order === 'punk_first') {
-      // 1. First gain punk, and set a flag to do the raid after punk placement
+      // 1. First gain punk, and set a flag to do the raid Eer punk placement
       gainPunk(gameState.currentTurn);
       setPendingRaidAfterPunk(true);
       // The raid will be executed after punk placement by a useEffect
@@ -150,6 +150,34 @@ const GameBoard = () => {
       setRightCardsUsedAbility,
       hasVeraVoshTrait(playerState)
     );
+  };
+
+  // Handle when player sacrifices their person
+  const handleOctagonSacrifice = (person: Card, slotIndex: number, isRightPlayer: boolean) => {
+    // Destroy the selected person
+    destroyCard(person, slotIndex, isRightPlayer);
+
+    // Exit sacrifice mode
+    setOctagonSacrificeMode(false);
+
+    // Enter opponent sacrifice mode
+    setOctagonOpponentSacrificeMode(true);
+
+    // Show alert to opponent
+    const opponentPlayer = gameState.currentTurn === 'left' ? 'RIGHT' : 'LEFT';
+    alert(`${opponentPlayer} PLAYER: You must sacrifice one of your people.`);
+  };
+
+  // Handle when opponent sacrifices their person
+  const handleOctagonOpponentSacrifice = (person: Card, slotIndex: number, isRightPlayer: boolean) => {
+    // Destroy the selected person
+    destroyCard(person, slotIndex, isRightPlayer);
+
+    // Exit opponent sacrifice mode
+    setOctagonOpponentSacrificeMode(false);
+    setOctagonSourceCard(null);
+
+    alert(`Opponent sacrificed ${person.name}.`);
   };
 
   // Helper function for gaining a punk
@@ -296,6 +324,26 @@ const GameBoard = () => {
         return isOpponentElement && targetCamp && !targetCamp.isProtected;
       }
 
+      return false;
+    }
+
+    if (octagonSacrificeMode) {
+      // The current player can select any of their people (including punks)
+      if (element === 'person') {
+        const targetCard =
+          elementPlayer === 'left' ? leftPlayerState.personSlots[slotIndex] : rightPlayerState.personSlots[slotIndex];
+        return elementPlayer === gameState.currentTurn && targetCard;
+      }
+      return false;
+    }
+
+    if (octagonOpponentSacrificeMode) {
+      // The opponent must select one of their own people (including punks)
+      if (element === 'person') {
+        const targetCard =
+          elementPlayer === 'left' ? leftPlayerState.personSlots[slotIndex] : rightPlayerState.personSlots[slotIndex];
+        return elementPlayer !== gameState.currentTurn && targetCard;
+      }
       return false;
     }
 
@@ -919,7 +967,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('catapult'), createCamp('reactor'), { ...createCamp('warehouse'), isDamaged: true }],
+    campSlots: [createCamp('catapult'), createCamp('the-octagon'), { ...createCamp('warehouse'), isDamaged: true }],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -929,11 +977,10 @@ const GameBoard = () => {
     peoplePlayedThisTurn: 0, // Initialize counter
   });
 
-  // Update your initialization to ensure all 6 slots are properly null
   const rightTestPersonSlots: (Card | null)[] = [
-    null, // Front row, column 1
+    createPerson('vigilante'), // Front row, column 1 - Added a Vigilante here
     null, // Back row, column 1
-    null, // Front row, column 2
+    createPerson('muse'), // Front row, column 2 - Added a Muse here
     null, // Back row, column 2
     null, // Front row, column 3
     null, // Back row, column 3
@@ -1059,6 +1106,9 @@ const GameBoard = () => {
   const [opponentChoiceDamageValue, setOpponentChoiceDamageValue] = useState(0);
   const [opponentChoiceDamageSource, setOpponentChoiceDamageSource] = useState<Card | null>(null);
   const [anyCardDamageMode, setAnyCardDamageMode] = useState(false);
+  const [octagonSacrificeMode, setOctagonSacrificeMode] = useState(false);
+  const [octagonOpponentSacrificeMode, setOctagonOpponentSacrificeMode] = useState(false);
+  const [octagonSourceCard, setOctagonSourceCard] = useState<Card | null>(null);
 
   const gameBoardRef = useRef(null);
 
@@ -1194,13 +1244,6 @@ const GameBoard = () => {
   };
 
   useEffect(() => {
-    console.log('MONITOR: Discard pile length changed to:', discardPile.length);
-    if (discardPile.length > 0) {
-      console.log('MONITOR: Latest card in discard:', discardPile[discardPile.length - 1]);
-    }
-  }, [discardPile]);
-
-  useEffect(() => {
     // Check if punk placement is complete and we need to execute a raid
     if (!punkPlacementMode && pendingRaidAfterPunk) {
       executeRaidEffect(gameState.currentTurn);
@@ -1275,9 +1318,6 @@ const GameBoard = () => {
     const setPlayerState = isRightPlayer ? setRightPlayerState : setLeftPlayerState;
 
     if (card.type === 'camp') {
-      console.warn(
-        'destroyCard was called with a camp card. Camps should be set to null in their slots, not discarded.'
-      );
       return; // Exit early
     }
 
@@ -1369,12 +1409,6 @@ const GameBoard = () => {
   };
 
   const addToDiscardPile = (card: Card) => {
-    console.log('ADD TO DISCARD PILE called with:', card);
-    // Guard against camp cards being discarded
-    if (!card || card.type === 'camp') {
-      return;
-    }
-
     setDiscardPile((prev) => [...prev, card]);
   };
 
@@ -1819,9 +1853,6 @@ const GameBoard = () => {
     const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
     const setOpponentState = opponentPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
-    // Record if this ability will self-destroy the card
-    const willSelfDestroy = ability.type === 'destroy_all_people';
-
     let finalWaterCost = ability.cost;
     if (location.type === 'camp') {
       // Update the player state directly
@@ -1865,39 +1896,68 @@ const GameBoard = () => {
       setRightPlayerState
     );
 
-    // Only mark card as used if it won't be self-destroyed
-    if (!willSelfDestroy) {
-      // Add to list of cards that used abilities this turn
-      if (gameState.currentTurn === 'left') {
-        setLeftCardsUsedAbility((prev) => [...prev, card.id]);
-      } else {
-        setRightCardsUsedAbility((prev) => [...prev, card.id]);
-      }
-
-      // Check if Vera Vosh's trait is active
-      const hasVeraVoshEffect = hasVeraVoshTrait(playerState);
-
-      markCardUsedAbility(
-        card,
-        location,
-        gameState.currentTurn,
-        leftPlayerState,
-        rightPlayerState,
-        setLeftPlayerState,
-        setRightPlayerState,
-        leftCardsUsedAbility,
-        rightCardsUsedAbility,
-        setLeftCardsUsedAbility,
-        setRightCardsUsedAbility,
-        hasVeraVoshEffect
-      );
+    // Add to list of cards that used abilities this turn
+    if (gameState.currentTurn === 'left') {
+      setLeftCardsUsedAbility((prev) => [...prev, card.id]);
+    } else {
+      setRightCardsUsedAbility((prev) => [...prev, card.id]);
     }
+
+    // Check if Vera Vosh's trait is active
+    const hasVeraVoshEffect = hasVeraVoshTrait(playerState);
+
+    markCardUsedAbility(
+      card,
+      location,
+      gameState.currentTurn,
+      leftPlayerState,
+      rightPlayerState,
+      setLeftPlayerState,
+      setRightPlayerState,
+      leftCardsUsedAbility,
+      rightCardsUsedAbility,
+      setLeftCardsUsedAbility,
+      setRightCardsUsedAbility,
+      hasVeraVoshEffect
+    );
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'sacrifice_for_opponent_sacrifice':
+        // Check if the player has any people to sacrifice
+        const hasPeopleToSacrifice = playerState.personSlots.some((slot) => slot !== null && !slot.isPunk);
+
+        if (!hasPeopleToSacrifice) {
+          alert('You have no people to sacrifice!');
+
+          // Refund the water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          // Don't mark the card as used since ability couldn't be executed
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          }
+          return;
+        }
+
+        // Store the source card for reference
+        setOctagonSourceCard(card);
+
+        // Enter sacrifice mode for current player
+        setOctagonSacrificeMode(true);
+
+        alert(`Select one of your people to sacrifice. Your opponent will then have to sacrifice one of theirs.`);
+        break;
+
       case 'destroy_all_people':
-        console.log('REACTOR: Starting ability execution');
-        console.log('REACTOR: Discard pile before:', discardPile.length, discardPile);
         const reactorCard = card;
         // First destroy the Reactor camp itself
         const reactorIndex = location.index;
@@ -1968,9 +2028,6 @@ const GameBoard = () => {
           personSlots: [null, null, null, null, null, null],
         }));
 
-        console.log('REACTOR: About to destroy self');
-        console.log('REACTOR: Discard pile before self-destruction:', discardPile.length);
-
         // Finally, destroy the Reactor itself
         if (card && card.type === 'camp') {
           destroyCamp(card, reactorIndex, gameState.currentTurn === 'right');
@@ -1980,9 +2037,6 @@ const GameBoard = () => {
             campSlots: prev.campSlots.map((camp, idx) => (idx === reactorIndex ? null : camp)),
           }));
         }
-
-        console.log('REACTOR: After self-destruction');
-        console.log('REACTOR: Discard pile after self-destruction:', discardPile.length);
 
         // Update protection status for both players
         setLeftPlayerState((prev) => {
@@ -1997,18 +2051,8 @@ const GameBoard = () => {
 
         alert('Nuclear meltdown! The Reactor and all people have been destroyed.');
 
-        // Skip any post-ability processing for this destroyed camp
-        // This must be done AFTER the ability completes but BEFORE returning
-        if (reactorCard && reactorCard.type === 'camp') {
-          const originalCardInDiscard = discardPile.find((c) => c.id === reactorCard.id);
-          if (originalCardInDiscard) {
-            // Remove it from discard pile if it somehow got there
-            setDiscardPile((prev) => prev.filter((c) => c.id !== reactorCard.id));
-          }
-        }
-        console.log('REACTOR: Ability execution complete');
-        console.log('REACTOR: Discard pile at end of ability:', discardPile.length);
         break;
+
       case 'damage_then_sacrifice':
         // First step: Enter damage targeting mode with ability to hit any card
         setDamageMode(true);
@@ -2972,7 +3016,6 @@ const GameBoard = () => {
         alert(`Used ability: ${ability.effect}`);
         break;
     }
-    console.log('AFTER ABILITY: Discard pile length:', discardPile.length);
   };
 
   useEffect(() => {
@@ -3445,6 +3488,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <PersonSlot
                   index={1}
@@ -3505,6 +3552,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -3785,6 +3836,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <PersonSlot
                   index={3}
@@ -3845,6 +3900,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4124,6 +4183,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <PersonSlot
                   index={5}
@@ -4184,6 +4247,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4463,6 +4530,21 @@ const GameBoard = () => {
                   >
                     Done Restoring
                   </button>
+                </div>
+              )}
+              {octagonSacrificeMode && (
+                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                  <div className="inline-block bg-red-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                    Select one of your people to sacrifice
+                  </div>
+                </div>
+              )}
+
+              {octagonOpponentSacrificeMode && (
+                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                  <div className="inline-block bg-red-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                    {gameState.currentTurn === 'left' ? 'RIGHT' : 'LEFT'} PLAYER: Select one of your people to sacrifice
+                  </div>
                 </div>
               )}
               {/* Cache Ability Order Modal */}
@@ -5155,6 +5237,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <PersonSlot
                   index={1}
@@ -5211,6 +5297,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -5489,6 +5579,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <PersonSlot
                   index={3}
@@ -5545,6 +5639,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -5820,6 +5918,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <PersonSlot
                   index={5}
@@ -5876,6 +5978,10 @@ const GameBoard = () => {
                   setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
                   setSniperMode={setSniperMode}
                   setDamageSource={setDamageSource}
+                  octagonSacrificeMode={octagonSacrificeMode}
+                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                  handleOctagonSacrifice={handleOctagonSacrifice}
+                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
