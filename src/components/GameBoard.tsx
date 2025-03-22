@@ -786,6 +786,28 @@ const GameBoard = () => {
   // };
 
   const checkAbilityEnabled = (card: Card) => {
+    // Get the current player's used ability cards
+    const usedAbilities = gameState.currentTurn === 'left' ? leftCardsUsedAbility : rightCardsUsedAbility;
+
+    // First check: If Resonator has been used this turn, no other abilities can be used
+    if (resonatorUsedThisTurn && card.name !== 'Resonator') {
+      alert('You cannot use any other abilities this turn because you used Resonator.');
+      return false;
+    }
+
+    // Second check: If any other ability has been used this turn, Resonator cannot be used
+    if (card.name === 'Resonator' && usedAbilities.length > 0) {
+      alert('You cannot use Resonator this turn because you have already used another ability.');
+      return false;
+    }
+    // For Resonator itself
+    if (card.name === 'Resonator' && card.abilities && card.abilities[0]?.type === 'exclusive_damage') {
+      // This check is redundant with the above, but keeping for clarity
+      if (usedAbilities.length > 0) {
+        alert('You cannot use Resonator this turn because you have already used another ability.');
+        return false;
+      }
+    }
     if (card.name === 'Catapult' && card.abilities && card.abilities[0]?.type === 'damage_then_sacrifice') {
       // Check if player has at least one person in play
       const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
@@ -1060,11 +1082,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [
-      createCamp('scavenger-camp'),
-      createCamp('the-octagon'),
-      { ...createCamp('warehouse'), isDamaged: true },
-    ],
+    campSlots: [createCamp('scavenger-camp'), createCamp('resonator'), { ...createCamp('warehouse'), isDamaged: true }],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1210,6 +1228,7 @@ const GameBoard = () => {
   const [scavengerCampSelectingCard, setScavengerCampSelectingCard] = useState(false);
   const [scavengerCampSelectingReward, setScavengerCampSelectingReward] = useState(false);
   const [scavengerCampLocation, setScavengerCampLocation] = useState<{ type: 'camp'; index: number } | null>(null);
+  const [resonatorUsedThisTurn, setResonatorUsedThisTurn] = useState<boolean>(false);
 
   const gameBoardRef = useRef(null);
 
@@ -2034,6 +2053,16 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'exclusive_damage':
+        // Set the state to indicate Resonator has been used
+        setResonatorUsedThisTurn(true);
+
+        // Then proceed with normal damage ability
+        setDamageMode(true);
+        setDamageSource(card);
+        setDamageValue(ability.value || 1);
+        alert(`Select an unprotected enemy card to damage. No other abilities can be used this turn.`);
+        break;
       case 'discard_for_punk_or_water':
         // Check if player has any cards in hand (excluding Water Silo)
         const hasValidCardsToDiscard = playerState.handCards.some((card) => card.type !== 'watersilo');
@@ -5146,6 +5175,7 @@ const GameBoard = () => {
                         () => {
                           setLeftPlayedEventThisTurn(false);
                           setLeftCardsUsedAbility([]);
+                          setResonatorUsedThisTurn(false);
                           // Add this line to reset left player's camps to ready state
                           setLeftPlayerState((prev) => ({
                             ...prev,
