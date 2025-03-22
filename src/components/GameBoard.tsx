@@ -36,10 +36,6 @@ interface PlayerState {
   raidersLocation: 'default' | 'event1' | 'event2' | 'event3';
 }
 
-const leftTestCamps: Card[] = [createCamp('base-camp'), createCamp('fortress'), createCamp('outpost')].filter(
-  Boolean
-) as Card[];
-
 const testCards: Card[] = [
   createPerson('wounded-soldier'),
   createPerson('vigilante'),
@@ -891,12 +887,6 @@ const GameBoard = () => {
     }, 100);
   };
 
-  const leftCamps = [
-    { ...createCamp('base-camp'), isDamaged: true }, // First camp is damaged
-    null, // Second camp is destroyed
-    createCamp('outpost'), // Third camp is normal
-  ];
-
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Hand cards: several random people plus two with "gain_punk" junk effect
     handCards: [
@@ -929,7 +919,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('catapult'), createCamp('scud-launcher'), createCamp('victory-totem')],
+    campSlots: [createCamp('catapult'), createCamp('reactor'), { ...createCamp('warehouse'), isDamaged: true }],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -939,22 +929,14 @@ const GameBoard = () => {
     peoplePlayedThisTurn: 0, // Initialize counter
   });
 
+  // Update your initialization to ensure all 6 slots are properly null
   const rightTestPersonSlots: (Card | null)[] = [
-    { ...createPerson('assassin'), id: 'right-person-1', name: 'Guard' }, // Front row, column 1
-    null,
+    null, // Front row, column 1
     null, // Back row, column 1
-    { ...createPerson('assassin'), id: 'right-person-3', name: 'Assassin' }, // Front row, column 2
-    // For punk cards, we'll still need a custom definition since they're special
-    {
-      id: 'right-person-4',
-      name: 'Punk Card',
-      type: 'person',
-      isDamaged: false,
-      isProtected: false,
-      isPunk: true, // This card is a punk
-    },
+    null, // Front row, column 2
+    null, // Back row, column 2
     null, // Front row, column 3
-    { ...createPerson('scout'), id: 'right-person-6', isDamaged: true }, // Back row, column 3
+    null, // Back row, column 3
   ];
 
   // Initialize protected status for right player's slots
@@ -1212,6 +1194,13 @@ const GameBoard = () => {
   };
 
   useEffect(() => {
+    console.log('MONITOR: Discard pile length changed to:', discardPile.length);
+    if (discardPile.length > 0) {
+      console.log('MONITOR: Latest card in discard:', discardPile[discardPile.length - 1]);
+    }
+  }, [discardPile]);
+
+  useEffect(() => {
     // Check if punk placement is complete and we need to execute a raid
     if (!punkPlacementMode && pendingRaidAfterPunk) {
       executeRaidEffect(gameState.currentTurn);
@@ -1281,10 +1270,16 @@ const GameBoard = () => {
   };
 
   const destroyCard = (card: Card, slotIndex: number, isRightPlayer: boolean) => {
-    console.log('Running destroyCard');
     // Get the correct player's state and setter
     const playerState = isRightPlayer ? rightPlayerState : leftPlayerState;
     const setPlayerState = isRightPlayer ? setRightPlayerState : setLeftPlayerState;
+
+    if (card.type === 'camp') {
+      console.warn(
+        'destroyCard was called with a camp card. Camps should be set to null in their slots, not discarded.'
+      );
+      return; // Exit early
+    }
 
     if (card.isPunk) {
       // Punks go back to the draw deck
@@ -1315,6 +1310,18 @@ const GameBoard = () => {
         campSlots,
       };
     });
+  };
+
+  const destroyCamp = (camp: Card, slotIndex: number, isRightPlayer: boolean) => {
+    const setPlayerState = isRightPlayer ? setRightPlayerState : setLeftPlayerState;
+
+    // Simply set the camp slot to null
+    setPlayerState((prev) => ({
+      ...prev,
+      campSlots: prev.campSlots.map((c, i) => (i === slotIndex ? null : c)),
+    }));
+
+    console.log(`Camp "${camp.name}" destroyed in slot ${slotIndex}`);
   };
 
   const getColumnFromSlotIndex = (slotIndex: number) => {
@@ -1362,6 +1369,12 @@ const GameBoard = () => {
   };
 
   const addToDiscardPile = (card: Card) => {
+    console.log('ADD TO DISCARD PILE called with:', card);
+    // Guard against camp cards being discarded
+    if (!card || card.type === 'camp') {
+      return;
+    }
+
     setDiscardPile((prev) => [...prev, card]);
   };
 
@@ -1806,8 +1819,10 @@ const GameBoard = () => {
     const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
     const setOpponentState = opponentPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
-    let finalWaterCost = ability.cost;
+    // Record if this ability will self-destroy the card
+    const willSelfDestroy = ability.type === 'destroy_all_people';
 
+    let finalWaterCost = ability.cost;
     if (location.type === 'camp') {
       // Update the player state directly
       if (gameState.currentTurn === 'left') {
@@ -1827,19 +1842,15 @@ const GameBoard = () => {
     if (ability.costModifier === 'destroyed_camps') {
       // For Pillbox: cost reduced by number of destroyed camps
       const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
-
       // Count destroyed camps (null slots in campSlots)
       const destroyedCamps = playerState.campSlots.filter((camp) => camp === null).length;
-
       // Reduce cost, but never below 0
       finalWaterCost = Math.max(0, ability.cost - destroyedCamps);
     } else if (ability.costModifier === 'punks_owned') {
       // For Command Post: cost reduced by number of punks in play
       const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
-
       // Count punks in play
       const punksInPlay = playerState.personSlots.filter((person) => person && person.isPunk).length;
-
       // Reduce cost, but never below 0
       finalWaterCost = Math.max(0, ability.cost - punksInPlay);
     }
@@ -1854,33 +1865,150 @@ const GameBoard = () => {
       setRightPlayerState
     );
 
-    // Add to list of cards that used abilities this turn
-    if (gameState.currentTurn === 'left') {
-      setLeftCardsUsedAbility((prev) => [...prev, card.id]);
-    } else {
-      setRightCardsUsedAbility((prev) => [...prev, card.id]);
+    // Only mark card as used if it won't be self-destroyed
+    if (!willSelfDestroy) {
+      // Add to list of cards that used abilities this turn
+      if (gameState.currentTurn === 'left') {
+        setLeftCardsUsedAbility((prev) => [...prev, card.id]);
+      } else {
+        setRightCardsUsedAbility((prev) => [...prev, card.id]);
+      }
+
+      // Check if Vera Vosh's trait is active
+      const hasVeraVoshEffect = hasVeraVoshTrait(playerState);
+
+      markCardUsedAbility(
+        card,
+        location,
+        gameState.currentTurn,
+        leftPlayerState,
+        rightPlayerState,
+        setLeftPlayerState,
+        setRightPlayerState,
+        leftCardsUsedAbility,
+        rightCardsUsedAbility,
+        setLeftCardsUsedAbility,
+        setRightCardsUsedAbility,
+        hasVeraVoshEffect
+      );
     }
-
-    // Check if Vera Vosh's trait is active
-    const hasVeraVoshEffect = hasVeraVoshTrait(playerState);
-
-    markCardUsedAbility(
-      card,
-      location,
-      gameState.currentTurn,
-      leftPlayerState,
-      rightPlayerState,
-      setLeftPlayerState,
-      setRightPlayerState,
-      leftCardsUsedAbility,
-      rightCardsUsedAbility,
-      setLeftCardsUsedAbility,
-      setRightCardsUsedAbility,
-      hasVeraVoshEffect
-    );
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'destroy_all_people':
+        console.log('REACTOR: Starting ability execution');
+        console.log('REACTOR: Discard pile before:', discardPile.length, discardPile);
+        const reactorCard = card;
+        // First destroy the Reactor camp itself
+        const reactorIndex = location.index;
+
+        // Show confirmation dialog
+        const confirmDestruction = window.confirm(
+          'Are you sure you want to activate the Reactor? This will destroy the Reactor and ALL people on both sides.'
+        );
+
+        if (!confirmDestruction) {
+          // Refund the water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+          return; // Don't execute if user cancels
+        }
+
+        // Destroy all people from both players
+
+        leftPlayerState.personSlots.forEach((person, index) => {
+          // Make sure we only process actual person cards that exist
+          if (person && person.type === 'person') {
+            // For punks, return to draw deck
+            if (person.isPunk) {
+              const cleanedCard = {
+                id: person.id,
+                name: person.name || 'Unknown Card',
+                type: 'person',
+              };
+              setDrawDeck((prev) => [cleanedCard, ...prev]);
+            }
+            // Regular cards go to discard pile
+            else {
+              setDiscardPile((prev) => [...prev, person]);
+            }
+          }
+        });
+
+        // Clear all left player person slots
+        setLeftPlayerState((prev) => ({
+          ...prev,
+          personSlots: [null, null, null, null, null, null],
+        }));
+
+        rightPlayerState.personSlots.forEach((person, index) => {
+          // Make sure we only process actual person cards that exist
+          if (person && person.type === 'person') {
+            // For punks, return to draw deck
+            if (person.isPunk) {
+              const cleanedCard = {
+                id: person.id,
+                name: person.name || 'Unknown Card',
+                type: 'person',
+              };
+              setDrawDeck((prev) => [cleanedCard, ...prev]);
+            }
+            // Regular cards go to discard pile
+            else {
+              setDiscardPile((prev) => [...prev, person]);
+            }
+          }
+        });
+
+        // Clear all right player person slots
+        setRightPlayerState((prev) => ({
+          ...prev,
+          personSlots: [null, null, null, null, null, null],
+        }));
+
+        console.log('REACTOR: About to destroy self');
+        console.log('REACTOR: Discard pile before self-destruction:', discardPile.length);
+
+        // Finally, destroy the Reactor itself
+        if (card && card.type === 'camp') {
+          destroyCamp(card, reactorIndex, gameState.currentTurn === 'right');
+        } else {
+          setPlayerState((prev) => ({
+            ...prev,
+            campSlots: prev.campSlots.map((camp, idx) => (idx === reactorIndex ? null : camp)),
+          }));
+        }
+
+        console.log('REACTOR: After self-destruction');
+        console.log('REACTOR: Discard pile after self-destruction:', discardPile.length);
+
+        // Update protection status for both players
+        setLeftPlayerState((prev) => {
+          const { personSlots, campSlots } = updateProtectionStatus(prev.personSlots, prev.campSlots);
+          return { ...prev, personSlots, campSlots };
+        });
+
+        setRightPlayerState((prev) => {
+          const { personSlots, campSlots } = updateProtectionStatus(prev.personSlots, prev.campSlots);
+          return { ...prev, personSlots, campSlots };
+        });
+
+        alert('Nuclear meltdown! The Reactor and all people have been destroyed.');
+
+        // Skip any post-ability processing for this destroyed camp
+        // This must be done AFTER the ability completes but BEFORE returning
+        if (reactorCard && reactorCard.type === 'camp') {
+          const originalCardInDiscard = discardPile.find((c) => c.id === reactorCard.id);
+          if (originalCardInDiscard) {
+            // Remove it from discard pile if it somehow got there
+            setDiscardPile((prev) => prev.filter((c) => c.id !== reactorCard.id));
+          }
+        }
+        console.log('REACTOR: Ability execution complete');
+        console.log('REACTOR: Discard pile at end of ability:', discardPile.length);
+        break;
       case 'damage_then_sacrifice':
         // First step: Enter damage targeting mode with ability to hit any card
         setDamageMode(true);
@@ -2844,6 +2972,7 @@ const GameBoard = () => {
         alert(`Used ability: ${ability.effect}`);
         break;
     }
+    console.log('AFTER ABILITY: Discard pile length:', discardPile.length);
   };
 
   useEffect(() => {
@@ -3457,10 +3586,7 @@ const GameBoard = () => {
                       if (camp.isDamaged) {
                         // If camp is already damaged, destroy it
                         alert('Camp destroyed!');
-                        setLeftPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 0 ? null : c)),
-                        }));
+                        destroyCamp(camp, 0, false);
                       } else {
                         // Otherwise, damage it
                         alert('Camp damaged!');
@@ -3511,10 +3637,7 @@ const GameBoard = () => {
                     } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
                       // Handle destroy camp ability
                       alert(`${leftPlayerState.campSlots[0].name} destroyed!`);
-                      setLeftPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 0 ? null : camp)),
-                      }));
+                      destroyCamp(leftPlayerState.campSlots[0], 0, false);
                       // Reset destroy camp mode
                       setDestroyCampMode(false);
                     } else if (
@@ -3802,10 +3925,7 @@ const GameBoard = () => {
                       if (camp.isDamaged) {
                         // If camp is already damaged, destroy it
                         alert('Camp destroyed!');
-                        setLeftPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 1 ? null : c)),
-                        }));
+                        destroyCamp(camp, 1, false);
                       } else {
                         // Otherwise, damage it
                         alert('Camp damaged!');
@@ -3856,10 +3976,7 @@ const GameBoard = () => {
                     } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
                       // Handle destroy camp ability
                       alert(`${leftPlayerState.campSlots[1].name} destroyed!`);
-                      setLeftPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 1 ? null : camp)),
-                      }));
+                      destroyCamp(leftPlayerState.campSlots[1], 1, false);
                       // Reset destroy camp mode
                       setDestroyCampMode(false);
                     } else if (
@@ -4147,10 +4264,7 @@ const GameBoard = () => {
                       if (camp.isDamaged) {
                         // If camp is already damaged, destroy it
                         alert('Camp destroyed!');
-                        setLeftPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 2 ? null : c)),
-                        }));
+                        destroyCamp(camp, 2, false);
                       } else {
                         // Otherwise, damage it
                         alert('Camp damaged!');
@@ -4201,10 +4315,7 @@ const GameBoard = () => {
                     } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
                       // Handle destroy camp ability
                       alert(`${leftPlayerState.campSlots[2].name} destroyed!`);
-                      setLeftPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 2 ? null : camp)),
-                      }));
+                      destroyCamp(leftPlayerState.campSlots[2], 2, false);
                       // Reset destroy camp mode
                       setDestroyCampMode(false);
                     } else if (
@@ -4753,7 +4864,6 @@ const GameBoard = () => {
                 <div className="bg-red-700 text-white font-bold py-2 px-4 rounded-lg animate-pulse">{raidMessage}</div>
               </div>
             )}
-
             {/* Phase Tracker */}
             <div className="flex justify-center mb-8">
               <div className="flex space-x-8">
@@ -4780,7 +4890,6 @@ const GameBoard = () => {
                 </div>
               </div>
             </div>
-
             {/* Discard Selection Message */}
             {discardSelectionActive && (
               <div className="flex justify-center mb-4">
@@ -4789,7 +4898,6 @@ const GameBoard = () => {
                 </div>
               </div>
             )}
-
             {/* Bottom section with water counters and special cards */}
             <div className="flex justify-between mb-8">
               {/* Left player section */}
@@ -5237,10 +5345,7 @@ const GameBoard = () => {
                     } else if (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) {
                       // Handle destroy camp ability
                       alert(`${rightPlayerState.campSlots[0].name} destroyed!`);
-                      setRightPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 0 ? null : camp)),
-                      }));
+                      destroyCamp(rightPlayerState.campSlots[0], 0, false);
                       // Reset destroy camp mode
                       setDestroyCampMode(false);
                     } else if (
@@ -5520,10 +5625,7 @@ const GameBoard = () => {
                       if (camp.isDamaged) {
                         // If camp is already damaged, destroy it
                         alert('Camp destroyed!');
-                        setRightPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 1 ? null : c)),
-                        }));
+                        destroyCamp(camp, 1, false);
                       } else {
                         // Otherwise, damage it
                         alert('Camp damaged!');
@@ -5574,10 +5676,7 @@ const GameBoard = () => {
                     } else if (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) {
                       // Handle destroy camp ability
                       alert(`${rightPlayerState.campSlots[1].name} destroyed!`);
-                      setRightPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 1 ? null : camp)),
-                      }));
+                      destroyCamp(rightPlayerState.campSlots[1], 1, false);
                       // Reset destroy camp mode
                       setDestroyCampMode(false);
                     } else if (
@@ -5852,10 +5951,7 @@ const GameBoard = () => {
                       if (camp.isDamaged) {
                         // If camp is already damaged, destroy it
                         alert('Camp destroyed!');
-                        setRightPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 2 ? null : c)),
-                        }));
+                        destroyCamp(camp, 2, false);
                       } else {
                         // Otherwise, damage it
                         alert('Camp damaged!');
@@ -5906,10 +6002,7 @@ const GameBoard = () => {
                     } else if (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) {
                       // Handle destroy camp ability
                       alert(`${rightPlayerState.campSlots[2].name} destroyed!`);
-                      setRightPlayerState((prev) => ({
-                        ...prev,
-                        campSlots: prev.campSlots.map((camp, i) => (i === 2 ? null : camp)),
-                      }));
+                      destroyCamp(rightPlayerState.campSlots[2], 2, false);
                       // Reset destroy camp mode
                       setDestroyCampMode(false);
                     } else if (

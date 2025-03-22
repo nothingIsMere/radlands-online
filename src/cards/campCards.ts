@@ -524,66 +524,6 @@ export const campCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected'>
     ],
     traits: ['cannot_self_restore'],
   },
-  'base-camp': {
-    id: 'camp-base-camp',
-    name: 'Base Camp',
-    type: 'camp',
-    campDraw: 1,
-    abilities: [
-      {
-        effect: 'Draw a card',
-        cost: 2,
-        type: 'draw',
-        value: 1
-      }
-    ],
-    traits: [],
-  },
-  'fortress': {
-    id: 'camp-fortress',
-    name: 'Fortress',
-    type: 'camp',
-    campDraw: 1,
-    abilities: [
-      {
-        effect: 'Gain 2 water',
-        cost: 1,
-        type: 'water',
-        value: 2
-      }
-    ],
-    traits: [],
-  },
-  'depot': {
-    id: 'camp-depot',
-    name: 'Depot',
-    type: 'camp',
-    campDraw: 2,
-    abilities: [
-      {
-        effect: 'Draw a card',
-        cost: 1,
-        type: 'draw',
-        value: 1
-      }
-    ],
-    traits: [],
-  },
-  'garrison': {
-    id: 'camp-garrison',
-    name: 'Garrison',
-    type: 'camp',
-    campDraw: 2,
-    abilities: [
-      {
-        effect: 'Restore',
-        cost: 2,
-        type: 'restore',
-        target: 'own_any'
-      }
-    ],
-    traits: [],
-  }
 };
 
 // Helper function to create a new camp instance
