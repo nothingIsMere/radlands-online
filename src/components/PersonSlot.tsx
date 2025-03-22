@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, PlayerState } from '@/types/game';
 import { hasCardTrait, hasKarliBlazeTrait, hasArgoYeskyTrait } from '@/utils/gameUtils';
 import { handleSacrificeEffect } from '@/utils/abilityUtils';
+import { updateProtectionStatus } from '@/utils/protectionUtils';
 
 interface PersonSlotProps {
   index: number;
@@ -476,6 +477,37 @@ const PersonSlot = ({
       }}
       onDragOver={(e) => {
         e.preventDefault();
+
+        // Only show Oasis feedback for empty slots during current player's turn
+        if (!card && gameState.currentTurn === player) {
+          // Get the column of this slot
+          const columnIndex = Math.floor(index / 2);
+
+          // Check for Oasis in this column
+          const hasOasis =
+            playerState.campSlots[columnIndex] &&
+            playerState.campSlots[columnIndex]?.traits?.includes('discount_column');
+
+          // Check if column is empty of people
+          const frontRowIndex = columnIndex * 2;
+          const backRowIndex = frontRowIndex + 1;
+          const columnIsEmpty = !playerState.personSlots[frontRowIndex] && !playerState.personSlots[backRowIndex];
+
+          // If Oasis discount would apply, show visual feedback
+          if (hasOasis && columnIsEmpty) {
+            e.currentTarget.classList.add('border-green-500');
+            e.currentTarget.classList.add('animate-pulse');
+
+            // Add a data attribute for tooltip (optional)
+            e.currentTarget.setAttribute('title', 'Oasis discount: -1 water');
+          }
+        }
+      }}
+      onDragLeave={(e) => {
+        // Remove Oasis discount visual feedback
+        e.currentTarget.classList.remove('border-green-500');
+        e.currentTarget.classList.remove('animate-pulse');
+        e.currentTarget.removeAttribute('title');
       }}
       onDragStart={(e) => {
         // Only allow dragging if in returnToHandMode and the card belongs to current player
@@ -507,6 +539,7 @@ const PersonSlot = ({
           let playCost = draggedCard.playCost || 0;
           let freePlay = false;
 
+          // Free play in destroyed camp check
           if (draggedCard.traits?.includes('free_in_destroyed_camp')) {
             // Check if the current column has a destroyed camp (null)
             const campDestroyed = playerState.campSlots[columnIndex] === null;
@@ -514,6 +547,27 @@ const PersonSlot = ({
             if (campDestroyed) {
               playCost = 0;
               freePlay = true;
+            }
+          }
+
+          // Oasis discount logic - apply only if not already free
+          if (!freePlay) {
+            // Check if there's an Oasis camp in this column
+            const hasOasis =
+              playerState.campSlots[columnIndex] &&
+              playerState.campSlots[columnIndex]?.traits?.includes('discount_column');
+
+            // Check if column is empty of people
+            const frontRowIndex = columnIndex * 2;
+            const backRowIndex = frontRowIndex + 1;
+            const columnIsEmpty = !playerState.personSlots[frontRowIndex] && !playerState.personSlots[backRowIndex];
+
+            // Apply Oasis discount if both conditions are met
+            if (hasOasis && columnIsEmpty) {
+              // Reduce cost by 1, but never below 0
+              playCost = Math.max(0, playCost - 1);
+              // Show message about the discount
+              setTimeout(() => alert(`Oasis discount applied! Cost reduced by 1 water.`), 100);
             }
           }
 
@@ -537,13 +591,13 @@ const PersonSlot = ({
             const columnIndex = Math.floor(index / 2);
 
             // Pass the column index to updateProtectedStatus
-            const { personSlots, campSlots } = updateProtectedStatus(updatedSlots, prev.campSlots, columnIndex);
+            const { personSlots, campSlots } = updateProtectionStatus(updatedSlots, prev.campSlots, columnIndex);
 
             return {
               ...prev,
               personSlots,
               campSlots,
-              waterCount: prev.waterCount - playCost, // Deduct water cost (will be 0 for free plays)
+              waterCount: prev.waterCount - playCost, // Deduct water cost (will be 0 for free plays or fully discounted)
               handCards: prev.handCards.filter((card) => card.id !== cardId),
               peoplePlayedThisTurn: prev.peoplePlayedThisTurn + 1,
             };

@@ -1110,11 +1110,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [
-      createCamp('omen-clock'),
-      createCamp('construction-yard'),
-      { ...createCamp('warehouse'), isDamaged: true },
-    ],
+    campSlots: [createCamp('omen-clock'), createCamp('construction-yard'), { ...createCamp('oasis'), isDamaged: true }],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1632,6 +1628,46 @@ const GameBoard = () => {
     setConstructionYardSelectingPerson(false);
     setConstructionYardSelectingDestination(false);
     setConstructionYardSelectedPerson(null);
+  };
+
+  // Check if a person card should get the Oasis discount
+  const getOasisDiscount = (slotIndex: number, player: 'left' | 'right'): number => {
+    // Get the player state
+    const playerState = player === 'left' ? leftPlayerState : rightPlayerState;
+
+    // Get the column where this person is being played
+    const column = Math.floor(slotIndex / 2);
+
+    // Check if there's an Oasis camp in this column
+    const hasCampWithDiscountTrait =
+      playerState.campSlots[column] && playerState.campSlots[column]?.traits?.includes('discount_column');
+
+    // If no Oasis in this column, no discount
+    if (!hasCampWithDiscountTrait) {
+      return 0;
+    }
+
+    // Check if column is empty of people
+    const frontRowIndex = column * 2;
+    const backRowIndex = frontRowIndex + 1;
+    const columnIsEmpty = !playerState.personSlots[frontRowIndex] && !playerState.personSlots[backRowIndex];
+
+    // Apply discount only if column is empty
+    return columnIsEmpty ? 1 : 0;
+  };
+
+  // Calculate the displayed cost of a card with Oasis discount
+  const getDisplayCost = (card: Card): number => {
+    if (!card || card.type !== 'person' || !card.playCost) {
+      return 0;
+    }
+
+    // For person cards in hand, show potential discount when dragging
+    const baseWaterCost = card.playCost || 0;
+    const oasisDiscount = getOasisDiscount(index, player);
+
+    // Never reduce cost below 0
+    return Math.max(0, baseWaterCost - oasisDiscount);
   };
 
   const handleReplenishPhase = () => {
@@ -3908,73 +3944,108 @@ const GameBoard = () => {
                     }
                   }}
                 >
-                  {leftPlayerState.handCards.map((card) => (
-                    <div
-                      key={card.id}
-                      className={`w-16 h-24 border border-gray-400 rounded ${
-                        card.id === leftWaterSiloCard.id ? 'cursor-pointer hover:brightness-110' : ''
-                      } ${
-                        discardSelectionActive && gameState.currentTurn === 'left' && card.type !== 'watersilo'
-                          ? 'border-purple-400 animate-pulse cursor-pointer'
-                          : ''
-                      } ${
-                        card.type === 'person' && card.playCost > leftPlayerState.waterCount
-                          ? 'bg-gray-800 opacity-60'
-                          : 'bg-gray-600'
-                      }`}
-                      draggable="true"
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('cardId', card.id);
-                        e.dataTransfer.setData('sourcePlayer', 'left');
-                      }}
-                      onClick={() => {
-                        if (scavengerCampSelectingCard) {
-                          handleScavengerCampDiscard(card);
-                          return;
-                        }
-                        if (card.id === leftWaterSiloCard.id) {
-                          setLeftPlayerState((prev) => ({
-                            ...prev,
-                            waterSiloInHand: false,
-                            waterCount: prev.waterCount + 1,
-                            handCards: prev.handCards.filter((c) => c.id !== leftWaterSiloCard.id),
-                          }));
-                        } else if (
-                          discardSelectionActive &&
-                          gameState.currentTurn === 'left' &&
-                          card.type !== 'watersilo'
-                        ) {
-                          // Handle discard selection
-                          setLeftPlayerState((prev) => ({
-                            ...prev,
-                            handCards: prev.handCards.filter((c) => c.id !== card.id),
-                          }));
-                          setDiscardPile((prev) => [...prev, card]);
-                          setDiscardSelectionCount((prev) => prev - 1);
+                  {leftPlayerState.handCards.map((card) => {
+                    // Calculate Oasis discount for person cards
+                    let oasisDiscountText = '';
+                    if (card.type === 'person' && card.playCost !== undefined) {
+                      const columns = [0, 1, 2];
+                      const eligibleColumns = columns.filter((columnIndex) => {
+                        const hasOasis =
+                          leftPlayerState.campSlots[columnIndex] &&
+                          leftPlayerState.campSlots[columnIndex]?.traits?.includes('discount_column');
+                        const frontRowIndex = columnIndex * 2;
+                        const backRowIndex = frontRowIndex + 1;
+                        const columnIsEmpty =
+                          !leftPlayerState.personSlots[frontRowIndex] && !leftPlayerState.personSlots[backRowIndex];
+                        return hasOasis && columnIsEmpty;
+                      });
+                      if (eligibleColumns.length > 0) {
+                        oasisDiscountText = `Discount in column(s): ${eligibleColumns
+                          .map((col) => col + 1)
+                          .join(', ')}`;
+                      }
+                    }
 
-                          // Check if we've discarded enough cards
-                          if (discardSelectionCount <= 1) {
-                            setDiscardSelectionActive(false);
-                            alert('Discard complete!');
+                    return (
+                      <div
+                        key={card.id}
+                        className={`w-16 h-24 border border-gray-400 rounded relative ${
+                          card.id === leftWaterSiloCard.id ? 'cursor-pointer hover:brightness-110' : ''
+                        } ${
+                          discardSelectionActive && gameState.currentTurn === 'left' && card.type !== 'watersilo'
+                            ? 'border-purple-400 animate-pulse cursor-pointer'
+                            : ''
+                        } ${
+                          card.type === 'person' && card.playCost > leftPlayerState.waterCount
+                            ? 'bg-gray-800 opacity-60'
+                            : 'bg-gray-600'
+                        } ${oasisDiscountText ? 'border-green-300' : ''}`}
+                        draggable="true"
+                        title={oasisDiscountText}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('cardId', card.id);
+                          e.dataTransfer.setData('sourcePlayer', 'left');
+                        }}
+                        onClick={() => {
+                          if (scavengerCampSelectingCard) {
+                            handleScavengerCampDiscard(card);
+                            return;
                           }
-                        }
-                      }}
-                    >
-                      <div className="text-white text-center text-xs mt-4">
-                        {card.name}
-                        <br />
-                        {card.type}
-                        <br />
-                        {card.type === 'person' && card.playCost !== undefined ? `Cost: ${card.playCost}` : ''}
-                        {card.type === 'person' && card.playCost !== undefined && <br />}
-                        {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
-                        <br />
-                        {card.junkEffect && `Junk: ${card.junkEffect}`}
-                        <br />
-                        {card.id}
+                          if (card.id === leftWaterSiloCard.id) {
+                            setLeftPlayerState((prev) => ({
+                              ...prev,
+                              waterSiloInHand: false,
+                              waterCount: prev.waterCount + 1,
+                              handCards: prev.handCards.filter((c) => c.id !== leftWaterSiloCard.id),
+                            }));
+                          } else if (
+                            discardSelectionActive &&
+                            gameState.currentTurn === 'left' &&
+                            card.type !== 'watersilo'
+                          ) {
+                            // Handle discard selection
+                            setLeftPlayerState((prev) => ({
+                              ...prev,
+                              handCards: prev.handCards.filter((c) => c.id !== card.id),
+                            }));
+                            setDiscardPile((prev) => [...prev, card]);
+                            setDiscardSelectionCount((prev) => prev - 1);
+                            // Check if we've discarded enough cards
+                            if (discardSelectionCount <= 1) {
+                              setDiscardSelectionActive(false);
+                              alert('Discard complete!');
+                            }
+                          }
+                        }}
+                      >
+                        <div className="text-white text-center text-xs mt-4">
+                          {card.name}
+                          <br />
+                          {card.type}
+                          <br />
+                          {card.type === 'person' && card.playCost !== undefined ? (
+                            <>
+                              Cost: {card.playCost}
+                              {oasisDiscountText && <span className="text-green-300"> (-1)</span>}
+                            </>
+                          ) : (
+                            ''
+                          )}
+                          {card.type === 'person' && card.playCost !== undefined && <br />}
+                          {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
+                          <br />
+                          {card.junkEffect && `Junk: ${card.junkEffect}`}
+                          <br />
+                          {card.id}
+                        </div>
+                        {oasisDiscountText && (
+                          <div className="absolute top-0 right-0 bg-green-600 text-white text-xs px-1 rounded-bl">
+                            -1
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

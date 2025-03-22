@@ -1,6 +1,7 @@
 // protectionUtils.ts
 import { Card } from '@/types/game';
 
+
 /**
  * Updates the protected status of person cards and camps based on their positions
  * @param personSlots The array of person slots to update
