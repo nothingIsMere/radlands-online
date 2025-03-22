@@ -70,6 +70,15 @@ interface PersonSlotProps {
   octagonOpponentSacrificeMode?: boolean;
   handleOctagonSacrifice?: (person: Card, slotIndex: number, isRightPlayer: boolean) => void;
   handleOctagonOpponentSacrifice?: (person: Card, slotIndex: number, isRightPlayer: boolean) => void;
+  constructionYardSelectingPerson?: boolean;
+  constructionYardSelectingDestination?: boolean;
+  constructionYardSelectedPerson?: {
+    card: Card;
+    slotIndex: number;
+    player: 'left' | 'right';
+  } | null;
+  onPersonSelected?: (card: Card, slotIndex: number, player: 'left' | 'right') => void;
+  onDestinationSelected?: (slotIndex: number, player: 'left' | 'right') => void;
 }
 
 const PersonSlot = ({
@@ -129,6 +138,11 @@ const PersonSlot = ({
   octagonOpponentSacrificeMode,
   handleOctagonSacrifice,
   handleOctagonOpponentSacrifice,
+  constructionYardSelectingPerson,
+  constructionYardSelectingDestination,
+  constructionYardSelectedPerson,
+  onPersonSelected,
+  onDestinationSelected,
 }: PersonSlotProps) => {
   React.useEffect(() => {
     if (restoreMode && card?.name === 'Repair Bot') {
@@ -158,12 +172,26 @@ const PersonSlot = ({
           (returnToHandMode && card && player === gameState.currentTurn) ||
           (mimicMode && card) ||
           (damageMode && anyCardDamageMode && card && (sniperMode || !card.isProtected)) ||
-          (opponentChoiceDamageMode && gameState.currentTurn !== player && card)) &&
+          (opponentChoiceDamageMode && gameState.currentTurn !== player && card) ||
+          // Construction Yard conditions
+          (constructionYardSelectingPerson && card) ||
+          (constructionYardSelectingDestination && constructionYardSelectedPerson?.player === player)) &&
         isInteractable('person', player, index)
           ? 'border-purple-400 animate-pulse cursor-pointer'
           : 'border-gray-400'
       } rounded bg-gray-700 mb-4`}
       onClick={() => {
+        // Construction Yard person selection (must be before all other card-specific conditions)
+        if (constructionYardSelectingPerson && card && isInteractable('person', player, index) && onPersonSelected) {
+          onPersonSelected(card, index, player);
+          return;
+        }
+
+        // Construction Yard destination selection (must handle both empty and occupied slots)
+        if (constructionYardSelectingDestination && isInteractable('person', player, index) && onDestinationSelected) {
+          onDestinationSelected(index, player);
+          return;
+        }
         if (multiRestoreMode && card?.isDamaged && player === gameState.currentTurn) {
           // Use the proper applyRestore function that was passed as a prop
           if (applyRestore) {
@@ -173,6 +201,7 @@ const PersonSlot = ({
         }
         // Only allow interaction if the element is interactable
         if (!isInteractable('person', player, index)) return;
+
         if (punkPlacementMode && !card && punkCardToPlace) {
           setPlayerState((prev) => {
             // For testing purposes, always make punks enter Ready regardless of Argo Yesky
@@ -197,8 +226,7 @@ const PersonSlot = ({
 
           if (setPunkPlacementMode) setPunkPlacementMode(false);
           if (setPunkCardToPlace) setPunkCardToPlace(null);
-        } // In the PersonSlot component's onClick handler:
-        else if (octagonSacrificeMode && isInteractable('person', player, index) && handleOctagonSacrifice) {
+        } else if (octagonSacrificeMode && isInteractable('person', player, index) && handleOctagonSacrifice) {
           // Handle the current player sacrificing their person
           handleOctagonSacrifice(card, index, player === 'right');
         } else if (

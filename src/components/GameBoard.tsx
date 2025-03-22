@@ -401,6 +401,24 @@ const GameBoard = () => {
     // Default: Players can only interact with their own elements during their turn
     const isCurrentPlayerElement = gameState.currentTurn === elementPlayer;
 
+    if (constructionYardSelectingPerson) {
+      // When selecting a person to move, allow clicking on any person
+      if (element === 'person') {
+        const playerState = elementPlayer === 'left' ? leftPlayerState : rightPlayerState;
+        const personCard = playerState.personSlots[slotIndex];
+        return personCard !== null && canPersonBeMoved(personCard, slotIndex, elementPlayer);
+      }
+      return false;
+    }
+
+    if (constructionYardSelectingDestination && constructionYardSelectedPerson) {
+      // When selecting a destination, we need to handle both empty and occupied slots
+      if (element === 'person') {
+        return isValidDestination(slotIndex, elementPlayer, constructionYardSelectedPerson);
+      }
+      return false;
+    }
+
     if (omenClockActive) {
       // Only allow selecting events that can be advanced
       if (element === 'event') {
@@ -1092,7 +1110,11 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('omen-clock'), createCamp('resonator'), { ...createCamp('warehouse'), isDamaged: true }],
+    campSlots: [
+      createCamp('omen-clock'),
+      createCamp('construction-yard'),
+      { ...createCamp('warehouse'), isDamaged: true },
+    ],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1241,6 +1263,14 @@ const GameBoard = () => {
   const [resonatorUsedThisTurn, setResonatorUsedThisTurn] = useState<boolean>(false);
   const [omenClockActive, setOmenClockActive] = useState(false);
   const [omenClockLocation, setOmenClockLocation] = useState<{ type: 'camp'; index: number } | null>(null);
+  const [constructionYardActive, setConstructionYardActive] = useState(false);
+  const [constructionYardSelectingPerson, setConstructionYardSelectingPerson] = useState(false);
+  const [constructionYardSelectingDestination, setConstructionYardSelectingDestination] = useState(false);
+  const [constructionYardSelectedPerson, setConstructionYardSelectedPerson] = useState<{
+    card: Card;
+    slotIndex: number;
+    player: 'left' | 'right';
+  } | null>(null);
 
   const gameBoardRef = useRef(null);
 
@@ -1453,6 +1483,155 @@ const GameBoard = () => {
 
     // Add the event to the discard pile
     addToDiscardPile(event);
+  };
+
+  // Check if a person can be moved (all people are movable with Construction Yard)
+  const canPersonBeMoved = (card: Card, slotIndex: number, player: 'left' | 'right'): boolean => {
+    // All person cards can be moved, regardless of protection
+    return card && card.type === 'person';
+  };
+
+  // Check if a slot is a valid destination for a person
+  const isValidDestination = (
+    destinationIndex: number,
+    destinationPlayer: 'left' | 'right',
+    selectedPerson: { card: Card; slotIndex: number; player: 'left' | 'right' }
+  ): boolean => {
+    // Can only move to the same player's side
+    if (destinationPlayer !== selectedPerson.player) {
+      return false;
+    }
+
+    // Can't move to the same slot
+    if (destinationIndex === selectedPerson.slotIndex) {
+      return false;
+    }
+
+    // Get player state
+    const playerState = destinationPlayer === 'left' ? leftPlayerState : rightPlayerState;
+
+    // If destination slot is empty, it's valid
+    if (playerState.personSlots[destinationIndex] === null) {
+      return true;
+    }
+
+    // If destination slot has a card, check if we can push it
+    // Determine which column this is
+    const column = Math.floor(destinationIndex / 2);
+
+    // Determine if this is front or back row
+    const isFrontRow = destinationIndex % 2 === 0;
+
+    // Calculate the other slot index in the same column
+    const otherSlotIndex = isFrontRow ? destinationIndex + 1 : destinationIndex - 1;
+
+    // Check if the other slot in the column is empty
+    if (playerState.personSlots[otherSlotIndex] === null) {
+      // One more check: make sure we're not trying to push the card we originally selected
+      return otherSlotIndex !== selectedPerson.slotIndex;
+    }
+
+    return false;
+  };
+
+  // Handle when a person is selected to be moved
+  const handlePersonSelected = (card: Card, slotIndex: number, player: 'left' | 'right') => {
+    // Store selected person
+    setConstructionYardSelectedPerson({ card, slotIndex, player });
+
+    // Switch to destination selection mode
+    setConstructionYardSelectingPerson(false);
+    setConstructionYardSelectingDestination(true);
+
+    alert(
+      `Selected ${card.name}. Now select an eligible slot on the same side to move this person to. You can push a card if there is room in the column.`
+    );
+  };
+
+  // Handle when a destination is selected
+  // Update this function to handle pushing
+  const handleDestinationSelected = (destinationIndex: number, destinationPlayer: 'left' | 'right') => {
+    if (!constructionYardSelectedPerson) return;
+
+    const { card, slotIndex, player } = constructionYardSelectedPerson;
+
+    // Get player states and setters
+    const sourcePlayerState = player === 'left' ? leftPlayerState : rightPlayerState;
+    const sourceSetPlayerState = player === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+    // Check if destination has a card (push case)
+    const destinationCard = sourcePlayerState.personSlots[destinationIndex];
+
+    // If destination has a card, we need to push it
+    if (destinationCard) {
+      // Determine which column this is
+      const column = Math.floor(destinationIndex / 2);
+
+      // Determine if this is front or back row
+      const isFrontRow = destinationIndex % 2 === 0;
+
+      // Calculate the other slot index in the same column
+      const otherSlotIndex = isFrontRow ? destinationIndex + 1 : destinationIndex - 1;
+
+      // Move card to destination, push existing card to other slot
+      sourceSetPlayerState((prev) => {
+        // Create new arrays to avoid direct state mutation
+        const newPersonSlots = [...prev.personSlots];
+
+        // Remove selected card from original position
+        newPersonSlots[slotIndex] = null;
+
+        // Push existing card to the empty slot in same column
+        newPersonSlots[otherSlotIndex] = destinationCard;
+
+        // Place selected card in the destination slot
+        newPersonSlots[destinationIndex] = card;
+
+        // Update protection status
+        const { personSlots, campSlots } = updateProtectionStatus(newPersonSlots, prev.campSlots);
+
+        return {
+          ...prev,
+          personSlots,
+          campSlots,
+        };
+      });
+
+      alert(
+        `Moved ${card.name} to the new position, pushing ${destinationCard.name} to ${
+          isFrontRow ? 'back' : 'front'
+        } row.`
+      );
+    } else {
+      // Normal move without pushing (destination is empty)
+      sourceSetPlayerState((prev) => {
+        // Create new arrays to avoid direct state mutation
+        const newPersonSlots = [...prev.personSlots];
+
+        // Remove from original position
+        newPersonSlots[slotIndex] = null;
+
+        // Add to new position
+        newPersonSlots[destinationIndex] = card;
+
+        // Update protection status
+        const { personSlots, campSlots } = updateProtectionStatus(newPersonSlots, prev.campSlots);
+
+        return {
+          ...prev,
+          personSlots,
+          campSlots,
+        };
+      });
+
+      alert(`Moved ${card.name} to the new position.`);
+    }
+
+    // Reset Construction Yard mode
+    setConstructionYardActive(false);
+    setConstructionYardSelectingPerson(false);
+    setConstructionYardSelectingDestination(false);
+    setConstructionYardSelectedPerson(null);
   };
 
   const handleReplenishPhase = () => {
@@ -2175,6 +2354,39 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'move_person':
+        // Check if there are any people on the board to move
+        const leftHasPeople = leftPlayerState.personSlots.some((slot) => slot !== null);
+        const rightHasPeople = rightPlayerState.personSlots.some((slot) => slot !== null);
+
+        if (!leftHasPeople && !rightHasPeople) {
+          alert('There are no people to move on either side.');
+
+          // Refund water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          // Keep camp ready
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          }
+          return;
+        }
+
+        // Enter person selection mode
+        setConstructionYardActive(true);
+        setConstructionYardSelectingPerson(true);
+
+        alert("Select a person to move (you can select your own or your opponent's people).");
+        break;
+
       case 'advance_event':
         // Check if there are any events that can be advanced
         const leftAdvanceableEvents = leftPlayerState.eventSlots.some(
@@ -3834,6 +4046,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <PersonSlot
                   index={1}
@@ -3898,6 +4115,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4182,6 +4404,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <PersonSlot
                   index={3}
@@ -4246,6 +4473,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4529,6 +4761,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <PersonSlot
                   index={5}
@@ -4593,6 +4830,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -4855,6 +5097,24 @@ const GameBoard = () => {
                     {`${
                       gameState.currentTurn === 'left' ? 'RIGHT' : 'LEFT'
                     } PLAYER: Choose one of your cards to receive damage!`}
+                  </div>
+                </div>
+              )}
+
+              {/* Add this somewhere in your UI */}
+              {constructionYardSelectingPerson && (
+                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                  <div className="inline-block bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                    Select a person to move (yours or opponent's)
+                  </div>
+                </div>
+              )}
+
+              {constructionYardSelectingDestination && (
+                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                  <div className="inline-block bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                    Select any eligible slot to move the person to (can push existing cards if there's space in the
+                    column)
                   </div>
                 </div>
               )}
@@ -5351,7 +5611,10 @@ const GameBoard = () => {
                           setResonatorUsedThisTurn(false);
                           setOmenClockActive(false);
                           setOmenClockLocation(null);
-                          // Add this line to reset left player's camps to ready state
+                          setConstructionYardActive(false);
+                          setConstructionYardSelectingPerson(false);
+                          setConstructionYardSelectingDestination(false);
+                          setConstructionYardSelectedPerson(null);
                           setLeftPlayerState((prev) => ({
                             ...prev,
                             campSlots: prev.campSlots.map((camp) => (camp ? { ...camp, isReady: true } : null)),
@@ -5603,6 +5866,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <PersonSlot
                   index={1}
@@ -5663,6 +5931,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -5945,6 +6218,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <PersonSlot
                   index={3}
@@ -6005,6 +6283,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
@@ -6284,6 +6567,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <PersonSlot
                   index={5}
@@ -6344,6 +6632,11 @@ const GameBoard = () => {
                   octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
                   handleOctagonSacrifice={handleOctagonSacrifice}
                   handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                  constructionYardSelectingPerson={constructionYardSelectingPerson}
+                  constructionYardSelectingDestination={constructionYardSelectingDestination}
+                  constructionYardSelectedPerson={constructionYardSelectedPerson}
+                  onPersonSelected={handlePersonSelected}
+                  onDestinationSelected={handleDestinationSelected}
                 />
                 <div
                   className={`w-24 h-32 border-2 rounded
