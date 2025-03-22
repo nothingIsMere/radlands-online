@@ -401,6 +401,16 @@ const GameBoard = () => {
     // Default: Players can only interact with their own elements during their turn
     const isCurrentPlayerElement = gameState.currentTurn === elementPlayer;
 
+    if (omenClockActive) {
+      // Only allow selecting events that can be advanced
+      if (element === 'event') {
+        const playerState = elementPlayer === 'left' ? leftPlayerState : rightPlayerState;
+        const event = playerState.eventSlots[slotIndex];
+        return event !== null && canEventBeAdvanced(event, slotIndex, elementPlayer);
+      }
+      return false;
+    }
+
     if (opponentChoiceDamageMode) {
       // Allow the opponent to select their own UNPROTECTED cards
       const isOpponentElement = gameState.currentTurn !== elementPlayer;
@@ -1229,6 +1239,8 @@ const GameBoard = () => {
   const [scavengerCampSelectingReward, setScavengerCampSelectingReward] = useState(false);
   const [scavengerCampLocation, setScavengerCampLocation] = useState<{ type: 'camp'; index: number } | null>(null);
   const [resonatorUsedThisTurn, setResonatorUsedThisTurn] = useState<boolean>(false);
+  const [omenClockActive, setOmenClockActive] = useState(false);
+  const [omenClockLocation, setOmenClockLocation] = useState<{ type: 'camp'; index: number } | null>(null);
 
   const gameBoardRef = useRef(null);
 
@@ -1440,6 +1452,93 @@ const GameBoard = () => {
         currentPhase: 'actions',
       }));
     }, 100);
+  };
+
+  // Check if an event can be advanced (has an empty space ahead)
+  const canEventBeAdvanced = (event: Card, slotIndex: number, player: 'left' | 'right'): boolean => {
+    const playerState = player === 'left' ? leftPlayerState : rightPlayerState;
+
+    // Event in slot 3 (index 0) can advance to slot 2 (index 1) if slot 2 is empty
+    if (slotIndex === 0 && playerState.eventSlots[1] === null) {
+      return true;
+    }
+
+    // Event in slot 2 (index 1) can advance to slot 1 (index 2) if slot 1 is empty
+    if (slotIndex === 1 && playerState.eventSlots[2] === null) {
+      return true;
+    }
+
+    // Event in slot 1 (index 2) cannot advance further
+    return false;
+  };
+
+  // Advance an event by one position
+  const advanceEventByOne = (event: Card, slotIndex: number, player: 'left' | 'right') => {
+    const setPlayerState = player === 'left' ? setLeftPlayerState : setRightPlayerState;
+    const playerState = player === 'left' ? leftPlayerState : rightPlayerState;
+
+    // Create a copy of the event slots
+    const newEventSlots = [...playerState.eventSlots];
+
+    // Handle moving from slot 3 (index 0) to slot 2 (index 1)
+    if (slotIndex === 0 && newEventSlots[1] === null) {
+      newEventSlots[1] = event; // Move to slot 2
+      newEventSlots[0] = null; // Clear slot 3
+    }
+
+    // Handle moving from slot 2 (index 1) to slot 1 (index 2)
+    else if (slotIndex === 1 && newEventSlots[2] === null) {
+      newEventSlots[2] = event; // Move to slot 1
+      newEventSlots[1] = null; // Clear slot 2
+    }
+
+    // Update the player state
+    setPlayerState((prev) => ({
+      ...prev,
+      eventSlots: newEventSlots,
+    }));
+
+    // Exit Omen Clock mode
+    setOmenClockActive(false);
+    setOmenClockLocation(null);
+
+    alert(`Advanced ${event.name} forward by one queue position.`);
+  };
+
+  // Function to set up test environment for Omen Clock
+  const setupOmenClockTest = () => {
+    // Add Omen Clock to the player's camps
+    const omenClock = createCamp('omen-clock');
+    if (omenClock) {
+      // Add to first camp slot
+      setLeftPlayerState((prev) => ({
+        ...prev,
+        campSlots: [omenClock, prev.campSlots[1], prev.campSlots[2]],
+        // Give player enough water to use the ability
+        waterCount: Math.max(prev.waterCount, 2),
+      }));
+    }
+
+    // Add test events to both players
+    setLeftPlayerState((prev) => ({
+      ...prev,
+      eventSlots: [
+        createEvent('ambush'), // Slot 3
+        null, // Slot 2 (empty for testing advancement)
+        createEvent('attack'), // Slot 1
+      ],
+    }));
+
+    setRightPlayerState((prev) => ({
+      ...prev,
+      eventSlots: [
+        createEvent('assault'), // Slot 3
+        createEvent('ambush'), // Slot 2
+        null, // Slot 1 (empty for testing advancement)
+      ],
+    }));
+
+    alert('Omen Clock test setup complete. Use the Omen Clock camp card to advance events.');
   };
 
   const destroyCard = (card: Card, slotIndex: number, isRightPlayer: boolean) => {
@@ -2053,6 +2152,47 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'advance_event':
+        // Check if there are any events that can be advanced
+        const leftAdvanceableEvents = leftPlayerState.eventSlots.some(
+          (event, index) => event !== null && canEventBeAdvanced(event, index, 'left')
+        );
+
+        const rightAdvanceableEvents = rightPlayerState.eventSlots.some(
+          (event, index) => event !== null && canEventBeAdvanced(event, index, 'right')
+        );
+
+        if (!leftAdvanceableEvents && !rightAdvanceableEvents) {
+          alert('There are no events that can be advanced (events need an empty space ahead of them).');
+
+          // Don't mark the camp as used since ability couldn't be executed
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          }
+
+          // Refund water cost
+          setPlayerState((prev) => ({
+            ...prev,
+            waterCount: prev.waterCount + ability.cost,
+          }));
+
+          return;
+        }
+
+        // Store the Omen Clock location
+        setOmenClockLocation(location);
+
+        // Enter event selection mode
+        setOmenClockActive(true);
+
+        alert('Select an event to advance by 1 queue position. The event must have an empty space ahead of it.');
+        break;
+
       case 'exclusive_damage':
         // Set the state to indicate Resonator has been used
         setResonatorUsedThisTurn(true);
@@ -3478,6 +3618,9 @@ const GameBoard = () => {
                 playerState={leftPlayerState}
                 setPlayerState={setLeftPlayerState}
                 player="left"
+                omenClockActive={omenClockActive}
+                canEventBeAdvanced={canEventBeAdvanced}
+                onEventAdvance={advanceEventByOne}
               />
               <EventSlot
                 index={1}
@@ -3485,6 +3628,9 @@ const GameBoard = () => {
                 playerState={leftPlayerState}
                 setPlayerState={setLeftPlayerState}
                 player="left"
+                omenClockActive={omenClockActive}
+                canEventBeAdvanced={canEventBeAdvanced}
+                onEventAdvance={advanceEventByOne}
               />
               <EventSlot
                 index={2}
@@ -3492,6 +3638,9 @@ const GameBoard = () => {
                 playerState={leftPlayerState}
                 setPlayerState={setLeftPlayerState}
                 player="left"
+                omenClockActive={omenClockActive}
+                canEventBeAdvanced={canEventBeAdvanced}
+                onEventAdvance={advanceEventByOne}
               />
             </div>
 
@@ -4686,6 +4835,12 @@ const GameBoard = () => {
                   </div>
                 </div>
               )}
+              <button
+                onClick={setupOmenClockTest}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1 rounded text-sm mt-2"
+              >
+                Setup Omen Clock Test
+              </button>
               {/* Add this somewhere visible during gameplay, like in the center area */}
               {showRestoreDoneButton && (
                 <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2">
@@ -5176,6 +5331,8 @@ const GameBoard = () => {
                           setLeftPlayedEventThisTurn(false);
                           setLeftCardsUsedAbility([]);
                           setResonatorUsedThisTurn(false);
+                          setOmenClockActive(false);
+                          setOmenClockLocation(null);
                           // Add this line to reset left player's camps to ready state
                           setLeftPlayerState((prev) => ({
                             ...prev,
@@ -5340,6 +5497,9 @@ const GameBoard = () => {
                 playerState={rightPlayerState}
                 setPlayerState={setRightPlayerState}
                 player="right"
+                omenClockActive={omenClockActive}
+                canEventBeAdvanced={canEventBeAdvanced}
+                onEventAdvance={advanceEventByOne}
               />
               <EventSlot
                 index={1}
@@ -5347,6 +5507,9 @@ const GameBoard = () => {
                 playerState={rightPlayerState}
                 setPlayerState={setRightPlayerState}
                 player="right"
+                omenClockActive={omenClockActive}
+                canEventBeAdvanced={canEventBeAdvanced}
+                onEventAdvance={advanceEventByOne}
               />
               <EventSlot
                 index={2}
@@ -5354,6 +5517,9 @@ const GameBoard = () => {
                 playerState={rightPlayerState}
                 setPlayerState={setRightPlayerState}
                 player="right"
+                omenClockActive={omenClockActive}
+                canEventBeAdvanced={canEventBeAdvanced}
+                onEventAdvance={advanceEventByOne}
               />
             </div>
             {/* Three columns of cards */}

@@ -8,16 +8,37 @@ interface EventSlotProps {
   card: Card | null;
   playerState: PlayerState;
   setPlayerState: React.Dispatch<React.SetStateAction<PlayerState>>;
-  player?: 'left' | 'right'; // Add player prop
+  player?: 'left' | 'right';
+  omenClockActive?: boolean;
+  canEventBeAdvanced?: (event: Card, slotIndex: number, player: 'left' | 'right') => boolean;
+  onEventAdvance?: (event: Card, slotIndex: number, player: 'left' | 'right') => void;
 }
 
-const EventSlot = ({ index, card, playerState, setPlayerState, player = 'left' }: EventSlotProps) => {
+const EventSlot = ({
+  index,
+  card,
+  playerState,
+  setPlayerState,
+  player = 'left',
+  omenClockActive = false,
+  canEventBeAdvanced,
+  onEventAdvance,
+}: EventSlotProps) => {
+  // Check if this event can be advanced (for styling)
+  const isAdvanceable = card && omenClockActive && canEventBeAdvanced && canEventBeAdvanced(card, index, player);
+
   return (
     <div
-      className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700"
-      onDragOver={(e) => {
-        e.preventDefault();
+      className={`w-24 h-32 border-2 ${
+        isAdvanceable ? 'border-indigo-500 animate-pulse cursor-pointer' : 'border-gray-400'
+      } rounded bg-gray-700`}
+      onClick={() => {
+        // Handle Omen Clock event advancement
+        if (isAdvanceable && onEventAdvance) {
+          onEventAdvance(card, index, player);
+        }
       }}
+      onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
         const cardId = e.dataTransfer.getData('cardId');
