@@ -180,6 +180,99 @@ const GameBoard = () => {
     alert(`Opponent sacrificed ${person.name}.`);
   };
 
+  // Handle a card being selected for discard from hand
+  const handleScavengerCampDiscard = (card: Card) => {
+    if (card.type === 'watersilo') {
+      alert('You cannot discard Water Silo for this ability.');
+      return;
+    }
+
+    // Remove card from hand
+    const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+    const setPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+    setPlayerState((prev) => ({
+      ...prev,
+      handCards: prev.handCards.filter((c) => c.id !== card.id),
+    }));
+
+    // Add to discard pile
+    setDiscardPile((prev) => [...prev, card]);
+
+    // Move to reward selection
+    setScavengerCampSelectingCard(false);
+    setScavengerCampSelectingReward(true);
+
+    // Show choice modal
+    showScavengerCampChoiceModal();
+  };
+
+  // Show modal for choosing between punk and water
+  const showScavengerCampChoiceModal = () => {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.id = 'scavenger-camp-modal';
+    modal.innerHTML = `
+    <div class="bg-gray-800 p-4 rounded-lg max-w-md w-full">
+      <h2 class="text-white text-xl mb-4">Scavenger Camp</h2>
+      <p class="text-white mb-4">Choose your reward:</p>
+      <div class="flex gap-4">
+        <button id="btn-punk" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded flex-1">
+          Gain a Punk
+        </button>
+        <button id="btn-water" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded flex-1">
+          Gain Water
+        </button>
+      </div>
+    </div>
+  `;
+
+    document.body.appendChild(modal);
+
+    // Add click handlers
+    document.getElementById('btn-punk')?.addEventListener('click', () => {
+      handleScavengerCampReward('punk');
+      document.body.removeChild(modal);
+    });
+
+    document.getElementById('btn-water')?.addEventListener('click', () => {
+      handleScavengerCampReward('water');
+      document.body.removeChild(modal);
+    });
+  };
+
+  // Handle reward selection
+  const handleScavengerCampReward = (reward: 'punk' | 'water') => {
+    const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+    const setPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+    if (reward === 'punk') {
+      // Gain a punk from the draw deck
+      if (drawDeck.length > 0) {
+        const punkCard = drawDeck[drawDeck.length - 1];
+        setPunkCardToPlace(punkCard);
+        setPunkPlacementMode(true);
+        setDrawDeck((prev) => prev.slice(0, prev.length - 1));
+        alert('You gained a punk! Place it in an empty person slot.');
+      } else {
+        alert('Draw deck is empty, cannot gain a punk!');
+      }
+    } else {
+      // Gain 1 water
+      setPlayerState((prev) => ({
+        ...prev,
+        waterCount: prev.waterCount + 1,
+      }));
+      alert('You gained 1 water!');
+    }
+
+    // Reset Scavenger Camp state
+    setScavengerCampActive(false);
+    setScavengerCampSelectingCard(false);
+    setScavengerCampSelectingReward(false);
+    setScavengerCampLocation(null);
+  };
+
   // Helper function for gaining a punk
   const gainPunk = (playerSide: 'left' | 'right') => {
     // Check if there are cards in the draw deck
@@ -967,7 +1060,11 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('catapult'), createCamp('the-octagon'), { ...createCamp('warehouse'), isDamaged: true }],
+    campSlots: [
+      createCamp('scavenger-camp'),
+      createCamp('the-octagon'),
+      { ...createCamp('warehouse'), isDamaged: true },
+    ],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1109,6 +1206,10 @@ const GameBoard = () => {
   const [octagonSacrificeMode, setOctagonSacrificeMode] = useState(false);
   const [octagonOpponentSacrificeMode, setOctagonOpponentSacrificeMode] = useState(false);
   const [octagonSourceCard, setOctagonSourceCard] = useState<Card | null>(null);
+  const [scavengerCampActive, setScavengerCampActive] = useState(false);
+  const [scavengerCampSelectingCard, setScavengerCampSelectingCard] = useState(false);
+  const [scavengerCampSelectingReward, setScavengerCampSelectingReward] = useState(false);
+  const [scavengerCampLocation, setScavengerCampLocation] = useState<{ type: 'camp'; index: number } | null>(null);
 
   const gameBoardRef = useRef(null);
 
@@ -1242,6 +1343,16 @@ const GameBoard = () => {
 
     alert(`Opponent's events have been delayed in the queue!`);
   };
+
+  useEffect(() => {
+    return () => {
+      // Clean up on unmount
+      const modal = document.getElementById('scavenger-camp-modal');
+      if (modal && modal.parentNode) {
+        modal.parentNode.removeChild(modal);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Check if punk placement is complete and we need to execute a raid
@@ -1923,6 +2034,32 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
+      case 'discard_for_punk_or_water':
+        // Check if player has any cards in hand (excluding Water Silo)
+        const hasValidCardsToDiscard = playerState.handCards.some((card) => card.type !== 'watersilo');
+
+        if (!hasValidCardsToDiscard) {
+          alert('You have no valid cards to discard (Water Silo cannot be discarded for this ability).');
+
+          // Don't mark the camp as unready since the ability wasn't used
+          if (location.type === 'camp') {
+            setPlayerState((prev) => ({
+              ...prev,
+              campSlots: prev.campSlots.map((camp, idx) =>
+                idx === location.index ? { ...camp, isReady: true } : camp
+              ),
+            }));
+          }
+          return;
+        }
+
+        // Set Scavenger Camp as active
+        setScavengerCampActive(true);
+        setScavengerCampSelectingCard(true);
+        setScavengerCampLocation(location);
+
+        alert('Select a card from your hand to discard (Water Silo cannot be selected).');
+        break;
       case 'sacrifice_for_opponent_sacrifice':
         // Check if the player has any people to sacrifice
         const hasPeopleToSacrifice = playerState.personSlots.some((slot) => slot !== null && !slot.isPunk);
@@ -3378,6 +3515,10 @@ const GameBoard = () => {
                         e.dataTransfer.setData('sourcePlayer', 'left');
                       }}
                       onClick={() => {
+                        if (scavengerCampSelectingCard) {
+                          handleScavengerCampDiscard(card);
+                          return;
+                        }
                         if (card.id === leftWaterSiloCard.id) {
                           setLeftPlayerState((prev) => ({
                             ...prev,
@@ -4530,6 +4671,13 @@ const GameBoard = () => {
                   >
                     Done Restoring
                   </button>
+                </div>
+              )}
+              {scavengerCampSelectingCard && (
+                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                  <div className="inline-block bg-orange-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                    Select a card from your hand to discard (not Water Silo)
+                  </div>
                 </div>
               )}
               {octagonSacrificeMode && (
@@ -6245,6 +6393,10 @@ const GameBoard = () => {
                       e.dataTransfer.setData('sourcePlayer', 'right');
                     }}
                     onClick={() => {
+                      if (scavengerCampSelectingCard) {
+                        handleScavengerCampDiscard(card);
+                        return;
+                      }
                       if (card.id === rightWaterSiloCard.id) {
                         setRightPlayerState((prev) => ({
                           ...prev,
