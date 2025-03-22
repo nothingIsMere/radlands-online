@@ -1092,7 +1092,7 @@ const GameBoard = () => {
     personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
-    campSlots: [createCamp('scavenger-camp'), createCamp('resonator'), { ...createCamp('warehouse'), isDamaged: true }],
+    campSlots: [createCamp('omen-clock'), createCamp('resonator'), { ...createCamp('warehouse'), isDamaged: true }],
 
     // Other properties
     eventSlots: [null, null, null],
@@ -1425,6 +1425,36 @@ const GameBoard = () => {
     isFirstTurn: true,
   });
 
+  // Add this new function
+  const triggerEventImmediately = (event: Card, player: 'left' | 'right') => {
+    // Mark that an event was played
+    if (player === 'left') {
+      setLeftPlayedEventThisTurn(true);
+    } else {
+      setRightPlayedEventThisTurn(true);
+    }
+
+    // Handle different event types
+    if (event.id.includes('ambush') || event.id.includes('attack') || event.id.includes('assault')) {
+      // For these common events, they typically cause a raid
+
+      // Set up raid mode for the appropriate player
+      const opponentPlayer = player === 'left' ? 'right' : 'left';
+      setCampRaidMode(true);
+      setRaidingPlayer(player);
+      setRaidMessage(`${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the ${event.name}!`);
+    } else if (event.id.includes('raiders')) {
+      // If it's the Raiders event
+      executeRaid(player);
+    } else {
+      // For other event types, add specific handling as needed
+      alert(`Event ${event.name} triggered but no specific action defined.`);
+    }
+
+    // Add the event to the discard pile
+    addToDiscardPile(event);
+  };
+
   const handleReplenishPhase = () => {
     const currentPlayerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
     const setCurrentPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
@@ -1468,11 +1498,15 @@ const GameBoard = () => {
       return true;
     }
 
-    // Event in slot 1 (index 2) cannot advance further
+    //Event in slot 1 (index 2) can be triggered immediately
+    if (slotIndex === 2) {
+      return true;
+    }
+
     return false;
   };
 
-  // Advance an event by one position
+  // Update this function
   const advanceEventByOne = (event: Card, slotIndex: number, player: 'left' | 'right') => {
     const setPlayerState = player === 'left' ? setLeftPlayerState : setRightPlayerState;
     const playerState = player === 'left' ? leftPlayerState : rightPlayerState;
@@ -1484,61 +1518,50 @@ const GameBoard = () => {
     if (slotIndex === 0 && newEventSlots[1] === null) {
       newEventSlots[1] = event; // Move to slot 2
       newEventSlots[0] = null; // Clear slot 3
+
+      // Update the player state
+      setPlayerState((prev) => ({
+        ...prev,
+        eventSlots: newEventSlots,
+      }));
+
+      alert(`Advanced ${event.name} forward by one queue position.`);
     }
 
     // Handle moving from slot 2 (index 1) to slot 1 (index 2)
     else if (slotIndex === 1 && newEventSlots[2] === null) {
       newEventSlots[2] = event; // Move to slot 1
       newEventSlots[1] = null; // Clear slot 2
+
+      // Update the player state
+      setPlayerState((prev) => ({
+        ...prev,
+        eventSlots: newEventSlots,
+      }));
+
+      alert(`Advanced ${event.name} forward by one queue position.`);
     }
 
-    // Update the player state
-    setPlayerState((prev) => ({
-      ...prev,
-      eventSlots: newEventSlots,
-    }));
+    // NEW: Handle triggering event from slot 1 (index 2) immediately
+    else if (slotIndex === 2) {
+      // Remove the event from slot 1
+      newEventSlots[2] = null;
+
+      // Update the player state to remove the event
+      setPlayerState((prev) => ({
+        ...prev,
+        eventSlots: newEventSlots,
+      }));
+
+      // Process the event effect based on its type
+      triggerEventImmediately(event, player);
+
+      alert(`Triggered ${event.name} immediately!`);
+    }
 
     // Exit Omen Clock mode
     setOmenClockActive(false);
     setOmenClockLocation(null);
-
-    alert(`Advanced ${event.name} forward by one queue position.`);
-  };
-
-  // Function to set up test environment for Omen Clock
-  const setupOmenClockTest = () => {
-    // Add Omen Clock to the player's camps
-    const omenClock = createCamp('omen-clock');
-    if (omenClock) {
-      // Add to first camp slot
-      setLeftPlayerState((prev) => ({
-        ...prev,
-        campSlots: [omenClock, prev.campSlots[1], prev.campSlots[2]],
-        // Give player enough water to use the ability
-        waterCount: Math.max(prev.waterCount, 2),
-      }));
-    }
-
-    // Add test events to both players
-    setLeftPlayerState((prev) => ({
-      ...prev,
-      eventSlots: [
-        createEvent('ambush'), // Slot 3
-        null, // Slot 2 (empty for testing advancement)
-        createEvent('attack'), // Slot 1
-      ],
-    }));
-
-    setRightPlayerState((prev) => ({
-      ...prev,
-      eventSlots: [
-        createEvent('assault'), // Slot 3
-        createEvent('ambush'), // Slot 2
-        null, // Slot 1 (empty for testing advancement)
-      ],
-    }));
-
-    alert('Omen Clock test setup complete. Use the Omen Clock camp card to advance events.');
   };
 
   const destroyCard = (card: Card, slotIndex: number, isRightPlayer: boolean) => {
@@ -4835,12 +4858,7 @@ const GameBoard = () => {
                   </div>
                 </div>
               )}
-              <button
-                onClick={setupOmenClockTest}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1 rounded text-sm mt-2"
-              >
-                Setup Omen Clock Test
-              </button>
+
               {/* Add this somewhere visible during gameplay, like in the center area */}
               {showRestoreDoneButton && (
                 <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2">
