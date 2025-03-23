@@ -227,6 +227,19 @@ const PersonSlot = ({
 
           if (setPunkPlacementMode) setPunkPlacementMode(false);
           if (setPunkCardToPlace) setPunkCardToPlace(null);
+        } else if (
+          gameState.currentPhase === 'actions' &&
+          player === gameState.currentTurn &&
+          card &&
+          card.isReady &&
+          card.abilities?.length > 0
+        ) {
+          // Open ability modal for this card
+          if (setSelectedCard && setSelectedCardLocation && setIsAbilityModalOpen) {
+            setSelectedCard(card);
+            setSelectedCardLocation({ type: 'person', index: index });
+            setIsAbilityModalOpen(true);
+          }
         } else if (octagonSacrificeMode && isInteractable('person', player, index) && handleOctagonSacrifice) {
           // Handle the current player sacrificing their person
           handleOctagonSacrifice(card, index, player === 'right');

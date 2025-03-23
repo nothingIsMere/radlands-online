@@ -25,6 +25,8 @@ import { Card, PlayerState, GameTurnState } from '@/types/game';
 import { advanceToNextPhase, processCurrentPhase, endTurn } from '@/utils/turnUtils';
 import { gameLogger } from '@/utils/actionLogger';
 import { createEndTurnAction } from '@/utils/actionCreators';
+import { AbilityProvider } from '../../components/AbilityManager';
+import { AbilityModal } from '../../components/AbilityModal';
 
 interface PlayerState {
   handCards: Card[];
@@ -1107,7 +1109,7 @@ const GameBoard = () => {
     ],
 
     // No people in person slots
-    personSlots: [null, null, null, null, null, null],
+    personSlots: [createPerson('card-drawer'), null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
     campSlots: [createCamp('omen-clock'), createCamp('construction-yard'), { ...createCamp('oasis'), isDamaged: true }],
@@ -2015,6 +2017,10 @@ const GameBoard = () => {
     } else if (mutantPendingAction === 'damage_only') {
       // Only damage was chosen, apply damage to Mutant
       applyDamageToMutant();
+    }
+
+    if (AbilityService.isAbilityActive()) {
+      AbilityService.completeAbility();
     }
   };
 
@@ -3193,15 +3199,6 @@ const GameBoard = () => {
         }
         break;
 
-      case 'water':
-        // Water ability - gain water
-        setPlayerState((prev) => ({
-          ...prev,
-          waterCount: prev.waterCount + (ability.value || 1),
-        }));
-        alert(`Gained ${ability.value || 1} water!`);
-        break;
-
       case 'draw':
         // Draw ability - draw cards
         if (drawDeck.length > 0) {
@@ -3620,580 +3617,596 @@ const GameBoard = () => {
     setRightPlayerState((prev) => ({ ...prev, peoplePlayedThisTurn: 0 }));
   }, [gameState.currentTurn]);
 
+  const stateSetters = {
+    setLeftPlayerState,
+    setRightPlayerState,
+    setDamageMode,
+    setDamageValue,
+    setDamageSource,
+    setDrawDeck,
+  };
+
   return (
-    <div
-      id="game-board"
-      className="w-full h-screen p-4"
-      style={{
-        backgroundColor: '#340454',
-      }}
-      ref={gameBoardRef}
+    <AbilityProvider
+      leftPlayerState={leftPlayerState}
+      rightPlayerState={rightPlayerState}
+      gameState={gameState}
+      stateSetters={stateSetters}
+      drawDeck={drawDeck}
     >
-      {/* Ability Modal */}
-      {isAbilityModalOpen && selectedCard && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          style={{ height: '100vh', width: '100vw' }}
-        >
+      <div
+        id="game-board"
+        className="w-full h-screen p-4"
+        style={{
+          backgroundColor: '#340454',
+        }}
+        ref={gameBoardRef}
+      >
+        {/* Ability Modal */}
+        {isAbilityModalOpen && selectedCard && (
           <div
-            className="bg-gray-800 p-4 rounded-lg border-2 border-gray-600 shadow-xl"
-            style={{
-              maxWidth: '90%',
-              width: '400px',
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-            }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            style={{ height: '100vh', width: '100vw' }}
           >
-            {/* Add this check for camp cards that are not ready */}
-            {selectedCardLocation && selectedCardLocation.type === 'camp' && !selectedCard.isReady ? (
-              <div>
-                <div className="text-white mb-4 text-center">
-                  <h3 className="text-xl font-bold mb-2 text-red-400">Camp Already Used</h3>
-                  <p>This camp has already used its ability this turn and cannot be used again until next turn.</p>
-                </div>
-                <button
-                  className="mt-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded w-full"
-                  onClick={() => setIsAbilityModalOpen(false)}
-                >
-                  Close
-                </button>
-              </div>
-            ) : (
-              /* Regular ability display for ready cards */
-              <>
-                {selectedCard.abilities?.map((ability, index) => {
-                  const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
-                  // Calculate modified cost if applicable
-                  let displayCost = ability.cost;
-                  if (ability.costModifier === 'destroyed_camps') {
-                    const destroyedCamps = playerState.campSlots.filter((camp) => camp === null).length;
-                    displayCost = Math.max(0, ability.cost - destroyedCamps);
-                  } else if (ability.costModifier === 'punks_owned') {
-                    const punksInPlay = playerState.personSlots.filter((person) => person && person.isPunk).length;
-                    displayCost = Math.max(0, ability.cost - punksInPlay);
-                  }
-                  const hasEnoughWater = playerState.waterCount >= displayCost;
-                  return (
-                    <div key={index} className="mb-4 p-2 border border-gray-600 rounded">
-                      <div className="text-white mb-2">{ability.effect}</div>
-                      <div className="text-blue-300 mb-2">
-                        Cost: {displayCost} water
-                        {displayCost !== ability.cost && ` (reduced from ${ability.cost})`}
-                      </div>
-                      <button
-                        className={`bg-purple-600 text-white px-4 py-2 rounded w-full
-                  ${!hasEnoughWater ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-500'}`}
-                        disabled={!hasEnoughWater}
-                        title={!hasEnoughWater ? 'Not enough water' : ''}
-                        onClick={() => {
-                          if (selectedCardLocation) {
-                            executeAbility(selectedCard, ability, selectedCardLocation);
-                          }
-                          setIsAbilityModalOpen(false);
-                        }}
-                      >
-                        Use Ability {!hasEnoughWater && `(Not enough water)`}
-                      </button>
-                    </div>
-                  );
-                })}
-                <button
-                  className="mt-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded w-full"
-                  onClick={() => setIsAbilityModalOpen(false)}
-                >
-                  Cancel
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Scientist Ability Modal */}
-      {isScientistModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-4 rounded-lg max-w-md w-full">
-            <h2 className="text-white text-xl mb-4">Scientist Ability</h2>
-            <p className="text-white mb-4">Select a card to use its junk effect:</p>
-
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              {scientistCards.map((card, index) => (
-                <div
-                  key={index}
-                  className="bg-gray-700 border border-gray-600 rounded p-2 cursor-pointer hover:bg-gray-600"
-                  onClick={() => {
-                    debugWithAlert(`Selected card: ${card.name}, Junk effect: ${card.junkEffect}`);
-                    // Close the modal
-                    setIsScientistModalOpen(false);
-
-                    // Special debug for raid junk effect
-                    if (card.junkEffect === 'raid') {
-                      console.log('SCIENTIST RAID SELECTED');
-                      const currentPlayer = gameState.currentTurn;
-
-                      // Use our helper function to check Zeto Kahn conditions
-                      const shouldExecuteImmediately = checkZetoKahnImmediateEffect(currentPlayer);
-                      console.log('Should execute immediately:', shouldExecuteImmediately);
-
-                      if (shouldExecuteImmediately) {
-                        console.log('Zeto Kahn immediate execution triggered');
-                        // Mark that an event was played
-                        if (currentPlayer === 'left') {
-                          setLeftPlayedEventThisTurn(true);
-                        } else {
-                          setRightPlayedEventThisTurn(true);
-                        }
-
-                        // Add cards to discard pile
-                        setDiscardPile((prev) => [...prev, ...scientistCards]);
-
-                        // Clear the scientist cards
-                        setScientistCards([]);
-
-                        // Execute raid immediately
-                        executeRaid(currentPlayer);
-
-                        alert(`RAID EXECUTED IMMEDIATELY DUE TO ZETO KAHN`);
-                        return;
-                      }
-                    }
-
-                    // Normal flow for other effects or when ZK conditions aren't met
-                    executeJunkEffect(card);
-
-                    // Add all cards to discard pile
-                    setDiscardPile((prev) => [...prev, ...scientistCards]);
-
-                    // Clear the scientist cards
-                    setScientistCards([]);
-
-                    alert(`Used ${card.name}'s junk effect: ${card.junkEffect}`);
-                  }}
-                >
-                  <div className="text-white text-center text-xs">
-                    <strong>{card.name}</strong>
-                    <br />
-                    {card.type}
-                    <br />
-                    <span className="text-yellow-300">Junk: {card.junkEffect}</span>
+            <div
+              className="bg-gray-800 p-4 rounded-lg border-2 border-gray-600 shadow-xl"
+              style={{
+                maxWidth: '90%',
+                width: '400px',
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              {/* Add this check for camp cards that are not ready */}
+              {selectedCardLocation && selectedCardLocation.type === 'camp' && !selectedCard.isReady ? (
+                <div>
+                  <div className="text-white mb-4 text-center">
+                    <h3 className="text-xl font-bold mb-2 text-red-400">Camp Already Used</h3>
+                    <p>This camp has already used its ability this turn and cannot be used again until next turn.</p>
                   </div>
+                  <button
+                    className="mt-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded w-full"
+                    onClick={() => setIsAbilityModalOpen(false)}
+                  >
+                    Close
+                  </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mutant Ability Modal */}
-      {isMutantModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-4 rounded-lg max-w-md w-full">
-            <h2 className="text-white text-xl mb-4">Mutant Ability</h2>
-            <p className="text-white mb-4">Choose one or both actions:</p>
-
-            <div className="flex flex-col gap-4 mb-4">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="mutant-damage"
-                  className="h-5 w-5"
-                  checked={mutantDamageChosen}
-                  onChange={() => setMutantDamageChosen(!mutantDamageChosen)}
-                />
-                <label htmlFor="mutant-damage" className="text-white">
-                  Do 1 Damage
-                </label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="mutant-restore"
-                  className="h-5 w-5"
-                  checked={mutantRestoreChosen}
-                  onChange={() => setMutantRestoreChosen(!mutantRestoreChosen)}
-                />
-                <label htmlFor="mutant-restore" className="text-white">
-                  Restore
-                </label>
-              </div>
-
-              <div className="flex gap-2 mt-4">
-                <button
-                  className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded flex-1"
-                  disabled={!mutantDamageChosen && !mutantRestoreChosen}
-                  onClick={() => {
-                    setMutantModalOpen(false);
-
-                    if (mutantDamageChosen && mutantRestoreChosen) {
-                      // Both actions chosen, proceed with the first (damage)
-                      setMutantPendingAction('both');
-                      setDamageMode(true);
-                      setDamageSource(mutantSourceCard);
-                      setDamageValue(1);
-                    } else if (mutantDamageChosen) {
-                      // Only damage chosen
-                      setMutantPendingAction('damage_only');
-                      setDamageMode(true);
-                      setDamageSource(mutantSourceCard);
-                      setDamageValue(1);
-                    } else if (mutantRestoreChosen) {
-                      // Only restore chosen
-                      setMutantPendingAction('restore_only');
-                      setAbilityRestoreMode(true);
-                      setRestoreSource(mutantSourceCard);
+              ) : (
+                /* Regular ability display for ready cards */
+                <>
+                  {selectedCard.abilities?.map((ability, index) => {
+                    const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
+                    // Calculate modified cost if applicable
+                    let displayCost = ability.cost;
+                    if (ability.costModifier === 'destroyed_camps') {
+                      const destroyedCamps = playerState.campSlots.filter((camp) => camp === null).length;
+                      displayCost = Math.max(0, ability.cost - destroyedCamps);
+                    } else if (ability.costModifier === 'punks_owned') {
+                      const punksInPlay = playerState.personSlots.filter((person) => person && person.isPunk).length;
+                      displayCost = Math.max(0, ability.cost - punksInPlay);
                     }
-                  }}
-                >
-                  Confirm
-                </button>
+                    const hasEnoughWater = playerState.waterCount >= displayCost;
+                    return (
+                      <div key={index} className="mb-4 p-2 border border-gray-600 rounded">
+                        <div className="text-white mb-2">{ability.effect}</div>
+                        <div className="text-blue-300 mb-2">
+                          Cost: {displayCost} water
+                          {displayCost !== ability.cost && ` (reduced from ${ability.cost})`}
+                        </div>
+                        <button
+                          className={`bg-purple-600 text-white px-4 py-2 rounded w-full
+                  ${!hasEnoughWater ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-500'}`}
+                          disabled={!hasEnoughWater}
+                          title={!hasEnoughWater ? 'Not enough water' : ''}
+                          onClick={() => {
+                            if (selectedCardLocation) {
+                              executeAbility(selectedCard, ability, selectedCardLocation);
+                            }
+                            setIsAbilityModalOpen(false);
+                          }}
+                        >
+                          Use Ability {!hasEnoughWater && `(Not enough water)`}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <button
+                    className="mt-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded w-full"
+                    onClick={() => setIsAbilityModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
-                <button
-                  className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded flex-1"
-                  onClick={() => {
-                    setMutantModalOpen(false);
-                    setMutantDamageChosen(false);
-                    setMutantRestoreChosen(false);
-                  }}
-                >
-                  Cancel
-                </button>
+        {/* Scientist Ability Modal */}
+        {isScientistModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-gray-800 p-4 rounded-lg max-w-md w-full">
+              <h2 className="text-white text-xl mb-4">Scientist Ability</h2>
+              <p className="text-white mb-4">Select a card to use its junk effect:</p>
+
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {scientistCards.map((card, index) => (
+                  <div
+                    key={index}
+                    className="bg-gray-700 border border-gray-600 rounded p-2 cursor-pointer hover:bg-gray-600"
+                    onClick={() => {
+                      debugWithAlert(`Selected card: ${card.name}, Junk effect: ${card.junkEffect}`);
+                      // Close the modal
+                      setIsScientistModalOpen(false);
+
+                      // Special debug for raid junk effect
+                      if (card.junkEffect === 'raid') {
+                        console.log('SCIENTIST RAID SELECTED');
+                        const currentPlayer = gameState.currentTurn;
+
+                        // Use our helper function to check Zeto Kahn conditions
+                        const shouldExecuteImmediately = checkZetoKahnImmediateEffect(currentPlayer);
+                        console.log('Should execute immediately:', shouldExecuteImmediately);
+
+                        if (shouldExecuteImmediately) {
+                          console.log('Zeto Kahn immediate execution triggered');
+                          // Mark that an event was played
+                          if (currentPlayer === 'left') {
+                            setLeftPlayedEventThisTurn(true);
+                          } else {
+                            setRightPlayedEventThisTurn(true);
+                          }
+
+                          // Add cards to discard pile
+                          setDiscardPile((prev) => [...prev, ...scientistCards]);
+
+                          // Clear the scientist cards
+                          setScientistCards([]);
+
+                          // Execute raid immediately
+                          executeRaid(currentPlayer);
+
+                          alert(`RAID EXECUTED IMMEDIATELY DUE TO ZETO KAHN`);
+                          return;
+                        }
+                      }
+
+                      // Normal flow for other effects or when ZK conditions aren't met
+                      executeJunkEffect(card);
+
+                      // Add all cards to discard pile
+                      setDiscardPile((prev) => [...prev, ...scientistCards]);
+
+                      // Clear the scientist cards
+                      setScientistCards([]);
+
+                      alert(`Used ${card.name}'s junk effect: ${card.junkEffect}`);
+                    }}
+                  >
+                    <div className="text-white text-center text-xs">
+                      <strong>{card.name}</strong>
+                      <br />
+                      {card.type}
+                      <br />
+                      <span className="text-yellow-300">Junk: {card.junkEffect}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="w-full h-full flex justify-between">
-        {/* Left Player Area */}
-        <div
-          className={`w-1/3 h-full p-2 relative border-2 
+        {/* Mutant Ability Modal */}
+        {isMutantModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-gray-800 p-4 rounded-lg max-w-md w-full">
+              <h2 className="text-white text-xl mb-4">Mutant Ability</h2>
+              <p className="text-white mb-4">Choose one or both actions:</p>
+
+              <div className="flex flex-col gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="mutant-damage"
+                    className="h-5 w-5"
+                    checked={mutantDamageChosen}
+                    onChange={() => setMutantDamageChosen(!mutantDamageChosen)}
+                  />
+                  <label htmlFor="mutant-damage" className="text-white">
+                    Do 1 Damage
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="mutant-restore"
+                    className="h-5 w-5"
+                    checked={mutantRestoreChosen}
+                    onChange={() => setMutantRestoreChosen(!mutantRestoreChosen)}
+                  />
+                  <label htmlFor="mutant-restore" className="text-white">
+                    Restore
+                  </label>
+                </div>
+
+                <div className="flex gap-2 mt-4">
+                  <button
+                    className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded flex-1"
+                    disabled={!mutantDamageChosen && !mutantRestoreChosen}
+                    onClick={() => {
+                      setMutantModalOpen(false);
+
+                      if (mutantDamageChosen && mutantRestoreChosen) {
+                        // Both actions chosen, proceed with the first (damage)
+                        setMutantPendingAction('both');
+                        setDamageMode(true);
+                        setDamageSource(mutantSourceCard);
+                        setDamageValue(1);
+                      } else if (mutantDamageChosen) {
+                        // Only damage chosen
+                        setMutantPendingAction('damage_only');
+                        setDamageMode(true);
+                        setDamageSource(mutantSourceCard);
+                        setDamageValue(1);
+                      } else if (mutantRestoreChosen) {
+                        // Only restore chosen
+                        setMutantPendingAction('restore_only');
+                        setAbilityRestoreMode(true);
+                        setRestoreSource(mutantSourceCard);
+                      }
+                    }}
+                  >
+                    Confirm
+                  </button>
+
+                  <button
+                    className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded flex-1"
+                    onClick={() => {
+                      setMutantModalOpen(false);
+                      setMutantDamageChosen(false);
+                      setMutantRestoreChosen(false);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="w-full h-full flex justify-between">
+          {/* Left Player Area */}
+          <div
+            className={`w-1/3 h-full p-2 relative border-2 
           ${
             gameState.currentTurn === 'left'
               ? 'border-3 border-pink-500 shadow-[0_0_5px_rgba(255,105,180,0.7),0_0_10px_rgba(255,105,180,0.5),0_0_45px_rgba(255,105,180,0.3)] brightness-110'
               : 'border-2 border-gray-600'
           }`}
-        >
-          <div
-            style={{
-              marginTop: '50px',
-            }}
           >
-            {/* Event Queue */}
-            <div className="flex justify-start gap-2 mb-8 ml-4">
-              <EventSlot
-                index={0}
-                card={leftPlayerState.eventSlots[0]}
-                playerState={leftPlayerState}
-                setPlayerState={setLeftPlayerState}
-                player="left"
-                omenClockActive={omenClockActive}
-                canEventBeAdvanced={canEventBeAdvanced}
-                onEventAdvance={advanceEventByOne}
-              />
-              <EventSlot
-                index={1}
-                card={leftPlayerState.eventSlots[1]}
-                playerState={leftPlayerState}
-                setPlayerState={setLeftPlayerState}
-                player="left"
-                omenClockActive={omenClockActive}
-                canEventBeAdvanced={canEventBeAdvanced}
-                onEventAdvance={advanceEventByOne}
-              />
-              <EventSlot
-                index={2}
-                card={leftPlayerState.eventSlots[2]}
-                playerState={leftPlayerState}
-                setPlayerState={setLeftPlayerState}
-                player="left"
-                omenClockActive={omenClockActive}
-                canEventBeAdvanced={canEventBeAdvanced}
-                onEventAdvance={advanceEventByOne}
-              />
-            </div>
+            <div
+              style={{
+                marginTop: '50px',
+              }}
+            >
+              {/* Event Queue */}
+              <div className="flex justify-start gap-2 mb-8 ml-4">
+                <EventSlot
+                  index={0}
+                  card={leftPlayerState.eventSlots[0]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
+                  player="left"
+                  omenClockActive={omenClockActive}
+                  canEventBeAdvanced={canEventBeAdvanced}
+                  onEventAdvance={advanceEventByOne}
+                />
+                <EventSlot
+                  index={1}
+                  card={leftPlayerState.eventSlots[1]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
+                  player="left"
+                  omenClockActive={omenClockActive}
+                  canEventBeAdvanced={canEventBeAdvanced}
+                  onEventAdvance={advanceEventByOne}
+                />
+                <EventSlot
+                  index={2}
+                  card={leftPlayerState.eventSlots[2]}
+                  playerState={leftPlayerState}
+                  setPlayerState={setLeftPlayerState}
+                  player="left"
+                  omenClockActive={omenClockActive}
+                  canEventBeAdvanced={canEventBeAdvanced}
+                  onEventAdvance={advanceEventByOne}
+                />
+              </div>
 
-            {/* Hand Area */}
-            <div className="absolute bottom-4 left-4 right-4">
-              <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
-                <div
-                  className="flex flex-wrap gap-2"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const cardId = e.dataTransfer.getData('cardId');
-                    const sourceType = e.dataTransfer.getData('sourceType');
-                    const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
+              {/* Hand Area */}
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
+                  <div
+                    className="flex flex-wrap gap-2"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const cardId = e.dataTransfer.getData('cardId');
+                      const sourceType = e.dataTransfer.getData('sourceType');
+                      const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
 
-                    if (sourceType === 'personSlot') {
-                      const card = leftPlayerState.personSlots[sourceIndex];
-                      if (card) {
-                        setLeftPlayerState((prev) => {
-                          const updatedSlots = prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot));
-                          const { personSlots, campSlots } = updateProtectionStatus(updatedSlots, prev.campSlots);
-                          return {
-                            ...prev,
-                            handCards: [...prev.handCards, card],
-                            personSlots,
-                            campSlots,
-                          };
+                      if (sourceType === 'personSlot') {
+                        const card = leftPlayerState.personSlots[sourceIndex];
+                        if (card) {
+                          setLeftPlayerState((prev) => {
+                            const updatedSlots = prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot));
+                            const { personSlots, campSlots } = updateProtectionStatus(updatedSlots, prev.campSlots);
+                            return {
+                              ...prev,
+                              handCards: [...prev.handCards, card],
+                              personSlots,
+                              campSlots,
+                            };
+                          });
+                        }
+                      }
+                    }}
+                  >
+                    {leftPlayerState.handCards.map((card) => {
+                      // Calculate Oasis discount for person cards
+                      let oasisDiscountText = '';
+                      if (card.type === 'person' && card.playCost !== undefined) {
+                        const columns = [0, 1, 2];
+                        const eligibleColumns = columns.filter((columnIndex) => {
+                          const hasOasis =
+                            leftPlayerState.campSlots[columnIndex] &&
+                            leftPlayerState.campSlots[columnIndex]?.traits?.includes('discount_column');
+                          const frontRowIndex = columnIndex * 2;
+                          const backRowIndex = frontRowIndex + 1;
+                          const columnIsEmpty =
+                            !leftPlayerState.personSlots[frontRowIndex] && !leftPlayerState.personSlots[backRowIndex];
+                          return hasOasis && columnIsEmpty;
                         });
+                        if (eligibleColumns.length > 0) {
+                          oasisDiscountText = `Discount in column(s): ${eligibleColumns
+                            .map((col) => col + 1)
+                            .join(', ')}`;
+                        }
                       }
-                    }
-                  }}
-                >
-                  {leftPlayerState.handCards.map((card) => {
-                    // Calculate Oasis discount for person cards
-                    let oasisDiscountText = '';
-                    if (card.type === 'person' && card.playCost !== undefined) {
-                      const columns = [0, 1, 2];
-                      const eligibleColumns = columns.filter((columnIndex) => {
-                        const hasOasis =
-                          leftPlayerState.campSlots[columnIndex] &&
-                          leftPlayerState.campSlots[columnIndex]?.traits?.includes('discount_column');
-                        const frontRowIndex = columnIndex * 2;
-                        const backRowIndex = frontRowIndex + 1;
-                        const columnIsEmpty =
-                          !leftPlayerState.personSlots[frontRowIndex] && !leftPlayerState.personSlots[backRowIndex];
-                        return hasOasis && columnIsEmpty;
-                      });
-                      if (eligibleColumns.length > 0) {
-                        oasisDiscountText = `Discount in column(s): ${eligibleColumns
-                          .map((col) => col + 1)
-                          .join(', ')}`;
-                      }
-                    }
 
-                    return (
-                      <div
-                        key={card.id}
-                        className={`w-16 h-24 border border-gray-400 rounded relative ${
-                          card.id === leftWaterSiloCard.id ? 'cursor-pointer hover:brightness-110' : ''
-                        } ${
-                          discardSelectionActive && gameState.currentTurn === 'left' && card.type !== 'watersilo'
-                            ? 'border-purple-400 animate-pulse cursor-pointer'
-                            : ''
-                        } ${
-                          card.type === 'person' && card.playCost > leftPlayerState.waterCount
-                            ? 'bg-gray-800 opacity-60'
-                            : 'bg-gray-600'
-                        } ${oasisDiscountText ? 'border-green-300' : ''}`}
-                        draggable="true"
-                        title={oasisDiscountText}
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('cardId', card.id);
-                          e.dataTransfer.setData('sourcePlayer', 'left');
-                        }}
-                        onClick={() => {
-                          if (scavengerCampSelectingCard) {
-                            handleScavengerCampDiscard(card);
-                            return;
-                          }
-                          if (card.id === leftWaterSiloCard.id) {
-                            setLeftPlayerState((prev) => ({
-                              ...prev,
-                              waterSiloInHand: false,
-                              waterCount: prev.waterCount + 1,
-                              handCards: prev.handCards.filter((c) => c.id !== leftWaterSiloCard.id),
-                            }));
-                          } else if (
-                            discardSelectionActive &&
-                            gameState.currentTurn === 'left' &&
-                            card.type !== 'watersilo'
-                          ) {
-                            // Handle discard selection
-                            setLeftPlayerState((prev) => ({
-                              ...prev,
-                              handCards: prev.handCards.filter((c) => c.id !== card.id),
-                            }));
-                            setDiscardPile((prev) => [...prev, card]);
-                            setDiscardSelectionCount((prev) => prev - 1);
-                            // Check if we've discarded enough cards
-                            if (discardSelectionCount <= 1) {
-                              setDiscardSelectionActive(false);
-                              alert('Discard complete!');
+                      return (
+                        <div
+                          key={card.id}
+                          className={`w-16 h-24 border border-gray-400 rounded relative ${
+                            card.id === leftWaterSiloCard.id ? 'cursor-pointer hover:brightness-110' : ''
+                          } ${
+                            discardSelectionActive && gameState.currentTurn === 'left' && card.type !== 'watersilo'
+                              ? 'border-purple-400 animate-pulse cursor-pointer'
+                              : ''
+                          } ${
+                            card.type === 'person' && card.playCost > leftPlayerState.waterCount
+                              ? 'bg-gray-800 opacity-60'
+                              : 'bg-gray-600'
+                          } ${oasisDiscountText ? 'border-green-300' : ''}`}
+                          draggable="true"
+                          title={oasisDiscountText}
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('cardId', card.id);
+                            e.dataTransfer.setData('sourcePlayer', 'left');
+                          }}
+                          onClick={() => {
+                            if (scavengerCampSelectingCard) {
+                              handleScavengerCampDiscard(card);
+                              return;
                             }
-                          }
-                        }}
-                      >
-                        <div className="text-white text-center text-xs mt-4">
-                          {card.name}
-                          <br />
-                          {card.type}
-                          <br />
-                          {card.type === 'person' && card.playCost !== undefined ? (
-                            <>
-                              Cost: {card.playCost}
-                              {oasisDiscountText && <span className="text-green-300"> (-1)</span>}
-                            </>
-                          ) : (
-                            ''
-                          )}
-                          {card.type === 'person' && card.playCost !== undefined && <br />}
-                          {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
-                          <br />
-                          {card.junkEffect && `Junk: ${card.junkEffect}`}
-                          <br />
-                          {card.id}
-                        </div>
-                        {oasisDiscountText && (
-                          <div className="absolute top-0 right-0 bg-green-600 text-white text-xs px-1 rounded-bl">
-                            -1
+                            if (card.id === leftWaterSiloCard.id) {
+                              setLeftPlayerState((prev) => ({
+                                ...prev,
+                                waterSiloInHand: false,
+                                waterCount: prev.waterCount + 1,
+                                handCards: prev.handCards.filter((c) => c.id !== leftWaterSiloCard.id),
+                              }));
+                            } else if (
+                              discardSelectionActive &&
+                              gameState.currentTurn === 'left' &&
+                              card.type !== 'watersilo'
+                            ) {
+                              // Handle discard selection
+                              setLeftPlayerState((prev) => ({
+                                ...prev,
+                                handCards: prev.handCards.filter((c) => c.id !== card.id),
+                              }));
+                              setDiscardPile((prev) => [...prev, card]);
+                              setDiscardSelectionCount((prev) => prev - 1);
+                              // Check if we've discarded enough cards
+                              if (discardSelectionCount <= 1) {
+                                setDiscardSelectionActive(false);
+                                alert('Discard complete!');
+                              }
+                            }
+                          }}
+                        >
+                          <div className="text-white text-center text-xs mt-4">
+                            {card.name}
+                            <br />
+                            {card.type}
+                            <br />
+                            {card.type === 'person' && card.playCost !== undefined ? (
+                              <>
+                                Cost: {card.playCost}
+                                {oasisDiscountText && <span className="text-green-300"> (-1)</span>}
+                              </>
+                            ) : (
+                              ''
+                            )}
+                            {card.type === 'person' && card.playCost !== undefined && <br />}
+                            {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
+                            <br />
+                            {card.junkEffect && `Junk: ${card.junkEffect}`}
+                            <br />
+                            {card.id}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          {oasisDiscountText && (
+                            <div className="absolute top-0 right-0 bg-green-600 text-white text-xs px-1 rounded-bl">
+                              -1
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Three columns of cards */}
-            <div className="flex justify-between">
-              {/* Column 1 */}
-              <div className="flex flex-col">
-                <PersonSlot
-                  index={0}
-                  card={leftPlayerState.personSlots[0]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
-                  player="left"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  setSacrificeMode={setSacrificeMode}
-                  sacrificePendingDamage={sacrificePendingDamage}
-                  setSacrificePendingDamage={setSacrificePendingDamage}
-                  setDamageMode={setDamageMode}
-                  setDamageValue={setDamageValue}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
-                />
-                <PersonSlot
-                  index={1}
-                  card={leftPlayerState.personSlots[1]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
-                  player="left"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  setSacrificeMode={setSacrificeMode}
-                  sacrificePendingDamage={sacrificePendingDamage}
-                  setSacrificePendingDamage={setSacrificePendingDamage}
-                  setDamageMode={setDamageMode}
-                  setDamageValue={setDamageValue}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
-                />
-                <div
-                  className={`w-24 h-32 border-2 rounded
+              {/* Three columns of cards */}
+              <div className="flex justify-between">
+                {/* Column 1 */}
+                <div className="flex flex-col">
+                  <PersonSlot
+                    index={0}
+                    card={leftPlayerState.personSlots[0]}
+                    playerState={leftPlayerState}
+                    setPlayerState={setLeftPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="left"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    setSacrificeMode={setSacrificeMode}
+                    sacrificePendingDamage={sacrificePendingDamage}
+                    setSacrificePendingDamage={setSacrificePendingDamage}
+                    setDamageMode={setDamageMode}
+                    setDamageValue={setDamageValue}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <PersonSlot
+                    index={1}
+                    card={leftPlayerState.personSlots[1]}
+                    playerState={leftPlayerState}
+                    setPlayerState={setLeftPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="left"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    setSacrificeMode={setSacrificeMode}
+                    sacrificePendingDamage={sacrificePendingDamage}
+                    setSacrificePendingDamage={setSacrificePendingDamage}
+                    setDamageMode={setDamageMode}
+                    setDamageValue={setDamageValue}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <div
+                    className={`w-24 h-32 border-2 rounded
   ${
     leftPlayerState.campSlots[0] === null
       ? 'bg-black'
@@ -4228,330 +4241,330 @@ const GameBoard = () => {
       : 'border-gray-400'
   }
 `}
-                  onClick={() => {
-                    if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[0]) {
-                      // Apply damage to the camp
-                      applyDamage(leftPlayerState.campSlots[0], 0, false);
-                      return; // Exit early
-                    }
-                    if (
-                      opponentChoiceDamageMode &&
-                      gameState.currentTurn === 'right' &&
-                      leftPlayerState.campSlots[0] &&
-                      !leftPlayerState.campSlots[0]?.isProtected
-                    ) {
-                      // Apply damage to the camp
-                      applyDamage(leftPlayerState.campSlots[0], 0, false);
-                      return;
-                    }
-                    if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
-                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                      applyDamage(leftPlayerState.campSlots[0], 0, false);
-
-                      // Reset targeting modes
-                      setDamageMode(false);
-                      setDamageSource(null);
-                      setDamageValue(0);
-                      setCampDamageMode(false);
-                      setSniperMode(false);
-
-                      return; // Exit early
-                    }
-                    if (
-                      multiRestoreMode &&
-                      gameState.currentTurn === 'left' &&
-                      leftPlayerState.campSlots[0] &&
-                      leftPlayerState.campSlots[0].isDamaged
-                    ) {
-                      // Use applyRestore function
-                      applyRestore(leftPlayerState.campSlots[0], 0, false);
-                      return; // Exit early to prevent other conditions
-                    }
-                    if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[0]) {
-                      const camp = leftPlayerState.campSlots[0];
-                      if (camp.isDamaged) {
-                        // If camp is already damaged, destroy it
-                        alert('Camp destroyed!');
-                        destroyCamp(camp, 0, false);
-                      } else {
-                        // Otherwise, damage it
-                        alert('Camp damaged!');
-                        setLeftPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 0 ? { ...c, isDamaged: true } : c)),
-                        }));
+                    onClick={() => {
+                      if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[0]) {
+                        // Apply damage to the camp
+                        applyDamage(leftPlayerState.campSlots[0], 0, false);
+                        return; // Exit early
                       }
-                      // End raid mode
-                      setCampRaidMode(false);
-                      setRaidingPlayer(null);
-                      setRaidMessage('');
-                      // Continue to next phase
-                      setTimeout(() => {
-                        setGameState((prev) => ({
-                          ...prev,
-                          currentPhase: 'replenish',
-                        }));
-                      }, 100);
-                    } else if (damageColumnMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
-                      // Get the column index (0 for this camp)
-                      const columnIndex = 0;
-
-                      // Apply damage to all cards in this column
-                      // First, the person cards (indices 0 and 1 for column 0)
-                      const frontPerson = leftPlayerState.personSlots[columnIndex * 2];
-                      const backPerson = leftPlayerState.personSlots[columnIndex * 2 + 1];
-
-                      // Damage front person if it exists
-                      if (frontPerson) {
-                        applyDamage(frontPerson, columnIndex * 2, true);
-                      }
-
-                      // Damage back person if it exists
-                      if (backPerson) {
-                        applyDamage(backPerson, columnIndex * 2 + 1, true);
-                      }
-
-                      // Damage the camp itself
-                      if (leftPlayerState.campSlots[columnIndex]) {
-                        applyDamage(leftPlayerState.campSlots[columnIndex], columnIndex, true);
-                      }
-
-                      // Reset column damage mode
-                      setDamageColumnMode(false);
-
-                      alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                    } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
-                      // Handle destroy camp ability
-                      alert(`${leftPlayerState.campSlots[0].name} destroyed!`);
-                      destroyCamp(leftPlayerState.campSlots[0], 0, false);
-                      // Reset destroy camp mode
-                      setDestroyCampMode(false);
-                    } else if (
-                      damageMode &&
-                      gameState.currentTurn !== 'left' &&
-                      leftPlayerState.campSlots[0] &&
-                      (sniperMode || !leftPlayerState.campSlots[0].isProtected)
-                    ) {
-                      // Handle damage targeting
-                      applyDamage(leftPlayerState.campSlots[0], 0, false);
-                    } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[0]?.isDamaged) {
-                      // Use the restoreCard utility instead of directly modifying state
-                      const wasRestored = restoreCard(
-                        leftPlayerState.campSlots[0],
-                        0, // slotIndex
-                        false, // isRightPlayer
-                        setLeftPlayerState
-                      );
-
                       if (
-                        leftPlayerState.campSlots[0]?.traits?.includes('cannot_self_restore') &&
-                        restoreSourceIndex === 0
+                        opponentChoiceDamageMode &&
+                        gameState.currentTurn === 'right' &&
+                        leftPlayerState.campSlots[0] &&
+                        !leftPlayerState.campSlots[0]?.isProtected
                       ) {
-                        alert(`${leftPlayerState.campSlots[0].name} cannot restore itself due to its special trait!`);
+                        // Apply damage to the camp
+                        applyDamage(leftPlayerState.campSlots[0], 0, false);
                         return;
                       }
+                      if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
+                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                        applyDamage(leftPlayerState.campSlots[0], 0, false);
 
-                      if (wasRestored) {
-                        alert(`Restored ${leftPlayerState.campSlots[0].name}`);
+                        // Reset targeting modes
+                        setDamageMode(false);
+                        setDamageSource(null);
+                        setDamageValue(0);
+                        setCampDamageMode(false);
+                        setSniperMode(false);
+
+                        return; // Exit early
                       }
-
-                      // Exit restore mode
-                      if (setRestoreMode) setRestoreMode(false);
-                    } else if (
-                      abilityRestoreMode &&
-                      gameState.currentTurn === 'left' &&
-                      leftPlayerState.campSlots[0]?.isDamaged
-                    ) {
-                      // Handle restore targeting
-                      applyRestore(leftPlayerState.campSlots[0], 0, false);
-                    } else if (isInteractable('camp', 'left', 0)) {
-                      // Get the camp card
-                      const campCard = leftPlayerState.campSlots[0];
-
-                      // Add an additional safety check for isReady
-                      if (!campCard.isReady) {
-                        alert('This camp has already used its ability this turn!');
-                        return; // Don't open the modal
+                      if (
+                        multiRestoreMode &&
+                        gameState.currentTurn === 'left' &&
+                        leftPlayerState.campSlots[0] &&
+                        leftPlayerState.campSlots[0].isDamaged
+                      ) {
+                        // Use applyRestore function
+                        applyRestore(leftPlayerState.campSlots[0], 0, false);
+                        return; // Exit early to prevent other conditions
                       }
+                      if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[0]) {
+                        const camp = leftPlayerState.campSlots[0];
+                        if (camp.isDamaged) {
+                          // If camp is already damaged, destroy it
+                          alert('Camp destroyed!');
+                          destroyCamp(camp, 0, false);
+                        } else {
+                          // Otherwise, damage it
+                          alert('Camp damaged!');
+                          setLeftPlayerState((prev) => ({
+                            ...prev,
+                            campSlots: prev.campSlots.map((c, i) => (i === 0 ? { ...c, isDamaged: true } : c)),
+                          }));
+                        }
+                        // End raid mode
+                        setCampRaidMode(false);
+                        setRaidingPlayer(null);
+                        setRaidMessage('');
+                        // Continue to next phase
+                        setTimeout(() => {
+                          setGameState((prev) => ({
+                            ...prev,
+                            currentPhase: 'replenish',
+                          }));
+                        }, 100);
+                      } else if (damageColumnMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
+                        // Get the column index (0 for this camp)
+                        const columnIndex = 0;
 
-                      if (!checkAbilityEnabled(campCard)) {
-                        return; // Don't open the modal if the ability can't be used
+                        // Apply damage to all cards in this column
+                        // First, the person cards (indices 0 and 1 for column 0)
+                        const frontPerson = leftPlayerState.personSlots[columnIndex * 2];
+                        const backPerson = leftPlayerState.personSlots[columnIndex * 2 + 1];
+
+                        // Damage front person if it exists
+                        if (frontPerson) {
+                          applyDamage(frontPerson, columnIndex * 2, true);
+                        }
+
+                        // Damage back person if it exists
+                        if (backPerson) {
+                          applyDamage(backPerson, columnIndex * 2 + 1, true);
+                        }
+
+                        // Damage the camp itself
+                        if (leftPlayerState.campSlots[columnIndex]) {
+                          applyDamage(leftPlayerState.campSlots[columnIndex], columnIndex, true);
+                        }
+
+                        // Reset column damage mode
+                        setDamageColumnMode(false);
+
+                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
+                      } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
+                        // Handle destroy camp ability
+                        alert(`${leftPlayerState.campSlots[0].name} destroyed!`);
+                        destroyCamp(leftPlayerState.campSlots[0], 0, false);
+                        // Reset destroy camp mode
+                        setDestroyCampMode(false);
+                      } else if (
+                        damageMode &&
+                        gameState.currentTurn !== 'left' &&
+                        leftPlayerState.campSlots[0] &&
+                        (sniperMode || !leftPlayerState.campSlots[0].isProtected)
+                      ) {
+                        // Handle damage targeting
+                        applyDamage(leftPlayerState.campSlots[0], 0, false);
+                      } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[0]?.isDamaged) {
+                        // Use the restoreCard utility instead of directly modifying state
+                        const wasRestored = restoreCard(
+                          leftPlayerState.campSlots[0],
+                          0, // slotIndex
+                          false, // isRightPlayer
+                          setLeftPlayerState
+                        );
+
+                        if (
+                          leftPlayerState.campSlots[0]?.traits?.includes('cannot_self_restore') &&
+                          restoreSourceIndex === 0
+                        ) {
+                          alert(`${leftPlayerState.campSlots[0].name} cannot restore itself due to its special trait!`);
+                          return;
+                        }
+
+                        if (wasRestored) {
+                          alert(`Restored ${leftPlayerState.campSlots[0].name}`);
+                        }
+
+                        // Exit restore mode
+                        if (setRestoreMode) setRestoreMode(false);
+                      } else if (
+                        abilityRestoreMode &&
+                        gameState.currentTurn === 'left' &&
+                        leftPlayerState.campSlots[0]?.isDamaged
+                      ) {
+                        // Handle restore targeting
+                        applyRestore(leftPlayerState.campSlots[0], 0, false);
+                      } else if (isInteractable('camp', 'left', 0)) {
+                        // Get the camp card
+                        const campCard = leftPlayerState.campSlots[0];
+
+                        // Add an additional safety check for isReady
+                        if (!campCard.isReady) {
+                          alert('This camp has already used its ability this turn!');
+                          return; // Don't open the modal
+                        }
+
+                        if (!checkAbilityEnabled(campCard)) {
+                          return; // Don't open the modal if the ability can't be used
+                        }
+
+                        // If we passed the check, proceed as normal
+                        setSelectedCard(campCard);
+                        setSelectedCardLocation({ type: 'camp', index: 0 });
+                        setIsAbilityModalOpen(true);
                       }
-
-                      // If we passed the check, proceed as normal
-                      setSelectedCard(campCard);
-                      setSelectedCardLocation({ type: 'camp', index: 0 });
-                      setIsAbilityModalOpen(true);
-                    }
-                  }}
-                >
-                  <div className="text-white text-center text-xs mt-4">
-                    {leftPlayerState.campSlots[0] === null ? (
-                      <>
-                        Camp 1
-                        <br />
-                        Destroyed
-                      </>
-                    ) : (
-                      <>
-                        {leftPlayerState.campSlots[0]?.name}
-                        <br />
-                        {leftPlayerState.campSlots[0]?.type}
-                        <br />
-                        {leftPlayerState.campSlots[0]?.isProtected ? 'Protected' : 'Unprotected'}
-                        <br />
-                        {leftPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                        <br />
-                        {leftPlayerState.campSlots[0]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                        <br />
-                        {leftPlayerState.campSlots[0]?.isReady ? 'Ready' : 'Not Ready'}
-                      </>
-                    )}
+                    }}
+                  >
+                    <div className="text-white text-center text-xs mt-4">
+                      {leftPlayerState.campSlots[0] === null ? (
+                        <>
+                          Camp 1
+                          <br />
+                          Destroyed
+                        </>
+                      ) : (
+                        <>
+                          {leftPlayerState.campSlots[0]?.name}
+                          <br />
+                          {leftPlayerState.campSlots[0]?.type}
+                          <br />
+                          {leftPlayerState.campSlots[0]?.isProtected ? 'Protected' : 'Unprotected'}
+                          <br />
+                          {leftPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                          <br />
+                          {leftPlayerState.campSlots[0]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                          <br />
+                          {leftPlayerState.campSlots[0]?.isReady ? 'Ready' : 'Not Ready'}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-              {/* Column 2 */}
-              <div className="flex flex-col">
-                <PersonSlot
-                  index={2}
-                  card={leftPlayerState.personSlots[2]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
-                  player="left"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  setSacrificeMode={setSacrificeMode}
-                  sacrificePendingDamage={sacrificePendingDamage}
-                  setSacrificePendingDamage={setSacrificePendingDamage}
-                  setDamageMode={setDamageMode}
-                  setDamageValue={setDamageValue}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
-                />
-                <PersonSlot
-                  index={3}
-                  card={leftPlayerState.personSlots[3]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
-                  player="left"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  setSacrificeMode={setSacrificeMode}
-                  sacrificePendingDamage={sacrificePendingDamage}
-                  setSacrificePendingDamage={setSacrificePendingDamage}
-                  setDamageMode={setDamageMode}
-                  setDamageValue={setDamageValue}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
-                />
-                <div
-                  className={`w-24 h-32 border-2 rounded
+                {/* Column 2 */}
+                <div className="flex flex-col">
+                  <PersonSlot
+                    index={2}
+                    card={leftPlayerState.personSlots[2]}
+                    playerState={leftPlayerState}
+                    setPlayerState={setLeftPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="left"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    setSacrificeMode={setSacrificeMode}
+                    sacrificePendingDamage={sacrificePendingDamage}
+                    setSacrificePendingDamage={setSacrificePendingDamage}
+                    setDamageMode={setDamageMode}
+                    setDamageValue={setDamageValue}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <PersonSlot
+                    index={3}
+                    card={leftPlayerState.personSlots[3]}
+                    playerState={leftPlayerState}
+                    setPlayerState={setLeftPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="left"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    setSacrificeMode={setSacrificeMode}
+                    sacrificePendingDamage={sacrificePendingDamage}
+                    setSacrificePendingDamage={setSacrificePendingDamage}
+                    setDamageMode={setDamageMode}
+                    setDamageValue={setDamageValue}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <div
+                    className={`w-24 h-32 border-2 rounded
   ${
     leftPlayerState.campSlots[1] === null
       ? 'bg-black'
@@ -4585,330 +4598,330 @@ const GameBoard = () => {
       : 'border-gray-400'
   }
 `}
-                  onClick={() => {
-                    if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[1]) {
-                      // Apply damage to the camp
-                      applyDamage(leftPlayerState.campSlots[1], 1, false);
-                      return; // Exit early
-                    }
-                    if (
-                      opponentChoiceDamageMode &&
-                      gameState.currentTurn === 'right' &&
-                      leftPlayerState.campSlots[1] &&
-                      !leftPlayerState.campSlots[1]?.isProtected
-                    ) {
-                      // Apply damage to the camp
-                      applyDamage(leftPlayerState.campSlots[1], 1, false);
-                      return;
-                    }
-                    if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
-                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                      applyDamage(leftPlayerState.campSlots[1], 1, false);
-
-                      // Reset targeting modes
-                      setDamageMode(false);
-                      setDamageSource(null);
-                      setDamageValue(0);
-                      setCampDamageMode(false);
-                      setSniperMode(false);
-
-                      return; // Exit early
-                    }
-                    if (
-                      multiRestoreMode &&
-                      gameState.currentTurn === 'left' &&
-                      leftPlayerState.campSlots[1] &&
-                      leftPlayerState.campSlots[1].isDamaged
-                    ) {
-                      // Use applyRestore function
-                      applyRestore(leftPlayerState.campSlots[1], 1, false);
-                      return; // Exit early to prevent other conditions
-                    }
-                    if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[1]) {
-                      const camp = leftPlayerState.campSlots[1];
-                      if (camp.isDamaged) {
-                        // If camp is already damaged, destroy it
-                        alert('Camp destroyed!');
-                        destroyCamp(camp, 1, false);
-                      } else {
-                        // Otherwise, damage it
-                        alert('Camp damaged!');
-                        setLeftPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 1 ? { ...c, isDamaged: true } : c)),
-                        }));
+                    onClick={() => {
+                      if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[1]) {
+                        // Apply damage to the camp
+                        applyDamage(leftPlayerState.campSlots[1], 1, false);
+                        return; // Exit early
                       }
-                      // End raid mode
-                      setCampRaidMode(false);
-                      setRaidingPlayer(null);
-                      setRaidMessage('');
-                      // Continue to next phase
-                      setTimeout(() => {
-                        setGameState((prev) => ({
-                          ...prev,
-                          currentPhase: 'replenish',
-                        }));
-                      }, 100);
-                    } else if (damageColumnMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
-                      // Get the column index (0 for this camp)
-                      const columnIndex = 1;
-
-                      // Apply damage to all cards in this column
-                      // First, the person cards (indices 0 and 1 for column 0)
-                      const frontPerson = leftPlayerState.personSlots[columnIndex * 2];
-                      const backPerson = leftPlayerState.personSlots[columnIndex * 2 + 1];
-
-                      // Damage front person if it exists
-                      if (frontPerson) {
-                        applyDamage(frontPerson, columnIndex * 2, true);
-                      }
-
-                      // Damage back person if it exists
-                      if (backPerson) {
-                        applyDamage(backPerson, columnIndex * 2 + 1, true);
-                      }
-
-                      // Damage the camp itself
-                      if (leftPlayerState.campSlots[columnIndex]) {
-                        applyDamage(leftPlayerState.campSlots[columnIndex], columnIndex, true);
-                      }
-
-                      // Reset column damage mode
-                      setDamageColumnMode(false);
-
-                      alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                    } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
-                      // Handle destroy camp ability
-                      alert(`${leftPlayerState.campSlots[1].name} destroyed!`);
-                      destroyCamp(leftPlayerState.campSlots[1], 1, false);
-                      // Reset destroy camp mode
-                      setDestroyCampMode(false);
-                    } else if (
-                      damageMode &&
-                      gameState.currentTurn !== 'left' &&
-                      leftPlayerState.campSlots[1] &&
-                      (sniperMode || !leftPlayerState.campSlots[1].isProtected)
-                    ) {
-                      // Handle damage targeting
-                      applyDamage(leftPlayerState.campSlots[1], 1, false);
-                    } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[1]?.isDamaged) {
-                      // Use the restoreCard utility instead of directly modifying state
-                      const wasRestored = restoreCard(
-                        leftPlayerState.campSlots[1],
-                        1, // slotIndex
-                        false, // isRightPlayer
-                        setLeftPlayerState
-                      );
-
                       if (
-                        leftPlayerState.campSlots[1]?.traits?.includes('cannot_self_restore') &&
-                        restoreSourceIndex === 1
+                        opponentChoiceDamageMode &&
+                        gameState.currentTurn === 'right' &&
+                        leftPlayerState.campSlots[1] &&
+                        !leftPlayerState.campSlots[1]?.isProtected
                       ) {
-                        alert(`${leftPlayerState.campSlots[1].name} cannot restore itself due to its special trait!`);
+                        // Apply damage to the camp
+                        applyDamage(leftPlayerState.campSlots[1], 1, false);
                         return;
                       }
+                      if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
+                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                        applyDamage(leftPlayerState.campSlots[1], 1, false);
 
-                      if (wasRestored) {
-                        alert(`Restored ${leftPlayerState.campSlots[1].name}`);
+                        // Reset targeting modes
+                        setDamageMode(false);
+                        setDamageSource(null);
+                        setDamageValue(0);
+                        setCampDamageMode(false);
+                        setSniperMode(false);
+
+                        return; // Exit early
                       }
-
-                      // Exit restore mode
-                      if (setRestoreMode) setRestoreMode(false);
-                    } else if (
-                      abilityRestoreMode &&
-                      gameState.currentTurn === 'left' &&
-                      leftPlayerState.campSlots[1]?.isDamaged
-                    ) {
-                      // Handle restore targeting
-                      applyRestore(leftPlayerState.campSlots[1], 1, false);
-                    } else if (isInteractable('camp', 'left', 1)) {
-                      // Get the camp card
-                      const campCard = leftPlayerState.campSlots[1];
-
-                      // Add an additional safety check for isReady
-                      if (!campCard.isReady) {
-                        alert('This camp has already used its ability this turn!');
-                        return; // Don't open the modal
+                      if (
+                        multiRestoreMode &&
+                        gameState.currentTurn === 'left' &&
+                        leftPlayerState.campSlots[1] &&
+                        leftPlayerState.campSlots[1].isDamaged
+                      ) {
+                        // Use applyRestore function
+                        applyRestore(leftPlayerState.campSlots[1], 1, false);
+                        return; // Exit early to prevent other conditions
                       }
+                      if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[1]) {
+                        const camp = leftPlayerState.campSlots[1];
+                        if (camp.isDamaged) {
+                          // If camp is already damaged, destroy it
+                          alert('Camp destroyed!');
+                          destroyCamp(camp, 1, false);
+                        } else {
+                          // Otherwise, damage it
+                          alert('Camp damaged!');
+                          setLeftPlayerState((prev) => ({
+                            ...prev,
+                            campSlots: prev.campSlots.map((c, i) => (i === 1 ? { ...c, isDamaged: true } : c)),
+                          }));
+                        }
+                        // End raid mode
+                        setCampRaidMode(false);
+                        setRaidingPlayer(null);
+                        setRaidMessage('');
+                        // Continue to next phase
+                        setTimeout(() => {
+                          setGameState((prev) => ({
+                            ...prev,
+                            currentPhase: 'replenish',
+                          }));
+                        }, 100);
+                      } else if (damageColumnMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
+                        // Get the column index (0 for this camp)
+                        const columnIndex = 1;
 
-                      if (!checkAbilityEnabled(campCard)) {
-                        return; // Don't open the modal if the ability can't be used
+                        // Apply damage to all cards in this column
+                        // First, the person cards (indices 0 and 1 for column 0)
+                        const frontPerson = leftPlayerState.personSlots[columnIndex * 2];
+                        const backPerson = leftPlayerState.personSlots[columnIndex * 2 + 1];
+
+                        // Damage front person if it exists
+                        if (frontPerson) {
+                          applyDamage(frontPerson, columnIndex * 2, true);
+                        }
+
+                        // Damage back person if it exists
+                        if (backPerson) {
+                          applyDamage(backPerson, columnIndex * 2 + 1, true);
+                        }
+
+                        // Damage the camp itself
+                        if (leftPlayerState.campSlots[columnIndex]) {
+                          applyDamage(leftPlayerState.campSlots[columnIndex], columnIndex, true);
+                        }
+
+                        // Reset column damage mode
+                        setDamageColumnMode(false);
+
+                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
+                      } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
+                        // Handle destroy camp ability
+                        alert(`${leftPlayerState.campSlots[1].name} destroyed!`);
+                        destroyCamp(leftPlayerState.campSlots[1], 1, false);
+                        // Reset destroy camp mode
+                        setDestroyCampMode(false);
+                      } else if (
+                        damageMode &&
+                        gameState.currentTurn !== 'left' &&
+                        leftPlayerState.campSlots[1] &&
+                        (sniperMode || !leftPlayerState.campSlots[1].isProtected)
+                      ) {
+                        // Handle damage targeting
+                        applyDamage(leftPlayerState.campSlots[1], 1, false);
+                      } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[1]?.isDamaged) {
+                        // Use the restoreCard utility instead of directly modifying state
+                        const wasRestored = restoreCard(
+                          leftPlayerState.campSlots[1],
+                          1, // slotIndex
+                          false, // isRightPlayer
+                          setLeftPlayerState
+                        );
+
+                        if (
+                          leftPlayerState.campSlots[1]?.traits?.includes('cannot_self_restore') &&
+                          restoreSourceIndex === 1
+                        ) {
+                          alert(`${leftPlayerState.campSlots[1].name} cannot restore itself due to its special trait!`);
+                          return;
+                        }
+
+                        if (wasRestored) {
+                          alert(`Restored ${leftPlayerState.campSlots[1].name}`);
+                        }
+
+                        // Exit restore mode
+                        if (setRestoreMode) setRestoreMode(false);
+                      } else if (
+                        abilityRestoreMode &&
+                        gameState.currentTurn === 'left' &&
+                        leftPlayerState.campSlots[1]?.isDamaged
+                      ) {
+                        // Handle restore targeting
+                        applyRestore(leftPlayerState.campSlots[1], 1, false);
+                      } else if (isInteractable('camp', 'left', 1)) {
+                        // Get the camp card
+                        const campCard = leftPlayerState.campSlots[1];
+
+                        // Add an additional safety check for isReady
+                        if (!campCard.isReady) {
+                          alert('This camp has already used its ability this turn!');
+                          return; // Don't open the modal
+                        }
+
+                        if (!checkAbilityEnabled(campCard)) {
+                          return; // Don't open the modal if the ability can't be used
+                        }
+
+                        // If we passed the check, proceed as normal
+                        setSelectedCard(campCard);
+                        setSelectedCardLocation({ type: 'camp', index: 1 });
+                        setIsAbilityModalOpen(true);
                       }
-
-                      // If we passed the check, proceed as normal
-                      setSelectedCard(campCard);
-                      setSelectedCardLocation({ type: 'camp', index: 1 });
-                      setIsAbilityModalOpen(true);
-                    }
-                  }}
-                >
-                  <div className="text-white text-center text-xs mt-4">
-                    {leftPlayerState.campSlots[1] === null ? (
-                      <>
-                        Camp 2
-                        <br />
-                        Destroyed
-                      </>
-                    ) : (
-                      <>
-                        {leftPlayerState.campSlots[1]?.name}
-                        <br />
-                        {leftPlayerState.campSlots[1]?.type}
-                        <br />
-                        {leftPlayerState.campSlots[1]?.isProtected ? 'Protected' : 'Unprotected'}
-                        <br />
-                        {leftPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                        <br />
-                        {leftPlayerState.campSlots[1]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                        <br />
-                        {leftPlayerState.campSlots[1]?.isReady ? 'Ready' : 'Not Ready'}
-                      </>
-                    )}
+                    }}
+                  >
+                    <div className="text-white text-center text-xs mt-4">
+                      {leftPlayerState.campSlots[1] === null ? (
+                        <>
+                          Camp 2
+                          <br />
+                          Destroyed
+                        </>
+                      ) : (
+                        <>
+                          {leftPlayerState.campSlots[1]?.name}
+                          <br />
+                          {leftPlayerState.campSlots[1]?.type}
+                          <br />
+                          {leftPlayerState.campSlots[1]?.isProtected ? 'Protected' : 'Unprotected'}
+                          <br />
+                          {leftPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                          <br />
+                          {leftPlayerState.campSlots[1]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                          <br />
+                          {leftPlayerState.campSlots[1]?.isReady ? 'Ready' : 'Not Ready'}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-              {/* Column 3 */}
-              <div className="flex flex-col">
-                <PersonSlot
-                  index={4}
-                  card={leftPlayerState.personSlots[4]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
-                  player="left"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  setSacrificeMode={setSacrificeMode}
-                  sacrificePendingDamage={sacrificePendingDamage}
-                  setSacrificePendingDamage={setSacrificePendingDamage}
-                  setDamageMode={setDamageMode}
-                  setDamageValue={setDamageValue}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
-                />
-                <PersonSlot
-                  index={5}
-                  card={leftPlayerState.personSlots[5]}
-                  playerState={leftPlayerState}
-                  setPlayerState={setLeftPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
-                  player="left"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  setSacrificeMode={setSacrificeMode}
-                  sacrificePendingDamage={sacrificePendingDamage}
-                  setSacrificePendingDamage={setSacrificePendingDamage}
-                  setDamageMode={setDamageMode}
-                  setDamageValue={setDamageValue}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
-                />
-                <div
-                  className={`w-24 h-32 border-2 rounded
+                {/* Column 3 */}
+                <div className="flex flex-col">
+                  <PersonSlot
+                    index={4}
+                    card={leftPlayerState.personSlots[4]}
+                    playerState={leftPlayerState}
+                    setPlayerState={setLeftPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="left"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    setSacrificeMode={setSacrificeMode}
+                    sacrificePendingDamage={sacrificePendingDamage}
+                    setSacrificePendingDamage={setSacrificePendingDamage}
+                    setDamageMode={setDamageMode}
+                    setDamageValue={setDamageValue}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <PersonSlot
+                    index={5}
+                    card={leftPlayerState.personSlots[5]}
+                    playerState={leftPlayerState}
+                    setPlayerState={setLeftPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="left"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    setSacrificeMode={setSacrificeMode}
+                    sacrificePendingDamage={sacrificePendingDamage}
+                    setSacrificePendingDamage={setSacrificePendingDamage}
+                    setDamageMode={setDamageMode}
+                    setDamageValue={setDamageValue}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <div
+                    className={`w-24 h-32 border-2 rounded
   ${
     leftPlayerState.campSlots[2] === null
       ? 'bg-black'
@@ -4942,1074 +4955,1081 @@ const GameBoard = () => {
       : 'border-gray-400'
   }
 `}
-                  onClick={() => {
-                    if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[2]) {
-                      // Apply damage to the camp
-                      applyDamage(leftPlayerState.campSlots[2], 2, false);
-                      return; // Exit early
-                    }
-                    if (
-                      opponentChoiceDamageMode &&
-                      gameState.currentTurn === 'right' &&
-                      leftPlayerState.campSlots[2] &&
-                      !leftPlayerState.campSlots[2]?.isProtected
-                    ) {
-                      // Apply damage to the camp
-                      applyDamage(leftPlayerState.campSlots[2], 2, false);
-                      return;
-                    }
-                    if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
-                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                      applyDamage(leftPlayerState.campSlots[2], 2, false);
-
-                      // Reset targeting modes
-                      setDamageMode(false);
-                      setDamageSource(null);
-                      setDamageValue(0);
-                      setCampDamageMode(false);
-                      setSniperMode(false);
-
-                      return; // Exit early
-                    }
-                    if (
-                      multiRestoreMode &&
-                      gameState.currentTurn === 'left' &&
-                      leftPlayerState.campSlots[2] &&
-                      leftPlayerState.campSlots[2].isDamaged
-                    ) {
-                      // Use applyRestore function
-                      applyRestore(leftPlayerState.campSlots[2], 2, false);
-                      return; // Exit early to prevent other conditions
-                    }
-                    if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[2]) {
-                      const camp = leftPlayerState.campSlots[2];
-                      if (camp.isDamaged) {
-                        // If camp is already damaged, destroy it
-                        alert('Camp destroyed!');
-                        destroyCamp(camp, 2, false);
-                      } else {
-                        // Otherwise, damage it
-                        alert('Camp damaged!');
-                        setLeftPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 2 ? { ...c, isDamaged: true } : c)),
-                        }));
+                    onClick={() => {
+                      if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[2]) {
+                        // Apply damage to the camp
+                        applyDamage(leftPlayerState.campSlots[2], 2, false);
+                        return; // Exit early
                       }
-                      // End raid mode
-                      setCampRaidMode(false);
-                      setRaidingPlayer(null);
-                      setRaidMessage('');
-                      // Continue to next phase
-                      setTimeout(() => {
-                        setGameState((prev) => ({
-                          ...prev,
-                          currentPhase: 'replenish',
-                        }));
-                      }, 100);
-                    } else if (damageColumnMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
-                      // Get the column index (0 for this camp)
-                      const columnIndex = 2;
-
-                      // Apply damage to all cards in this column
-                      // First, the person cards (indices 0 and 1 for column 0)
-                      const frontPerson = leftPlayerState.personSlots[columnIndex * 2];
-                      const backPerson = leftPlayerState.personSlots[columnIndex * 2 + 1];
-
-                      // Damage front person if it exists
-                      if (frontPerson) {
-                        applyDamage(frontPerson, columnIndex * 2, true);
-                      }
-
-                      // Damage back person if it exists
-                      if (backPerson) {
-                        applyDamage(backPerson, columnIndex * 2 + 1, true);
-                      }
-
-                      // Damage the camp itself
-                      if (leftPlayerState.campSlots[columnIndex]) {
-                        applyDamage(leftPlayerState.campSlots[columnIndex], columnIndex, true);
-                      }
-
-                      // Reset column damage mode
-                      setDamageColumnMode(false);
-
-                      alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                    } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
-                      // Handle destroy camp ability
-                      alert(`${leftPlayerState.campSlots[2].name} destroyed!`);
-                      destroyCamp(leftPlayerState.campSlots[2], 2, false);
-                      // Reset destroy camp mode
-                      setDestroyCampMode(false);
-                    } else if (
-                      damageMode &&
-                      gameState.currentTurn !== 'left' &&
-                      leftPlayerState.campSlots[2] &&
-                      (sniperMode || !leftPlayerState.campSlots[2].isProtected)
-                    ) {
-                      // Handle damage targeting
-                      applyDamage(leftPlayerState.campSlots[2], 2, false);
-                    } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[2]?.isDamaged) {
-                      // Use the restoreCard utility instead of directly modifying state
-                      const wasRestored = restoreCard(
-                        leftPlayerState.campSlots[2],
-                        2, // slotIndex
-                        false, // isRightPlayer
-                        setLeftPlayerState
-                      );
-
                       if (
-                        leftPlayerState.campSlots[2]?.traits?.includes('cannot_self_restore') &&
-                        restoreSourceIndex === 2
+                        opponentChoiceDamageMode &&
+                        gameState.currentTurn === 'right' &&
+                        leftPlayerState.campSlots[2] &&
+                        !leftPlayerState.campSlots[2]?.isProtected
                       ) {
-                        alert(`${leftPlayerState.campSlots[2].name} cannot restore itself due to its special trait!`);
+                        // Apply damage to the camp
+                        applyDamage(leftPlayerState.campSlots[2], 2, false);
                         return;
                       }
+                      if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
+                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                        applyDamage(leftPlayerState.campSlots[2], 2, false);
 
-                      if (wasRestored) {
-                        alert(`Restored ${leftPlayerState.campSlots[2].name}`);
+                        // Reset targeting modes
+                        setDamageMode(false);
+                        setDamageSource(null);
+                        setDamageValue(0);
+                        setCampDamageMode(false);
+                        setSniperMode(false);
+
+                        return; // Exit early
                       }
-
-                      // Exit restore mode
-                      if (setRestoreMode) setRestoreMode(false);
-                    } else if (
-                      abilityRestoreMode &&
-                      gameState.currentTurn === 'left' &&
-                      leftPlayerState.campSlots[2]?.isDamaged
-                    ) {
-                      // Handle restore targeting
-                      applyRestore(leftPlayerState.campSlots[2], 2, false);
-                    } else if (isInteractable('camp', 'left', 2)) {
-                      // Get the camp card
-                      const campCard = leftPlayerState.campSlots[2];
-
-                      // Add an additional safety check for isReady
-                      if (!campCard.isReady) {
-                        alert('This camp has already used its ability this turn!');
-                        return; // Don't open the modal
+                      if (
+                        multiRestoreMode &&
+                        gameState.currentTurn === 'left' &&
+                        leftPlayerState.campSlots[2] &&
+                        leftPlayerState.campSlots[2].isDamaged
+                      ) {
+                        // Use applyRestore function
+                        applyRestore(leftPlayerState.campSlots[2], 2, false);
+                        return; // Exit early to prevent other conditions
                       }
+                      if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[2]) {
+                        const camp = leftPlayerState.campSlots[2];
+                        if (camp.isDamaged) {
+                          // If camp is already damaged, destroy it
+                          alert('Camp destroyed!');
+                          destroyCamp(camp, 2, false);
+                        } else {
+                          // Otherwise, damage it
+                          alert('Camp damaged!');
+                          setLeftPlayerState((prev) => ({
+                            ...prev,
+                            campSlots: prev.campSlots.map((c, i) => (i === 2 ? { ...c, isDamaged: true } : c)),
+                          }));
+                        }
+                        // End raid mode
+                        setCampRaidMode(false);
+                        setRaidingPlayer(null);
+                        setRaidMessage('');
+                        // Continue to next phase
+                        setTimeout(() => {
+                          setGameState((prev) => ({
+                            ...prev,
+                            currentPhase: 'replenish',
+                          }));
+                        }, 100);
+                      } else if (damageColumnMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
+                        // Get the column index (0 for this camp)
+                        const columnIndex = 2;
 
-                      if (!checkAbilityEnabled(campCard)) {
-                        return; // Don't open the modal if the ability can't be used
+                        // Apply damage to all cards in this column
+                        // First, the person cards (indices 0 and 1 for column 0)
+                        const frontPerson = leftPlayerState.personSlots[columnIndex * 2];
+                        const backPerson = leftPlayerState.personSlots[columnIndex * 2 + 1];
+
+                        // Damage front person if it exists
+                        if (frontPerson) {
+                          applyDamage(frontPerson, columnIndex * 2, true);
+                        }
+
+                        // Damage back person if it exists
+                        if (backPerson) {
+                          applyDamage(backPerson, columnIndex * 2 + 1, true);
+                        }
+
+                        // Damage the camp itself
+                        if (leftPlayerState.campSlots[columnIndex]) {
+                          applyDamage(leftPlayerState.campSlots[columnIndex], columnIndex, true);
+                        }
+
+                        // Reset column damage mode
+                        setDamageColumnMode(false);
+
+                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
+                      } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
+                        // Handle destroy camp ability
+                        alert(`${leftPlayerState.campSlots[2].name} destroyed!`);
+                        destroyCamp(leftPlayerState.campSlots[2], 2, false);
+                        // Reset destroy camp mode
+                        setDestroyCampMode(false);
+                      } else if (
+                        damageMode &&
+                        gameState.currentTurn !== 'left' &&
+                        leftPlayerState.campSlots[2] &&
+                        (sniperMode || !leftPlayerState.campSlots[2].isProtected)
+                      ) {
+                        // Handle damage targeting
+                        applyDamage(leftPlayerState.campSlots[2], 2, false);
+                      } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[2]?.isDamaged) {
+                        // Use the restoreCard utility instead of directly modifying state
+                        const wasRestored = restoreCard(
+                          leftPlayerState.campSlots[2],
+                          2, // slotIndex
+                          false, // isRightPlayer
+                          setLeftPlayerState
+                        );
+
+                        if (
+                          leftPlayerState.campSlots[2]?.traits?.includes('cannot_self_restore') &&
+                          restoreSourceIndex === 2
+                        ) {
+                          alert(`${leftPlayerState.campSlots[2].name} cannot restore itself due to its special trait!`);
+                          return;
+                        }
+
+                        if (wasRestored) {
+                          alert(`Restored ${leftPlayerState.campSlots[2].name}`);
+                        }
+
+                        // Exit restore mode
+                        if (setRestoreMode) setRestoreMode(false);
+                      } else if (
+                        abilityRestoreMode &&
+                        gameState.currentTurn === 'left' &&
+                        leftPlayerState.campSlots[2]?.isDamaged
+                      ) {
+                        // Handle restore targeting
+                        applyRestore(leftPlayerState.campSlots[2], 2, false);
+                      } else if (isInteractable('camp', 'left', 2)) {
+                        // Get the camp card
+                        const campCard = leftPlayerState.campSlots[2];
+
+                        // Add an additional safety check for isReady
+                        if (!campCard.isReady) {
+                          alert('This camp has already used its ability this turn!');
+                          return; // Don't open the modal
+                        }
+
+                        if (!checkAbilityEnabled(campCard)) {
+                          return; // Don't open the modal if the ability can't be used
+                        }
+
+                        // If we passed the check, proceed as normal
+                        setSelectedCard(campCard);
+                        setSelectedCardLocation({ type: 'camp', index: 2 });
+                        setIsAbilityModalOpen(true);
                       }
-
-                      // If we passed the check, proceed as normal
-                      setSelectedCard(campCard);
-                      setSelectedCardLocation({ type: 'camp', index: 2 });
-                      setIsAbilityModalOpen(true);
-                    }
-                  }}
-                >
-                  <div className="text-white text-center text-xs mt-4">
-                    {leftPlayerState.campSlots[2] === null ? (
-                      <>
-                        Camp 3
-                        <br />
-                        Destroyed
-                      </>
-                    ) : (
-                      <>
-                        {leftPlayerState.campSlots[2]?.name}
-                        <br />
-                        {leftPlayerState.campSlots[2]?.type}
-                        <br />
-                        {leftPlayerState.campSlots[2]?.isProtected ? 'Protected' : 'Unprotected'}
-                        <br />
-                        {leftPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                        <br />
-                        {leftPlayerState.campSlots[2]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                        <br />
-                        {leftPlayerState.campSlots[2]?.isReady ? 'Ready' : 'Not Ready'}
-                      </>
-                    )}
+                    }}
+                  >
+                    <div className="text-white text-center text-xs mt-4">
+                      {leftPlayerState.campSlots[2] === null ? (
+                        <>
+                          Camp 3
+                          <br />
+                          Destroyed
+                        </>
+                      ) : (
+                        <>
+                          {leftPlayerState.campSlots[2]?.name}
+                          <br />
+                          {leftPlayerState.campSlots[2]?.type}
+                          <br />
+                          {leftPlayerState.campSlots[2]?.isProtected ? 'Protected' : 'Unprotected'}
+                          <br />
+                          {leftPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                          <br />
+                          {leftPlayerState.campSlots[2]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                          <br />
+                          {leftPlayerState.campSlots[2]?.isReady ? 'Ready' : 'Not Ready'}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Center Area */}
-        <div className="w-1/3 h-full border border-gray-600 p-2">
-          <div className="h-full flex flex-col justify-between">
-            {/* Top section with deck and discard */}
-            <div className="flex flex-col items-center mt-8">
-              <div
-                className={`w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8 
-    ${drawDeck.length > 0 ? 'cursor-pointer' : 'opacity-50'}`}
-                onClick={() => {
-                  if (drawDeck.length > 0) {
-                    const drawnCard = drawDeck[0];
-                    setDrawDeck(drawDeck.slice(1));
-                    setLeftPlayerState((prev) => ({
-                      ...prev,
-                      handCards: [...prev.handCards, drawnCard],
-                    }));
-                  }
-                }}
-              >
-                <div className="text-white text-center mt-12">
-                  {drawDeck.length > 0 ? (
-                    <>
-                      Draw Deck
-                      <br />({drawDeck.length} cards)
-                    </>
-                  ) : (
-                    'Empty Deck'
-                  )}
-                </div>
-              </div>
-              <button className="bg-red-600 text-white px-4 py-2 rounded" onClick={addDamagedPersons}>
-                Add Damaged Persons
-              </button>
-
-              {opponentChoiceDamageMode && (
-                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
-                  <div className="inline-block bg-red-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
-                    {`${
-                      gameState.currentTurn === 'left' ? 'RIGHT' : 'LEFT'
-                    } PLAYER: Choose one of your cards to receive damage!`}
-                  </div>
-                </div>
-              )}
-
-              {/* Add this somewhere in your UI */}
-              {constructionYardSelectingPerson && (
-                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
-                  <div className="inline-block bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
-                    Select a person to move (yours or opponent's)
-                  </div>
-                </div>
-              )}
-
-              {constructionYardSelectingDestination && (
-                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
-                  <div className="inline-block bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
-                    Select any eligible slot to move the person to (can push existing cards if there's space in the
-                    column)
-                  </div>
-                </div>
-              )}
-
-              {/* Add this somewhere visible during gameplay, like in the center area */}
-              {showRestoreDoneButton && (
-                <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2">
-                  <button
-                    className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded"
-                    onClick={() => {
-                      setMultiRestoreMode(false);
-                      setShowRestoreDoneButton(false);
-                      setRestoreSource(null);
-                      alert('Restore completed');
-                    }}
-                  >
-                    Done Restoring
-                  </button>
-                </div>
-              )}
-              {scavengerCampSelectingCard && (
-                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
-                  <div className="inline-block bg-orange-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
-                    Select a card from your hand to discard (not Water Silo)
-                  </div>
-                </div>
-              )}
-              {octagonSacrificeMode && (
-                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
-                  <div className="inline-block bg-red-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
-                    Select one of your people to sacrifice
-                  </div>
-                </div>
-              )}
-
-              {octagonOpponentSacrificeMode && (
-                <div className="fixed top-1/4 left-0 right-0 text-center z-50">
-                  <div className="inline-block bg-red-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
-                    {gameState.currentTurn === 'left' ? 'RIGHT' : 'LEFT'} PLAYER: Select one of your people to sacrifice
-                  </div>
-                </div>
-              )}
-              {/* Cache Ability Order Modal */}
-              {showCacheModal && cacheCard && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                  <div className="bg-gray-800 p-4 rounded-lg max-w-md w-full">
-                    <h2 className="text-white text-xl mb-4">Cache Ability Order</h2>
-                    <p className="text-white mb-4">Choose the order to execute abilities:</p>
-
-                    <div className="flex flex-col gap-4">
-                      <button
-                        className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded"
-                        onClick={() => {
-                          setShowCacheModal(false);
-                          // First gain punk, then raid
-                          executeCacheAbility(cacheCard, cacheLocation, 'punk_first');
-                        }}
-                      >
-                        1. Gain Punk → 2. Raid
-                      </button>
-
-                      <button
-                        className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded"
-                        onClick={() => {
-                          setShowCacheModal(false);
-                          // First raid, then gain punk
-                          executeCacheAbility(cacheCard, cacheLocation, 'raid_first');
-                        }}
-                      >
-                        1. Raid → 2. Gain Punk
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* Supply Depot Discard Modal */}
-              {supplyDepotDiscardMode && supplyDepotDrawnCards.length > 0 && (
+          {/* Center Area */}
+          <div className="w-1/3 h-full border border-gray-600 p-2">
+            <div className="h-full flex flex-col justify-between">
+              {/* Top section with deck and discard */}
+              <div className="flex flex-col items-center mt-8">
                 <div
-                  className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                  style={{ height: '100vh', width: '100vw' }}
+                  className={`w-24 h-32 border-2 border-gray-400 rounded bg-gray-700 mb-8 
+    ${drawDeck.length > 0 ? 'cursor-pointer' : 'opacity-50'}`}
+                  onClick={() => {
+                    if (drawDeck.length > 0) {
+                      const drawnCard = drawDeck[0];
+                      setDrawDeck(drawDeck.slice(1));
+                      setLeftPlayerState((prev) => ({
+                        ...prev,
+                        handCards: [...prev.handCards, drawnCard],
+                      }));
+                    }
+                  }}
                 >
-                  <div
-                    className="bg-gray-800 p-4 rounded-lg border-2 border-gray-600 shadow-xl"
-                    style={{
-                      maxWidth: '90%',
-                      width: '400px',
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                    }}
-                  >
-                    <h2 className="text-white text-xl font-bold mb-4">Supply Depot</h2>
-                    <p className="text-white mb-4">
-                      Select one card to discard. The other card will be added to your hand.
-                    </p>
-
-                    <div className="flex justify-center gap-4 mb-4">
-                      {supplyDepotDrawnCards.map((card, index) => (
-                        <div
-                          key={index}
-                          className="w-24 h-36 border border-gray-400 rounded bg-gray-700 hover:border-purple-400 hover:bg-gray-600 cursor-pointer"
-                          onClick={() => {
-                            // Discard this card
-                            setDiscardPile((prev) => [...prev, card]);
-
-                            // Add the other card to hand
-                            const otherCard = supplyDepotDrawnCards.find((c) => c.id !== card.id);
-                            if (otherCard) {
-                              // Use the correct setState based on current player
-                              if (gameState.currentTurn === 'left') {
-                                setLeftPlayerState((prev) => ({
-                                  ...prev,
-                                  handCards: [...prev.handCards, otherCard],
-                                }));
-                              } else {
-                                setRightPlayerState((prev) => ({
-                                  ...prev,
-                                  handCards: [...prev.handCards, otherCard],
-                                }));
-                              }
-                            }
-
-                            // Clear state and exit discard mode
-                            setSupplyDepotDrawnCards([]);
-                            setSupplyDepotDiscardMode(false);
-
-                            alert(`Discarded ${card.name}. Added ${otherCard?.name} to your hand.`);
-                          }}
-                        >
-                          <div className="text-white text-center text-xs mt-4">
-                            {card.name}
-                            <br />
-                            {card.type}
-                            <br />
-                            {card.type === 'person' && card.playCost !== undefined ? `Cost: ${card.playCost}` : ''}
-                            <br />
-                            {card.junkEffect && `Junk: ${card.junkEffect}`}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="text-white text-center mt-12">
+                    {drawDeck.length > 0 ? (
+                      <>
+                        Draw Deck
+                        <br />({drawDeck.length} cards)
+                      </>
+                    ) : (
+                      'Empty Deck'
+                    )}
                   </div>
                 </div>
-              )}
-              {/* Discard Modal */}
-              {showDiscardModal && cardToDiscard && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                  <div className="bg-gray-800 p-4 rounded-lg border-2 border-gray-600">
-                    <div className="text-white mb-4">What would you like to do with this card?</div>
-                    <div className="flex gap-4">
-                      {cardToDiscard.card.junkEffect && (
+                <button className="bg-red-600 text-white px-4 py-2 rounded" onClick={addDamagedPersons}>
+                  Add Damaged Persons
+                </button>
+
+                {opponentChoiceDamageMode && (
+                  <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                    <div className="inline-block bg-red-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                      {`${
+                        gameState.currentTurn === 'left' ? 'RIGHT' : 'LEFT'
+                      } PLAYER: Choose one of your cards to receive damage!`}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add this somewhere in your UI */}
+                {constructionYardSelectingPerson && (
+                  <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                    <div className="inline-block bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                      Select a person to move (yours or opponent's)
+                    </div>
+                  </div>
+                )}
+
+                {constructionYardSelectingDestination && (
+                  <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                    <div className="inline-block bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                      Select any eligible slot to move the person to (can push existing cards if there's space in the
+                      column)
+                    </div>
+                  </div>
+                )}
+
+                {/* Add this somewhere visible during gameplay, like in the center area */}
+                {showRestoreDoneButton && (
+                  <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2">
+                    <button
+                      className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded"
+                      onClick={() => {
+                        setMultiRestoreMode(false);
+                        setShowRestoreDoneButton(false);
+                        setRestoreSource(null);
+                        alert('Restore completed');
+                      }}
+                    >
+                      Done Restoring
+                    </button>
+                  </div>
+                )}
+                {scavengerCampSelectingCard && (
+                  <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                    <div className="inline-block bg-orange-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                      Select a card from your hand to discard (not Water Silo)
+                    </div>
+                  </div>
+                )}
+                {octagonSacrificeMode && (
+                  <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                    <div className="inline-block bg-red-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                      Select one of your people to sacrifice
+                    </div>
+                  </div>
+                )}
+
+                {octagonOpponentSacrificeMode && (
+                  <div className="fixed top-1/4 left-0 right-0 text-center z-50">
+                    <div className="inline-block bg-red-600 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                      {gameState.currentTurn === 'left' ? 'RIGHT' : 'LEFT'} PLAYER: Select one of your people to
+                      sacrifice
+                    </div>
+                  </div>
+                )}
+                {/* Cache Ability Order Modal */}
+                {showCacheModal && cacheCard && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-gray-800 p-4 rounded-lg max-w-md w-full">
+                      <h2 className="text-white text-xl mb-4">Cache Ability Order</h2>
+                      <p className="text-white mb-4">Choose the order to execute abilities:</p>
+
+                      <div className="flex flex-col gap-4">
                         <button
                           className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded"
                           onClick={() => {
-                            if (cardToDiscard.card.junkEffect === 'extra_water') {
-                              const setPlayerState =
-                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-                              setPlayerState((prev) => ({
-                                ...prev,
-                                waterCount: prev.waterCount + 1,
-                                handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                              }));
-                            } else if (cardToDiscard.card.junkEffect === 'draw_card') {
-                              const setPlayerState =
-                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-                              const playerState =
-                                cardToDiscard.sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
+                            setShowCacheModal(false);
+                            // First gain punk, then raid
+                            executeCacheAbility(cacheCard, cacheLocation, 'punk_first');
+                          }}
+                        >
+                          1. Gain Punk → 2. Raid
+                        </button>
 
-                              if (drawDeck.length > 0) {
-                                const topCard = drawDeck[drawDeck.length - 1];
-                                setPlayerState((prev) => ({
-                                  ...prev,
-                                  handCards: [...prev.handCards.filter((c) => c.id !== cardToDiscard.card.id), topCard],
-                                }));
-                                setDrawDeck((prev) => prev.slice(0, -1));
+                        <button
+                          className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded"
+                          onClick={() => {
+                            setShowCacheModal(false);
+                            // First raid, then gain punk
+                            executeCacheAbility(cacheCard, cacheLocation, 'raid_first');
+                          }}
+                        >
+                          1. Raid → 2. Gain Punk
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Supply Depot Discard Modal */}
+                {supplyDepotDiscardMode && supplyDepotDrawnCards.length > 0 && (
+                  <div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                    style={{ height: '100vh', width: '100vw' }}
+                  >
+                    <div
+                      className="bg-gray-800 p-4 rounded-lg border-2 border-gray-600 shadow-xl"
+                      style={{
+                        maxWidth: '90%',
+                        width: '400px',
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                    >
+                      <h2 className="text-white text-xl font-bold mb-4">Supply Depot</h2>
+                      <p className="text-white mb-4">
+                        Select one card to discard. The other card will be added to your hand.
+                      </p>
+
+                      <div className="flex justify-center gap-4 mb-4">
+                        {supplyDepotDrawnCards.map((card, index) => (
+                          <div
+                            key={index}
+                            className="w-24 h-36 border border-gray-400 rounded bg-gray-700 hover:border-purple-400 hover:bg-gray-600 cursor-pointer"
+                            onClick={() => {
+                              // Discard this card
+                              setDiscardPile((prev) => [...prev, card]);
+
+                              // Add the other card to hand
+                              const otherCard = supplyDepotDrawnCards.find((c) => c.id !== card.id);
+                              if (otherCard) {
+                                // Use the correct setState based on current player
+                                if (gameState.currentTurn === 'left') {
+                                  setLeftPlayerState((prev) => ({
+                                    ...prev,
+                                    handCards: [...prev.handCards, otherCard],
+                                  }));
+                                } else {
+                                  setRightPlayerState((prev) => ({
+                                    ...prev,
+                                    handCards: [...prev.handCards, otherCard],
+                                  }));
+                                }
                               }
-                            } else if (cardToDiscard.card.junkEffect === 'gain_punk') {
-                              if (drawDeck.length > 0) {
-                                const topCard = drawDeck[drawDeck.length - 1];
-                                setPunkCardToPlace(topCard);
-                                setPunkPlacementMode(true);
-                                setDrawDeck((prev) => prev.slice(0, -1));
-                                // Remove the junked card from hand
+
+                              // Clear state and exit discard mode
+                              setSupplyDepotDrawnCards([]);
+                              setSupplyDepotDiscardMode(false);
+
+                              alert(`Discarded ${card.name}. Added ${otherCard?.name} to your hand.`);
+                            }}
+                          >
+                            <div className="text-white text-center text-xs mt-4">
+                              {card.name}
+                              <br />
+                              {card.type}
+                              <br />
+                              {card.type === 'person' && card.playCost !== undefined ? `Cost: ${card.playCost}` : ''}
+                              <br />
+                              {card.junkEffect && `Junk: ${card.junkEffect}`}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Discard Modal */}
+                {showDiscardModal && cardToDiscard && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-gray-800 p-4 rounded-lg border-2 border-gray-600">
+                      <div className="text-white mb-4">What would you like to do with this card?</div>
+                      <div className="flex gap-4">
+                        {cardToDiscard.card.junkEffect && (
+                          <button
+                            className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded"
+                            onClick={() => {
+                              if (cardToDiscard.card.junkEffect === 'extra_water') {
                                 const setPlayerState =
                                   cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
                                 setPlayerState((prev) => ({
                                   ...prev,
+                                  waterCount: prev.waterCount + 1,
                                   handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
                                 }));
-                              }
-                            } else if (cardToDiscard.card.junkEffect === 'raid') {
-                              const sourcePlayer = cardToDiscard.sourcePlayer;
-                              const playerState = sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
-                              const setPlayerState = sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                              } else if (cardToDiscard.card.junkEffect === 'draw_card') {
+                                const setPlayerState =
+                                  cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                                const playerState =
+                                  cardToDiscard.sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
 
-                              // Use the new helper function to mark event as played
-                              markEventPlayed(
-                                sourcePlayer as 'left' | 'right',
-                                setLeftPlayedEventThisTurn,
-                                setRightPlayedEventThisTurn
-                              );
+                                if (drawDeck.length > 0) {
+                                  const topCard = drawDeck[drawDeck.length - 1];
+                                  setPlayerState((prev) => ({
+                                    ...prev,
+                                    handCards: [
+                                      ...prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                      topCard,
+                                    ],
+                                  }));
+                                  setDrawDeck((prev) => prev.slice(0, -1));
+                                }
+                              } else if (cardToDiscard.card.junkEffect === 'gain_punk') {
+                                if (drawDeck.length > 0) {
+                                  const topCard = drawDeck[drawDeck.length - 1];
+                                  setPunkCardToPlace(topCard);
+                                  setPunkPlacementMode(true);
+                                  setDrawDeck((prev) => prev.slice(0, -1));
+                                  // Remove the junked card from hand
+                                  const setPlayerState =
+                                    cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                                  setPlayerState((prev) => ({
+                                    ...prev,
+                                    handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                  }));
+                                }
+                              } else if (cardToDiscard.card.junkEffect === 'raid') {
+                                const sourcePlayer = cardToDiscard.sourcePlayer;
+                                const playerState = sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
+                                const setPlayerState =
+                                  sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
 
-                              // Use the new helper function to check Zeto Kahn effect
-                              const shouldExecuteImmediately = checkZetoKahnEffect(
-                                sourcePlayer as 'left' | 'right',
-                                leftPlayerState,
-                                rightPlayerState,
-                                leftPlayedEventThisTurn,
-                                rightPlayedEventThisTurn
-                              );
-
-                              // If Zeto Kahn's conditions are met, execute raid immediately
-                              if (shouldExecuteImmediately) {
-                                // Remove the card from hand
-                                setPlayerState((prev) => ({
-                                  ...prev,
-                                  handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                                }));
-
-                                // Add to discard pile
-                                setDiscardPile((prev) => [...prev, cardToDiscard.card]);
-
-                                // Set up raid immediately
-                                const opponentPlayer = sourcePlayer === 'left' ? 'right' : 'left';
-                                setCampRaidMode(true);
-                                setRaidingPlayer(sourcePlayer);
-                                setRaidMessage(
-                                  `${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`
+                                // Use the new helper function to mark event as played
+                                markEventPlayed(
+                                  sourcePlayer as 'left' | 'right',
+                                  setLeftPlayedEventThisTurn,
+                                  setRightPlayedEventThisTurn
                                 );
 
-                                // Close the modal
-                                setShowDiscardModal(false);
-                                setCardToDiscard(null);
-                                return; // Exit early
-                              }
+                                // Use the new helper function to check Zeto Kahn effect
+                                const shouldExecuteImmediately = checkZetoKahnEffect(
+                                  sourcePlayer as 'left' | 'right',
+                                  leftPlayerState,
+                                  rightPlayerState,
+                                  leftPlayedEventThisTurn,
+                                  rightPlayedEventThisTurn
+                                );
 
-                              // Normal raid handling if Zeto Kahn's conditions aren't met
-                              // Handle Raiders movement based on current location
-                              switch (playerState.raidersLocation) {
-                                case 'default':
-                                  // Create Raiders card
-                                  const raidersCard = {
-                                    id: 'raiders',
-                                    name: 'Raiders',
-                                    type: 'event',
-                                    startingQueuePosition: 2,
-                                    owner: sourcePlayer,
-                                  };
+                                // If Zeto Kahn's conditions are met, execute raid immediately
+                                if (shouldExecuteImmediately) {
+                                  // Remove the card from hand
+                                  setPlayerState((prev) => ({
+                                    ...prev,
+                                    handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                  }));
 
-                                  // Simple logic to manually place Raiders in the right slot
-                                  // First try slot 2 (index 1)
-                                  if (playerState.eventSlots[1] === null) {
-                                    // Slot 2 is available, place Raiders there
-                                    setPlayerState((prev) => ({
-                                      ...prev,
-                                      eventSlots: [prev.eventSlots[0], raidersCard, prev.eventSlots[2]],
-                                      raidersLocation: 'event2',
-                                      handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                                    }));
-                                  }
-                                  // If slot 2 is occupied, try slot 3 (index 0)
-                                  else if (playerState.eventSlots[0] === null) {
-                                    // Slot 3 is available, place Raiders there
-                                    setPlayerState((prev) => ({
-                                      ...prev,
-                                      eventSlots: [raidersCard, prev.eventSlots[1], prev.eventSlots[2]],
-                                      raidersLocation: 'event3',
-                                      handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                                    }));
-                                  }
-                                  // If both slots are occupied
-                                  else {
-                                    alert('No valid slot available for Raiders!');
-                                    // Still remove the card even if placement fails
-                                    setPlayerState((prev) => ({
-                                      ...prev,
-                                      handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                                    }));
-                                    setDiscardPile((prev) => [...prev, cardToDiscard.card]);
-                                  }
-                                  break;
+                                  // Add to discard pile
+                                  setDiscardPile((prev) => [...prev, cardToDiscard.card]);
 
-                                case 'event3':
-                                  // Move from slot 3 to slot 2 if empty
-                                  if (!playerState.eventSlots[1]) {
-                                    setPlayerState((prev) => ({
-                                      ...prev,
-                                      eventSlots: [
-                                        null, // Clear slot 3
-                                        { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
-                                        prev.eventSlots[2],
-                                      ],
-                                      raidersLocation: 'event2',
-                                      handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                                    }));
-                                  }
-                                  break;
+                                  // Set up raid immediately
+                                  const opponentPlayer = sourcePlayer === 'left' ? 'right' : 'left';
+                                  setCampRaidMode(true);
+                                  setRaidingPlayer(sourcePlayer);
+                                  setRaidMessage(
+                                    `${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`
+                                  );
 
-                                case 'event2':
-                                  // Move from slot 2 to slot 1 if empty
-                                  if (!playerState.eventSlots[2]) {
+                                  // Close the modal
+                                  setShowDiscardModal(false);
+                                  setCardToDiscard(null);
+                                  return; // Exit early
+                                }
+
+                                // Normal raid handling if Zeto Kahn's conditions aren't met
+                                // Handle Raiders movement based on current location
+                                switch (playerState.raidersLocation) {
+                                  case 'default':
+                                    // Create Raiders card
+                                    const raidersCard = {
+                                      id: 'raiders',
+                                      name: 'Raiders',
+                                      type: 'event',
+                                      startingQueuePosition: 2,
+                                      owner: sourcePlayer,
+                                    };
+
+                                    // Simple logic to manually place Raiders in the right slot
+                                    // First try slot 2 (index 1)
+                                    if (playerState.eventSlots[1] === null) {
+                                      // Slot 2 is available, place Raiders there
+                                      setPlayerState((prev) => ({
+                                        ...prev,
+                                        eventSlots: [prev.eventSlots[0], raidersCard, prev.eventSlots[2]],
+                                        raidersLocation: 'event2',
+                                        handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                      }));
+                                    }
+                                    // If slot 2 is occupied, try slot 3 (index 0)
+                                    else if (playerState.eventSlots[0] === null) {
+                                      // Slot 3 is available, place Raiders there
+                                      setPlayerState((prev) => ({
+                                        ...prev,
+                                        eventSlots: [raidersCard, prev.eventSlots[1], prev.eventSlots[2]],
+                                        raidersLocation: 'event3',
+                                        handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                      }));
+                                    }
+                                    // If both slots are occupied
+                                    else {
+                                      alert('No valid slot available for Raiders!');
+                                      // Still remove the card even if placement fails
+                                      setPlayerState((prev) => ({
+                                        ...prev,
+                                        handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                      }));
+                                      setDiscardPile((prev) => [...prev, cardToDiscard.card]);
+                                    }
+                                    break;
+
+                                  case 'event3':
+                                    // Move from slot 3 to slot 2 if empty
+                                    if (!playerState.eventSlots[1]) {
+                                      setPlayerState((prev) => ({
+                                        ...prev,
+                                        eventSlots: [
+                                          null, // Clear slot 3
+                                          { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
+                                          prev.eventSlots[2],
+                                        ],
+                                        raidersLocation: 'event2',
+                                        handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                      }));
+                                    }
+                                    break;
+
+                                  case 'event2':
+                                    // Move from slot 2 to slot 1 if empty
+                                    if (!playerState.eventSlots[2]) {
+                                      setPlayerState((prev) => ({
+                                        ...prev,
+                                        eventSlots: [
+                                          prev.eventSlots[0],
+                                          null, // Clear slot 2
+                                          { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
+                                        ],
+                                        raidersLocation: 'event1',
+                                        handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                      }));
+                                    }
+                                    break;
+
+                                  case 'event1':
+                                    // Execute raid immediately
+                                    const opponentPlayer = cardToDiscard.sourcePlayer === 'left' ? 'right' : 'left';
+
+                                    // Remove Raiders from event slot 1 and return to default
                                     setPlayerState((prev) => ({
                                       ...prev,
                                       eventSlots: [
                                         prev.eventSlots[0],
-                                        null, // Clear slot 2
-                                        { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
+                                        prev.eventSlots[1],
+                                        null, // Clear slot 1
                                       ],
-                                      raidersLocation: 'event1',
+                                      raidersLocation: 'default',
                                       handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
                                     }));
-                                  }
-                                  break;
 
-                                case 'event1':
-                                  // Execute raid immediately
-                                  const opponentPlayer = cardToDiscard.sourcePlayer === 'left' ? 'right' : 'left';
-
-                                  // Remove Raiders from event slot 1 and return to default
-                                  setPlayerState((prev) => ({
-                                    ...prev,
-                                    eventSlots: [
-                                      prev.eventSlots[0],
-                                      prev.eventSlots[1],
-                                      null, // Clear slot 1
-                                    ],
-                                    raidersLocation: 'default',
-                                    handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                                  }));
-
-                                  // Set raid mode to let opponent choose a camp
-                                  setCampRaidMode(true);
-                                  setRaidingPlayer(cardToDiscard.sourcePlayer === 'left' ? 'left' : 'right');
-                                  setRaidMessage(
-                                    `${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`
-                                  );
-                                  break;
+                                    // Set raid mode to let opponent choose a camp
+                                    setCampRaidMode(true);
+                                    setRaidingPlayer(cardToDiscard.sourcePlayer === 'left' ? 'left' : 'right');
+                                    setRaidMessage(
+                                      `${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`
+                                    );
+                                    break;
+                                }
+                              } else if (cardToDiscard.card.junkEffect === 'restore') {
+                                const setPlayerState =
+                                  cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                                // Remove the junked card from hand first
+                                setPlayerState((prev) => ({
+                                  ...prev,
+                                  handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                }));
+                                // Add to discard pile
+                                setDiscardPile((prev) => [...prev, cardToDiscard.card]);
+                                // Enter restore mode to let player choose a damaged card
+                                setRestoreMode(true);
+                                // Set which player's cards can be restored
+                                setRestorePlayer(cardToDiscard.sourcePlayer as 'left' | 'right');
+                              } else if (cardToDiscard.card.junkEffect === 'injure') {
+                                const setPlayerState =
+                                  cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                                // Remove the junked card from hand first
+                                setPlayerState((prev) => ({
+                                  ...prev,
+                                  handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                                }));
+                                // Add to discard pile
+                                setDiscardPile((prev) => [...prev, cardToDiscard.card]);
+                                // Enter injure mode to let player choose an unprotected enemy card
+                                setInjureMode(true);
+                              } else {
+                                // Only add to discard pile for effects that don't already do it
+                                setDiscardPile((prev) => [...prev, cardToDiscard.card]);
                               }
-                            } else if (cardToDiscard.card.junkEffect === 'restore') {
-                              const setPlayerState =
-                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-                              // Remove the junked card from hand first
-                              setPlayerState((prev) => ({
-                                ...prev,
-                                handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                              }));
-                              // Add to discard pile
-                              setDiscardPile((prev) => [...prev, cardToDiscard.card]);
-                              // Enter restore mode to let player choose a damaged card
-                              setRestoreMode(true);
-                              // Set which player's cards can be restored
-                              setRestorePlayer(cardToDiscard.sourcePlayer as 'left' | 'right');
-                            } else if (cardToDiscard.card.junkEffect === 'injure') {
-                              const setPlayerState =
-                                cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-                              // Remove the junked card from hand first
-                              setPlayerState((prev) => ({
-                                ...prev,
-                                handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                              }));
-                              // Add to discard pile
-                              setDiscardPile((prev) => [...prev, cardToDiscard.card]);
-                              // Enter injure mode to let player choose an unprotected enemy card
-                              setInjureMode(true);
-                            } else {
-                              // Only add to discard pile for effects that don't already do it
-                              setDiscardPile((prev) => [...prev, cardToDiscard.card]);
-                            }
-                            // Add card to discard pile if not already done in the specific junk effect
-                            // Some junk effects like 'restore' already handle this, so we'll only add it
-                            // if it's not one of those
-                            if (!['restore', 'injure'].includes(cardToDiscard.card.junkEffect)) {
-                              setDiscardPile((prev) => [...prev, cardToDiscard.card]);
-                            }
+                              // Add card to discard pile if not already done in the specific junk effect
+                              // Some junk effects like 'restore' already handle this, so we'll only add it
+                              // if it's not one of those
+                              if (!['restore', 'injure'].includes(cardToDiscard.card.junkEffect)) {
+                                setDiscardPile((prev) => [...prev, cardToDiscard.card]);
+                              }
+                              setShowDiscardModal(false);
+                              setCardToDiscard(null);
+                            }}
+                          >
+                            Junk
+                          </button>
+                        )}
+                        <button
+                          className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded"
+                          onClick={() => {
+                            const setPlayerState =
+                              cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+                            setPlayerState((prev) => ({
+                              ...prev,
+                              handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
+                            }));
+                            setDiscardPile((prev) => [...prev, cardToDiscard.card]);
                             setShowDiscardModal(false);
                             setCardToDiscard(null);
                           }}
                         >
-                          Junk
+                          Discard
                         </button>
-                      )}
-                      <button
-                        className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded"
-                        onClick={() => {
-                          const setPlayerState =
-                            cardToDiscard.sourcePlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-                          setPlayerState((prev) => ({
-                            ...prev,
-                            handCards: prev.handCards.filter((c) => c.id !== cardToDiscard.card.id),
-                          }));
-                          setDiscardPile((prev) => [...prev, cardToDiscard.card]);
-                          setShowDiscardModal(false);
-                          setCardToDiscard(null);
-                        }}
-                      >
-                        Discard
-                      </button>
-                      <button
-                        className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded"
-                        onClick={() => {
-                          setShowDiscardModal(false);
-                          setCardToDiscard(null);
-                        }}
-                      >
-                        Cancel
-                      </button>
+                        <button
+                          className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded"
+                          onClick={() => {
+                            setShowDiscardModal(false);
+                            setCardToDiscard(null);
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
+                  </div>
+                )}
+                <div
+                  className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const cardId = e.dataTransfer.getData('cardId');
+                    const sourcePlayer = e.dataTransfer.getData('sourcePlayer');
+                    const playerState = sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
+
+                    const discardedCard = playerState.handCards.find((card) => card.id === cardId);
+
+                    if (discardedCard) {
+                      setCardToDiscard({ card: discardedCard, sourcePlayer });
+                      setShowDiscardModal(true);
+                    }
+                  }}
+                >
+                  <div className="text-white text-center mt-12">
+                    Discard Pile
+                    <br />({discardPile.length} cards)
+                  </div>
+                </div>
+              </div>
+
+              {/* Raid Message */}
+              {campRaidMode && (
+                <div className="flex justify-center mb-4">
+                  <div className="bg-red-700 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                    {raidMessage}
                   </div>
                 </div>
               )}
-              <div
-                className="w-24 h-32 border-2 border-gray-400 rounded bg-gray-700"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const cardId = e.dataTransfer.getData('cardId');
-                  const sourcePlayer = e.dataTransfer.getData('sourcePlayer');
-                  const playerState = sourcePlayer === 'left' ? leftPlayerState : rightPlayerState;
-
-                  const discardedCard = playerState.handCards.find((card) => card.id === cardId);
-
-                  if (discardedCard) {
-                    setCardToDiscard({ card: discardedCard, sourcePlayer });
-                    setShowDiscardModal(true);
-                  }
-                }}
-              >
-                <div className="text-white text-center mt-12">
-                  Discard Pile
-                  <br />({discardPile.length} cards)
-                </div>
-              </div>
-            </div>
-
-            {/* Raid Message */}
-            {campRaidMode && (
-              <div className="flex justify-center mb-4">
-                <div className="bg-red-700 text-white font-bold py-2 px-4 rounded-lg animate-pulse">{raidMessage}</div>
-              </div>
-            )}
-            {/* Phase Tracker */}
-            <div className="flex justify-center mb-8">
-              <div className="flex space-x-8">
-                <div
-                  className={`text-lg ${
-                    gameState.currentPhase === 'events' ? 'text-purple-300 font-bold' : 'text-gray-400'
-                  }`}
-                >
-                  Events
-                </div>
-                <div
-                  className={`text-lg ${
-                    gameState.currentPhase === 'replenish' ? 'text-purple-300 font-bold' : 'text-gray-400'
-                  }`}
-                >
-                  Replenish
-                </div>
-                <div
-                  className={`text-lg ${
-                    gameState.currentPhase === 'actions' ? 'text-purple-300 font-bold' : 'text-gray-400'
-                  }`}
-                >
-                  Actions
-                </div>
-              </div>
-            </div>
-            {/* Discard Selection Message */}
-            {discardSelectionActive && (
-              <div className="flex justify-center mb-4">
-                <div className="bg-red-700 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
-                  Select {discardSelectionCount} cards to discard
-                </div>
-              </div>
-            )}
-            {/* Bottom section with water counters and special cards */}
-            <div className="flex justify-between mb-8">
-              {/* Left player section */}
-              <div className="relative">
-                {gameState.currentTurn === 'left' && (
-                  <button
-                    className="absolute -top-20 left-0 right-0 bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded"
-                    onClick={() => {
-                      // Log the end turn action
-                      gameLogger.logAction(createEndTurnAction(gameState.currentTurn));
-
-                      // Then proceed with normal end turn handling
-                      endTurn(
-                        gameState,
-                        setGameState,
-                        () => {
-                          setLeftPlayedEventThisTurn(false);
-                          setLeftCardsUsedAbility([]);
-                          setResonatorUsedThisTurn(false);
-                          setOmenClockActive(false);
-                          setOmenClockLocation(null);
-                          setConstructionYardActive(false);
-                          setConstructionYardSelectingPerson(false);
-                          setConstructionYardSelectingDestination(false);
-                          setConstructionYardSelectedPerson(null);
-                          setLeftPlayerState((prev) => ({
-                            ...prev,
-                            campSlots: prev.campSlots.map((camp) => (camp ? { ...camp, isReady: true } : null)),
-                          }));
-                        },
-                        () => {
-                          setRightPlayedEventThisTurn(false);
-                          setRightCardsUsedAbility([]);
-                          // Add this line to reset right player's camps to ready state
-                          setRightPlayerState((prev) => ({
-                            ...prev,
-                            campSlots: prev.campSlots.map((camp) => (camp ? { ...camp, isReady: true } : null)),
-                          }));
-                        }
-                      );
-                    }}
-                  >
-                    Done
-                  </button>
-                )}
-                <div className="flex items-center gap-2">
+              {/* Phase Tracker */}
+              <div className="flex justify-center mb-8">
+                <div className="flex space-x-8">
                   <div
-                    className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
+                    className={`text-lg ${
+                      gameState.currentPhase === 'events' ? 'text-purple-300 font-bold' : 'text-gray-400'
+                    }`}
+                  >
+                    Events
+                  </div>
+                  <div
+                    className={`text-lg ${
+                      gameState.currentPhase === 'replenish' ? 'text-purple-300 font-bold' : 'text-gray-400'
+                    }`}
+                  >
+                    Replenish
+                  </div>
+                  <div
+                    className={`text-lg ${
+                      gameState.currentPhase === 'actions' ? 'text-purple-300 font-bold' : 'text-gray-400'
+                    }`}
+                  >
+                    Actions
+                  </div>
+                </div>
+              </div>
+              {/* Discard Selection Message */}
+              {discardSelectionActive && (
+                <div className="flex justify-center mb-4">
+                  <div className="bg-red-700 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                    Select {discardSelectionCount} cards to discard
+                  </div>
+                </div>
+              )}
+              {/* Bottom section with water counters and special cards */}
+              <div className="flex justify-between mb-8">
+                {/* Left player section */}
+                <div className="relative">
+                  {gameState.currentTurn === 'left' && (
+                    <button
+                      className="absolute -top-20 left-0 right-0 bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded"
+                      onClick={() => {
+                        // Log the end turn action
+                        gameLogger.logAction(createEndTurnAction(gameState.currentTurn));
+
+                        // Then proceed with normal end turn handling
+                        endTurn(
+                          gameState,
+                          setGameState,
+                          () => {
+                            setLeftPlayedEventThisTurn(false);
+                            setLeftCardsUsedAbility([]);
+                            setResonatorUsedThisTurn(false);
+                            setOmenClockActive(false);
+                            setOmenClockLocation(null);
+                            setConstructionYardActive(false);
+                            setConstructionYardSelectingPerson(false);
+                            setConstructionYardSelectingDestination(false);
+                            setConstructionYardSelectedPerson(null);
+                            setLeftPlayerState((prev) => ({
+                              ...prev,
+                              campSlots: prev.campSlots.map((camp) => (camp ? { ...camp, isReady: true } : null)),
+                            }));
+                          },
+                          () => {
+                            setRightPlayedEventThisTurn(false);
+                            setRightCardsUsedAbility([]);
+                            // Add this line to reset right player's camps to ready state
+                            setRightPlayerState((prev) => ({
+                              ...prev,
+                              campSlots: prev.campSlots.map((camp) => (camp ? { ...camp, isReady: true } : null)),
+                            }));
+                          }
+                        );
+                      }}
+                    >
+                      Done
+                    </button>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
     ${
       !leftPlayerState.waterSiloInHand && leftPlayerState.waterCount >= 1 && gameState.currentTurn === 'left'
         ? 'cursor-pointer hover:brightness-110'
         : 'opacity-50'
     }`}
-                    onClick={() => {
-                      if (
-                        !leftPlayerState.waterSiloInHand &&
-                        leftPlayerState.waterCount >= 1 &&
-                        gameState.currentTurn === 'left'
-                      ) {
-                        setLeftPlayerState((prev) => ({
-                          ...prev,
-                          waterSiloInHand: true,
-                          waterCount: prev.waterCount - 1,
-                          handCards: [...prev.handCards, leftWaterSiloCard],
-                        }));
-                      }
-                    }}
-                  >
-                    <div className="text-white text-center text-xs mt-6">
-                      Water Silo
-                      {!leftPlayerState.waterSiloInHand ? (
-                        <>
-                          <br />
-                          (1 water)
-                        </>
-                      ) : (
-                        <>
-                          <br />
-                          (in hand)
-                        </>
-                      )}
+                      onClick={() => {
+                        if (
+                          !leftPlayerState.waterSiloInHand &&
+                          leftPlayerState.waterCount >= 1 &&
+                          gameState.currentTurn === 'left'
+                        ) {
+                          setLeftPlayerState((prev) => ({
+                            ...prev,
+                            waterSiloInHand: true,
+                            waterCount: prev.waterCount - 1,
+                            handCards: [...prev.handCards, leftWaterSiloCard],
+                          }));
+                        }
+                      }}
+                    >
+                      <div className="text-white text-center text-xs mt-6">
+                        Water Silo
+                        {!leftPlayerState.waterSiloInHand ? (
+                          <>
+                            <br />
+                            (1 water)
+                          </>
+                        ) : (
+                          <>
+                            <br />
+                            (in hand)
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div
-                    className={`w-16 h-20 border border-gray-400 rounded bg-red-800 ${
-                      leftPlayerState.raidersLocation !== 'default' ? 'opacity-50' : ''
-                    }`}
-                  >
-                    <div className="text-white text-center text-xs mt-6">
-                      Raiders
-                      <br />
-                      {leftPlayerState.raidersLocation === 'default' ? '(ready)' : '(in queue)'}
+                    <div
+                      className={`w-16 h-20 border border-gray-400 rounded bg-red-800 ${
+                        leftPlayerState.raidersLocation !== 'default' ? 'opacity-50' : ''
+                      }`}
+                    >
+                      <div className="text-white text-center text-xs mt-6">
+                        Raiders
+                        <br />
+                        {leftPlayerState.raidersLocation === 'default' ? '(ready)' : '(in queue)'}
+                      </div>
                     </div>
-                  </div>
-                  <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
-                    💧 {leftPlayerState.waterCount}
+                    <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
+                      💧 {leftPlayerState.waterCount}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Right player section */}
-              <div className="relative">
-                {gameState.currentTurn === 'right' && (
-                  <button
-                    className="absolute -top-20 left-0 right-0 bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded"
-                    onClick={() => {
-                      setGameState((prev) => ({
-                        ...prev,
-                        currentTurn: prev.currentTurn === 'left' ? 'right' : 'left',
-                        currentPhase: 'events',
-                      }));
-                    }}
-                  >
-                    Done
-                  </button>
-                )}
-                <div className="flex items-center gap-2">
-                  <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
-                    💧 {rightPlayerState.waterCount}
-                  </div>
-                  <div
-                    className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
+                {/* Right player section */}
+                <div className="relative">
+                  {gameState.currentTurn === 'right' && (
+                    <button
+                      className="absolute -top-20 left-0 right-0 bg-purple-700 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded"
+                      onClick={() => {
+                        setGameState((prev) => ({
+                          ...prev,
+                          currentTurn: prev.currentTurn === 'left' ? 'right' : 'left',
+                          currentPhase: 'events',
+                        }));
+                      }}
+                    >
+                      Done
+                    </button>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <div className="bg-blue-600 rounded-full p-4 text-white font-bold text-xl">
+                      💧 {rightPlayerState.waterCount}
+                    </div>
+                    <div
+                      className={`w-16 h-20 border border-gray-400 rounded bg-blue-800
     ${
       !rightPlayerState.waterSiloInHand && rightPlayerState.waterCount >= 1 && gameState.currentTurn === 'right'
         ? 'cursor-pointer hover:brightness-110'
         : 'opacity-50'
     }`}
-                    onClick={() => {
-                      if (
-                        !rightPlayerState.waterSiloInHand &&
-                        rightPlayerState.waterCount >= 1 &&
-                        gameState.currentTurn === 'right'
-                      ) {
-                        setRightPlayerState((prev) => ({
-                          ...prev,
-                          waterSiloInHand: true,
-                          waterCount: prev.waterCount - 1,
-                          handCards: [...prev.handCards, rightWaterSiloCard],
-                        }));
-                      }
-                    }}
-                  >
-                    <div className="text-white text-center text-xs mt-6">
-                      Water Silo
-                      {!rightPlayerState.waterSiloInHand ? (
-                        <>
-                          <br />
-                          (1 water)
-                        </>
-                      ) : (
-                        <>
-                          <br />
-                          (in hand)
-                        </>
-                      )}
+                      onClick={() => {
+                        if (
+                          !rightPlayerState.waterSiloInHand &&
+                          rightPlayerState.waterCount >= 1 &&
+                          gameState.currentTurn === 'right'
+                        ) {
+                          setRightPlayerState((prev) => ({
+                            ...prev,
+                            waterSiloInHand: true,
+                            waterCount: prev.waterCount - 1,
+                            handCards: [...prev.handCards, rightWaterSiloCard],
+                          }));
+                        }
+                      }}
+                    >
+                      <div className="text-white text-center text-xs mt-6">
+                        Water Silo
+                        {!rightPlayerState.waterSiloInHand ? (
+                          <>
+                            <br />
+                            (1 water)
+                          </>
+                        ) : (
+                          <>
+                            <br />
+                            (in hand)
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
-                    <div className="text-white text-center text-xs mt-6">Raiders</div>
+                    <div className="w-16 h-20 border border-gray-400 rounded bg-red-800">
+                      <div className="text-white text-center text-xs mt-6">Raiders</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Right Player Area */}
-        <div
-          className={`w-1/3 h-full p-2 relative border-2
+          {/* Right Player Area */}
+          <div
+            className={`w-1/3 h-full p-2 relative border-2
           ${
             gameState.currentTurn === 'right'
               ? 'border-3 border-pink-500 shadow-[0_0_5px_rgba(255,105,180,0.7),0_0_10px_rgba(255,105,180,0.5),0_0_45px_rgba(255,105,180,0.3)] brightness-110'
               : 'border-2 border-gray-600'
           }`}
-        >
-          <div
-            style={{
-              marginTop: '50px',
-            }}
           >
-            {/* Event Queue */}
-            <div className="flex justify-end gap-2 mb-8 mr-4">
-              <EventSlot
-                index={0}
-                card={rightPlayerState.eventSlots[0]}
-                playerState={rightPlayerState}
-                setPlayerState={setRightPlayerState}
-                player="right"
-                omenClockActive={omenClockActive}
-                canEventBeAdvanced={canEventBeAdvanced}
-                onEventAdvance={advanceEventByOne}
-              />
-              <EventSlot
-                index={1}
-                card={rightPlayerState.eventSlots[1]}
-                playerState={rightPlayerState}
-                setPlayerState={setRightPlayerState}
-                player="right"
-                omenClockActive={omenClockActive}
-                canEventBeAdvanced={canEventBeAdvanced}
-                onEventAdvance={advanceEventByOne}
-              />
-              <EventSlot
-                index={2}
-                card={rightPlayerState.eventSlots[2]}
-                playerState={rightPlayerState}
-                setPlayerState={setRightPlayerState}
-                player="right"
-                omenClockActive={omenClockActive}
-                canEventBeAdvanced={canEventBeAdvanced}
-                onEventAdvance={advanceEventByOne}
-              />
-            </div>
-            {/* Three columns of cards */}
-            <div className="flex justify-between">
-              {/* Column 1 */}
-              <div className="flex flex-col">
-                <PersonSlot
+            <div
+              style={{
+                marginTop: '50px',
+              }}
+            >
+              {/* Event Queue */}
+              <div className="flex justify-end gap-2 mb-8 mr-4">
+                <EventSlot
                   index={0}
-                  card={rightPlayerState.personSlots[0]}
+                  card={rightPlayerState.eventSlots[0]}
                   playerState={rightPlayerState}
                   setPlayerState={setRightPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
                   player="right"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  sniperMode={sniperMode}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
+                  omenClockActive={omenClockActive}
+                  canEventBeAdvanced={canEventBeAdvanced}
+                  onEventAdvance={advanceEventByOne}
                 />
-                <PersonSlot
+                <EventSlot
                   index={1}
-                  card={rightPlayerState.personSlots[1]}
+                  card={rightPlayerState.eventSlots[1]}
                   playerState={rightPlayerState}
                   setPlayerState={setRightPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
                   player="right"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  sniperMode={sniperMode}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
+                  omenClockActive={omenClockActive}
+                  canEventBeAdvanced={canEventBeAdvanced}
+                  onEventAdvance={advanceEventByOne}
                 />
-                <div
-                  className={`w-24 h-32 border-2 rounded
+                <EventSlot
+                  index={2}
+                  card={rightPlayerState.eventSlots[2]}
+                  playerState={rightPlayerState}
+                  setPlayerState={setRightPlayerState}
+                  player="right"
+                  omenClockActive={omenClockActive}
+                  canEventBeAdvanced={canEventBeAdvanced}
+                  onEventAdvance={advanceEventByOne}
+                />
+              </div>
+              {/* Three columns of cards */}
+              <div className="flex justify-between">
+                {/* Column 1 */}
+                <div className="flex flex-col">
+                  <PersonSlot
+                    index={0}
+                    card={rightPlayerState.personSlots[0]}
+                    playerState={rightPlayerState}
+                    setPlayerState={setRightPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="right"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    sniperMode={sniperMode}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <PersonSlot
+                    index={1}
+                    card={rightPlayerState.personSlots[1]}
+                    playerState={rightPlayerState}
+                    setPlayerState={setRightPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="right"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    sniperMode={sniperMode}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <div
+                    className={`w-24 h-32 border-2 rounded
   ${
     rightPlayerState.campSlots[0] === null
       ? 'bg-black'
@@ -6043,325 +6063,335 @@ const GameBoard = () => {
       : 'border-gray-400'
   }
 `}
-                  onClick={() => {
-                    if (damageMode && anyCardDamageMode && rightPlayerState.campSlots[0]) {
-                      // Apply damage to the camp
-                      applyDamage(rightPlayerState.campSlots[0], 0, false);
-                      return; // Exit early
-                    }
-                    if (
-                      opponentChoiceDamageMode &&
-                      gameState.currentTurn === 'left' &&
-                      rightPlayerState.campSlots[0] &&
-                      !rightPlayerState.campSlots[0]?.isProtected
-                    ) {
-                      // Apply damage to the camp
-                      applyDamage(rightPlayerState.campSlots[0], 0, true);
-                      return;
-                    }
-                    if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) {
-                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                      applyDamage(rightPlayerState.campSlots[0], 0, true);
-
-                      // Reset targeting modes
-                      setDamageMode(false);
-                      setDamageSource(null);
-                      setDamageValue(0);
-                      setCampDamageMode(false);
-                      setSniperMode(false);
-
-                      return; // Exit early
-                    }
-                    if (
-                      multiRestoreMode &&
-                      gameState.currentTurn === 'right' &&
-                      rightPlayerState.campSlots[0] &&
-                      rightPlayerState.campSlots[0].isDamaged
-                    ) {
-                      // Use applyRestore function
-                      applyRestore(rightPlayerState.campSlots[0], 0, false);
-                      return; // Exit early to prevent other conditions
-                    }
-                    if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[0]) {
-                      const camp = rightPlayerState.campSlots[0];
-                      if (camp.isDamaged) {
-                        // If camp is already damaged, destroy it
-                        alert('Camp destroyed!');
-                        setRightPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 0 ? null : c)),
-                        }));
-                      } else {
-                        // Otherwise, damage it
-                        alert('Camp damaged!');
-                        setRightPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 0 ? { ...c, isDamaged: true } : c)),
-                        }));
+                    onClick={() => {
+                      if (damageMode && anyCardDamageMode && rightPlayerState.campSlots[0]) {
+                        // Apply damage to the camp
+                        applyDamage(rightPlayerState.campSlots[0], 0, false);
+                        return; // Exit early
                       }
-                      // End raid mode
-                      setCampRaidMode(false);
-                      setRaidingPlayer(null);
-                      setRaidMessage('');
-                      // Continue to next phase
-                      setTimeout(() => {
-                        setGameState((prev) => ({
-                          ...prev,
-                          currentPhase: 'replenish',
-                        }));
-                      }, 100);
-                    } else if (damageColumnMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) {
-                      // Get the column index (0 for this camp)
-                      const columnIndex = 0;
-
-                      // Apply damage to all cards in this column
-                      // First, the person cards (indices 0 and 1 for column 0)
-                      const frontPerson = rightPlayerState.personSlots[columnIndex * 2];
-                      const backPerson = rightPlayerState.personSlots[columnIndex * 2 + 1];
-
-                      // Damage front person if it exists
-                      if (frontPerson) {
-                        applyDamage(frontPerson, columnIndex * 2, true);
-                      }
-
-                      // Damage back person if it exists
-                      if (backPerson) {
-                        applyDamage(backPerson, columnIndex * 2 + 1, true);
-                      }
-
-                      // Damage the camp itself
-                      if (rightPlayerState.campSlots[columnIndex]) {
-                        applyDamage(rightPlayerState.campSlots[columnIndex], columnIndex, true);
-                      }
-
-                      // Reset column damage mode
-                      setDamageColumnMode(false);
-
-                      alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                    } else if (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) {
-                      // Handle destroy camp ability
-                      alert(`${rightPlayerState.campSlots[0].name} destroyed!`);
-                      destroyCamp(rightPlayerState.campSlots[0], 0, false);
-                      // Reset destroy camp mode
-                      setDestroyCampMode(false);
-                    } else if (
-                      damageMode &&
-                      gameState.currentTurn !== 'right' &&
-                      rightPlayerState.campSlots[0] &&
-                      (sniperMode || !rightPlayerState.campSlots[0].isProtected)
-                    ) {
-                      // Handle damage targeting
-                      applyDamage(rightPlayerState.campSlots[0], 0, true);
-                    } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[0]?.isDamaged) {
-                      // Use the restoreCard utility instead of directly modifying state
-                      const wasRestored = restoreCard(
-                        rightPlayerState.campSlots[0],
-                        0, // slotIndex
-                        false, // isLeftPlayer
-                        setRightPlayerState
-                      );
-
                       if (
-                        rightPlayerState.campSlots[0]?.traits?.includes('cannot_self_restore') &&
-                        restoreSourceIndex === 0
+                        opponentChoiceDamageMode &&
+                        gameState.currentTurn === 'left' &&
+                        rightPlayerState.campSlots[0] &&
+                        !rightPlayerState.campSlots[0]?.isProtected
                       ) {
-                        alert(`${rightPlayerState.campSlots[0].name} cannot restore itself due to its special trait!`);
+                        // Apply damage to the camp
+                        applyDamage(rightPlayerState.campSlots[0], 0, true);
                         return;
                       }
+                      if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) {
+                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                        applyDamage(rightPlayerState.campSlots[0], 0, true);
 
-                      if (wasRestored) {
-                        alert(`Restored ${rightPlayerState.campSlots[0].name}`);
+                        // Reset targeting modes
+                        setDamageMode(false);
+                        setDamageSource(null);
+                        setDamageValue(0);
+                        setCampDamageMode(false);
+                        setSniperMode(false);
+
+                        return; // Exit early
                       }
-
-                      // Exit restore mode
-                      if (setRestoreMode) setRestoreMode(false);
-                    } else if (
-                      abilityRestoreMode &&
-                      gameState.currentTurn === 'right' &&
-                      rightPlayerState.campSlots[0]?.isDamaged
-                    ) {
-                      // Handle restore targeting
-                      applyRestore(rightPlayerState.campSlots[0], 0, true);
-                    } else if (isInteractable('camp', 'right', 0)) {
-                      // Get the camp card
-                      const campCard = rightPlayerState.campSlots[0];
-
-                      // Add an additional safety check for isReady
-                      if (!campCard.isReady) {
-                        alert('This camp has already used its ability this turn!');
-                        return; // Don't open the modal
+                      if (
+                        multiRestoreMode &&
+                        gameState.currentTurn === 'right' &&
+                        rightPlayerState.campSlots[0] &&
+                        rightPlayerState.campSlots[0].isDamaged
+                      ) {
+                        // Use applyRestore function
+                        applyRestore(rightPlayerState.campSlots[0], 0, false);
+                        return; // Exit early to prevent other conditions
                       }
+                      if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[0]) {
+                        const camp = rightPlayerState.campSlots[0];
+                        if (camp.isDamaged) {
+                          // If camp is already damaged, destroy it
+                          alert('Camp destroyed!');
+                          setRightPlayerState((prev) => ({
+                            ...prev,
+                            campSlots: prev.campSlots.map((c, i) => (i === 0 ? null : c)),
+                          }));
+                        } else {
+                          // Otherwise, damage it
+                          alert('Camp damaged!');
+                          setRightPlayerState((prev) => ({
+                            ...prev,
+                            campSlots: prev.campSlots.map((c, i) => (i === 0 ? { ...c, isDamaged: true } : c)),
+                          }));
+                        }
+                        // End raid mode
+                        setCampRaidMode(false);
+                        setRaidingPlayer(null);
+                        setRaidMessage('');
+                        // Continue to next phase
+                        setTimeout(() => {
+                          setGameState((prev) => ({
+                            ...prev,
+                            currentPhase: 'replenish',
+                          }));
+                        }, 100);
+                      } else if (
+                        damageColumnMode &&
+                        gameState.currentTurn !== 'right' &&
+                        rightPlayerState.campSlots[0]
+                      ) {
+                        // Get the column index (0 for this camp)
+                        const columnIndex = 0;
 
-                      if (!checkAbilityEnabled(campCard)) {
-                        return; // Don't open the modal if the ability can't be used
+                        // Apply damage to all cards in this column
+                        // First, the person cards (indices 0 and 1 for column 0)
+                        const frontPerson = rightPlayerState.personSlots[columnIndex * 2];
+                        const backPerson = rightPlayerState.personSlots[columnIndex * 2 + 1];
+
+                        // Damage front person if it exists
+                        if (frontPerson) {
+                          applyDamage(frontPerson, columnIndex * 2, true);
+                        }
+
+                        // Damage back person if it exists
+                        if (backPerson) {
+                          applyDamage(backPerson, columnIndex * 2 + 1, true);
+                        }
+
+                        // Damage the camp itself
+                        if (rightPlayerState.campSlots[columnIndex]) {
+                          applyDamage(rightPlayerState.campSlots[columnIndex], columnIndex, true);
+                        }
+
+                        // Reset column damage mode
+                        setDamageColumnMode(false);
+
+                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
+                      } else if (
+                        destroyCampMode &&
+                        gameState.currentTurn !== 'right' &&
+                        rightPlayerState.campSlots[0]
+                      ) {
+                        // Handle destroy camp ability
+                        alert(`${rightPlayerState.campSlots[0].name} destroyed!`);
+                        destroyCamp(rightPlayerState.campSlots[0], 0, false);
+                        // Reset destroy camp mode
+                        setDestroyCampMode(false);
+                      } else if (
+                        damageMode &&
+                        gameState.currentTurn !== 'right' &&
+                        rightPlayerState.campSlots[0] &&
+                        (sniperMode || !rightPlayerState.campSlots[0].isProtected)
+                      ) {
+                        // Handle damage targeting
+                        applyDamage(rightPlayerState.campSlots[0], 0, true);
+                      } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[0]?.isDamaged) {
+                        // Use the restoreCard utility instead of directly modifying state
+                        const wasRestored = restoreCard(
+                          rightPlayerState.campSlots[0],
+                          0, // slotIndex
+                          false, // isLeftPlayer
+                          setRightPlayerState
+                        );
+
+                        if (
+                          rightPlayerState.campSlots[0]?.traits?.includes('cannot_self_restore') &&
+                          restoreSourceIndex === 0
+                        ) {
+                          alert(
+                            `${rightPlayerState.campSlots[0].name} cannot restore itself due to its special trait!`
+                          );
+                          return;
+                        }
+
+                        if (wasRestored) {
+                          alert(`Restored ${rightPlayerState.campSlots[0].name}`);
+                        }
+
+                        // Exit restore mode
+                        if (setRestoreMode) setRestoreMode(false);
+                      } else if (
+                        abilityRestoreMode &&
+                        gameState.currentTurn === 'right' &&
+                        rightPlayerState.campSlots[0]?.isDamaged
+                      ) {
+                        // Handle restore targeting
+                        applyRestore(rightPlayerState.campSlots[0], 0, true);
+                      } else if (isInteractable('camp', 'right', 0)) {
+                        // Get the camp card
+                        const campCard = rightPlayerState.campSlots[0];
+
+                        // Add an additional safety check for isReady
+                        if (!campCard.isReady) {
+                          alert('This camp has already used its ability this turn!');
+                          return; // Don't open the modal
+                        }
+
+                        if (!checkAbilityEnabled(campCard)) {
+                          return; // Don't open the modal if the ability can't be used
+                        }
+
+                        // If we passed the check, proceed as normal
+                        setSelectedCard(campCard);
+                        setSelectedCardLocation({ type: 'camp', index: 0 });
+                        setIsAbilityModalOpen(true);
                       }
-
-                      // If we passed the check, proceed as normal
-                      setSelectedCard(campCard);
-                      setSelectedCardLocation({ type: 'camp', index: 0 });
-                      setIsAbilityModalOpen(true);
-                    }
-                  }}
-                >
-                  <div className="text-white text-center text-xs mt-4">
-                    {rightPlayerState.campSlots[0] === null ? (
-                      <>
-                        Camp 1
-                        <br />
-                        Destroyed
-                      </>
-                    ) : (
-                      <>
-                        {rightPlayerState.campSlots[0]?.name}
-                        <br />
-                        {rightPlayerState.campSlots[0]?.type}
-                        <br />
-                        {rightPlayerState.campSlots[0]?.isProtected ? 'Protected' : 'Unprotected'}
-                        <br />
-                        {rightPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                        <br />
-                        {rightPlayerState.campSlots[0]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                        <br />
-                        {rightPlayerState.campSlots[0]?.isReady ? 'Ready' : 'Not Ready'}
-                      </>
-                    )}
+                    }}
+                  >
+                    <div className="text-white text-center text-xs mt-4">
+                      {rightPlayerState.campSlots[0] === null ? (
+                        <>
+                          Camp 1
+                          <br />
+                          Destroyed
+                        </>
+                      ) : (
+                        <>
+                          {rightPlayerState.campSlots[0]?.name}
+                          <br />
+                          {rightPlayerState.campSlots[0]?.type}
+                          <br />
+                          {rightPlayerState.campSlots[0]?.isProtected ? 'Protected' : 'Unprotected'}
+                          <br />
+                          {rightPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                          <br />
+                          {rightPlayerState.campSlots[0]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                          <br />
+                          {rightPlayerState.campSlots[0]?.isReady ? 'Ready' : 'Not Ready'}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-              {/* Column 2 */}
-              <div className="flex flex-col">
-                <PersonSlot
-                  index={2}
-                  card={rightPlayerState.personSlots[2]}
-                  playerState={rightPlayerState}
-                  setPlayerState={setRightPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
-                  player="right"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  sniperMode={sniperMode}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
-                />
-                <PersonSlot
-                  index={3}
-                  card={rightPlayerState.personSlots[3]}
-                  playerState={rightPlayerState}
-                  setPlayerState={setRightPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
-                  player="right"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  sniperMode={sniperMode}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
-                />
-                <div
-                  className={`w-24 h-32 border-2 rounded
+                {/* Column 2 */}
+                <div className="flex flex-col">
+                  <PersonSlot
+                    index={2}
+                    card={rightPlayerState.personSlots[2]}
+                    playerState={rightPlayerState}
+                    setPlayerState={setRightPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="right"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    sniperMode={sniperMode}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <PersonSlot
+                    index={3}
+                    card={rightPlayerState.personSlots[3]}
+                    playerState={rightPlayerState}
+                    setPlayerState={setRightPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="right"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    sniperMode={sniperMode}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <div
+                    className={`w-24 h-32 border-2 rounded
   ${
     rightPlayerState.campSlots[1] === null
       ? 'bg-black'
@@ -6395,322 +6425,332 @@ const GameBoard = () => {
       : 'border-gray-400'
   }
 `}
-                  onClick={() => {
-                    if (damageMode && anyCardDamageMode && rightPlayerState.campSlots[1]) {
-                      // Apply damage to the camp
-                      applyDamage(rightPlayerState.campSlots[1], 1, false);
-                      return; // Exit early
-                    }
-                    if (
-                      opponentChoiceDamageMode &&
-                      gameState.currentTurn === 'left' &&
-                      rightPlayerState.campSlots[1] &&
-                      !rightPlayerState.campSlots[1]?.isProtected
-                    ) {
-                      // Apply damage to the camp
-                      applyDamage(rightPlayerState.campSlots[1], 1, true);
-                      return;
-                    }
-                    if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) {
-                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                      applyDamage(rightPlayerState.campSlots[1], 1, true);
-
-                      // Reset targeting modes
-                      setDamageMode(false);
-                      setDamageSource(null);
-                      setDamageValue(0);
-                      setCampDamageMode(false);
-                      setSniperMode(false);
-
-                      return; // Exit early
-                    }
-                    if (
-                      multiRestoreMode &&
-                      gameState.currentTurn === 'right' &&
-                      rightPlayerState.campSlots[1] &&
-                      rightPlayerState.campSlots[1].isDamaged
-                    ) {
-                      // Use applyRestore function
-                      applyRestore(rightPlayerState.campSlots[1], 1, false);
-                      return; // Exit early to prevent other conditions
-                    }
-                    if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[1]) {
-                      const camp = rightPlayerState.campSlots[1];
-                      if (camp.isDamaged) {
-                        // If camp is already damaged, destroy it
-                        alert('Camp destroyed!');
-                        destroyCamp(camp, 1, false);
-                      } else {
-                        // Otherwise, damage it
-                        alert('Camp damaged!');
-                        setRightPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 1 ? { ...c, isDamaged: true } : c)),
-                        }));
+                    onClick={() => {
+                      if (damageMode && anyCardDamageMode && rightPlayerState.campSlots[1]) {
+                        // Apply damage to the camp
+                        applyDamage(rightPlayerState.campSlots[1], 1, false);
+                        return; // Exit early
                       }
-                      // End raid mode
-                      setCampRaidMode(false);
-                      setRaidingPlayer(null);
-                      setRaidMessage('');
-                      // Continue to next phase
-                      setTimeout(() => {
-                        setGameState((prev) => ({
-                          ...prev,
-                          currentPhase: 'replenish',
-                        }));
-                      }, 100);
-                    } else if (damageColumnMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) {
-                      // Get the column index (0 for this camp)
-                      const columnIndex = 1;
-
-                      // Apply damage to all cards in this column
-                      // First, the person cards (indices 0 and 1 for column 0)
-                      const frontPerson = rightPlayerState.personSlots[columnIndex * 2];
-                      const backPerson = rightPlayerState.personSlots[columnIndex * 2 + 1];
-
-                      // Damage front person if it exists
-                      if (frontPerson) {
-                        applyDamage(frontPerson, columnIndex * 2, true);
-                      }
-
-                      // Damage back person if it exists
-                      if (backPerson) {
-                        applyDamage(backPerson, columnIndex * 2 + 1, true);
-                      }
-
-                      // Damage the camp itself
-                      if (rightPlayerState.campSlots[columnIndex]) {
-                        applyDamage(rightPlayerState.campSlots[columnIndex], columnIndex, true);
-                      }
-
-                      // Reset column damage mode
-                      setDamageColumnMode(false);
-
-                      alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                    } else if (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) {
-                      // Handle destroy camp ability
-                      alert(`${rightPlayerState.campSlots[1].name} destroyed!`);
-                      destroyCamp(rightPlayerState.campSlots[1], 1, false);
-                      // Reset destroy camp mode
-                      setDestroyCampMode(false);
-                    } else if (
-                      damageMode &&
-                      gameState.currentTurn !== 'right' &&
-                      rightPlayerState.campSlots[1] &&
-                      (sniperMode || !rightPlayerState.campSlots[1].isProtected)
-                    ) {
-                      // Handle damage targeting
-                      applyDamage(rightPlayerState.campSlots[1], 1, true);
-                    } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[1]?.isDamaged) {
-                      // Use the restoreCard utility instead of directly modifying state
-                      const wasRestored = restoreCard(
-                        rightPlayerState.campSlots[1],
-                        1, // slotIndex
-                        false, // isLeftPlayer
-                        setRightPlayerState
-                      );
-
                       if (
-                        rightPlayerState.campSlots[1]?.traits?.includes('cannot_self_restore') &&
-                        restoreSourceIndex === 1
+                        opponentChoiceDamageMode &&
+                        gameState.currentTurn === 'left' &&
+                        rightPlayerState.campSlots[1] &&
+                        !rightPlayerState.campSlots[1]?.isProtected
                       ) {
-                        alert(`${rightPlayerState.campSlots[1].name} cannot restore itself due to its special trait!`);
+                        // Apply damage to the camp
+                        applyDamage(rightPlayerState.campSlots[1], 1, true);
                         return;
                       }
+                      if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) {
+                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                        applyDamage(rightPlayerState.campSlots[1], 1, true);
 
-                      if (wasRestored) {
-                        alert(`Restored ${rightPlayerState.campSlots[1].name}`);
+                        // Reset targeting modes
+                        setDamageMode(false);
+                        setDamageSource(null);
+                        setDamageValue(0);
+                        setCampDamageMode(false);
+                        setSniperMode(false);
+
+                        return; // Exit early
                       }
-
-                      // Exit restore mode
-                      if (setRestoreMode) setRestoreMode(false);
-                    } else if (
-                      abilityRestoreMode &&
-                      gameState.currentTurn === 'right' &&
-                      rightPlayerState.campSlots[1]?.isDamaged
-                    ) {
-                      // Handle restore targeting
-                      applyRestore(rightPlayerState.campSlots[1], 1, true);
-                    } else if (isInteractable('camp', 'right', 1)) {
-                      // Get the camp card
-                      const campCard = rightPlayerState.campSlots[1];
-
-                      // Add an additional safety check for isReady
-                      if (!campCard.isReady) {
-                        alert('This camp has already used its ability this turn!');
-                        return; // Don't open the modal
+                      if (
+                        multiRestoreMode &&
+                        gameState.currentTurn === 'right' &&
+                        rightPlayerState.campSlots[1] &&
+                        rightPlayerState.campSlots[1].isDamaged
+                      ) {
+                        // Use applyRestore function
+                        applyRestore(rightPlayerState.campSlots[1], 1, false);
+                        return; // Exit early to prevent other conditions
                       }
+                      if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[1]) {
+                        const camp = rightPlayerState.campSlots[1];
+                        if (camp.isDamaged) {
+                          // If camp is already damaged, destroy it
+                          alert('Camp destroyed!');
+                          destroyCamp(camp, 1, false);
+                        } else {
+                          // Otherwise, damage it
+                          alert('Camp damaged!');
+                          setRightPlayerState((prev) => ({
+                            ...prev,
+                            campSlots: prev.campSlots.map((c, i) => (i === 1 ? { ...c, isDamaged: true } : c)),
+                          }));
+                        }
+                        // End raid mode
+                        setCampRaidMode(false);
+                        setRaidingPlayer(null);
+                        setRaidMessage('');
+                        // Continue to next phase
+                        setTimeout(() => {
+                          setGameState((prev) => ({
+                            ...prev,
+                            currentPhase: 'replenish',
+                          }));
+                        }, 100);
+                      } else if (
+                        damageColumnMode &&
+                        gameState.currentTurn !== 'right' &&
+                        rightPlayerState.campSlots[1]
+                      ) {
+                        // Get the column index (0 for this camp)
+                        const columnIndex = 1;
 
-                      if (!checkAbilityEnabled(campCard)) {
-                        return; // Don't open the modal if the ability can't be used
+                        // Apply damage to all cards in this column
+                        // First, the person cards (indices 0 and 1 for column 0)
+                        const frontPerson = rightPlayerState.personSlots[columnIndex * 2];
+                        const backPerson = rightPlayerState.personSlots[columnIndex * 2 + 1];
+
+                        // Damage front person if it exists
+                        if (frontPerson) {
+                          applyDamage(frontPerson, columnIndex * 2, true);
+                        }
+
+                        // Damage back person if it exists
+                        if (backPerson) {
+                          applyDamage(backPerson, columnIndex * 2 + 1, true);
+                        }
+
+                        // Damage the camp itself
+                        if (rightPlayerState.campSlots[columnIndex]) {
+                          applyDamage(rightPlayerState.campSlots[columnIndex], columnIndex, true);
+                        }
+
+                        // Reset column damage mode
+                        setDamageColumnMode(false);
+
+                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
+                      } else if (
+                        destroyCampMode &&
+                        gameState.currentTurn !== 'right' &&
+                        rightPlayerState.campSlots[1]
+                      ) {
+                        // Handle destroy camp ability
+                        alert(`${rightPlayerState.campSlots[1].name} destroyed!`);
+                        destroyCamp(rightPlayerState.campSlots[1], 1, false);
+                        // Reset destroy camp mode
+                        setDestroyCampMode(false);
+                      } else if (
+                        damageMode &&
+                        gameState.currentTurn !== 'right' &&
+                        rightPlayerState.campSlots[1] &&
+                        (sniperMode || !rightPlayerState.campSlots[1].isProtected)
+                      ) {
+                        // Handle damage targeting
+                        applyDamage(rightPlayerState.campSlots[1], 1, true);
+                      } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[1]?.isDamaged) {
+                        // Use the restoreCard utility instead of directly modifying state
+                        const wasRestored = restoreCard(
+                          rightPlayerState.campSlots[1],
+                          1, // slotIndex
+                          false, // isLeftPlayer
+                          setRightPlayerState
+                        );
+
+                        if (
+                          rightPlayerState.campSlots[1]?.traits?.includes('cannot_self_restore') &&
+                          restoreSourceIndex === 1
+                        ) {
+                          alert(
+                            `${rightPlayerState.campSlots[1].name} cannot restore itself due to its special trait!`
+                          );
+                          return;
+                        }
+
+                        if (wasRestored) {
+                          alert(`Restored ${rightPlayerState.campSlots[1].name}`);
+                        }
+
+                        // Exit restore mode
+                        if (setRestoreMode) setRestoreMode(false);
+                      } else if (
+                        abilityRestoreMode &&
+                        gameState.currentTurn === 'right' &&
+                        rightPlayerState.campSlots[1]?.isDamaged
+                      ) {
+                        // Handle restore targeting
+                        applyRestore(rightPlayerState.campSlots[1], 1, true);
+                      } else if (isInteractable('camp', 'right', 1)) {
+                        // Get the camp card
+                        const campCard = rightPlayerState.campSlots[1];
+
+                        // Add an additional safety check for isReady
+                        if (!campCard.isReady) {
+                          alert('This camp has already used its ability this turn!');
+                          return; // Don't open the modal
+                        }
+
+                        if (!checkAbilityEnabled(campCard)) {
+                          return; // Don't open the modal if the ability can't be used
+                        }
+
+                        // If we passed the check, proceed as normal
+                        setSelectedCard(campCard);
+                        setSelectedCardLocation({ type: 'camp', index: 1 });
+                        setIsAbilityModalOpen(true);
                       }
-
-                      // If we passed the check, proceed as normal
-                      setSelectedCard(campCard);
-                      setSelectedCardLocation({ type: 'camp', index: 1 });
-                      setIsAbilityModalOpen(true);
-                    }
-                  }}
-                >
-                  <div className="text-white text-center text-xs mt-4">
-                    {rightPlayerState.campSlots[1] === null ? (
-                      <>
-                        Camp 2
-                        <br />
-                        Destroyed
-                      </>
-                    ) : (
-                      <>
-                        {rightPlayerState.campSlots[1]?.name}
-                        <br />
-                        {rightPlayerState.campSlots[1]?.type}
-                        <br />
-                        {rightPlayerState.campSlots[1]?.isProtected ? 'Protected' : 'Unprotected'}
-                        <br />
-                        {rightPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                        <br />
-                        {rightPlayerState.campSlots[1]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                        <br />
-                        {rightPlayerState.campSlots[1]?.isReady ? 'Ready' : 'Not Ready'}
-                      </>
-                    )}
+                    }}
+                  >
+                    <div className="text-white text-center text-xs mt-4">
+                      {rightPlayerState.campSlots[1] === null ? (
+                        <>
+                          Camp 2
+                          <br />
+                          Destroyed
+                        </>
+                      ) : (
+                        <>
+                          {rightPlayerState.campSlots[1]?.name}
+                          <br />
+                          {rightPlayerState.campSlots[1]?.type}
+                          <br />
+                          {rightPlayerState.campSlots[1]?.isProtected ? 'Protected' : 'Unprotected'}
+                          <br />
+                          {rightPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                          <br />
+                          {rightPlayerState.campSlots[1]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                          <br />
+                          {rightPlayerState.campSlots[1]?.isReady ? 'Ready' : 'Not Ready'}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-              {/* Column 3 */}
-              <div className="flex flex-col">
-                <PersonSlot
-                  index={4}
-                  card={rightPlayerState.personSlots[4]}
-                  playerState={rightPlayerState}
-                  setPlayerState={setRightPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
-                  player="right"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  sniperMode={sniperMode}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
-                />
-                <PersonSlot
-                  index={5}
-                  card={rightPlayerState.personSlots[5]}
-                  playerState={rightPlayerState}
-                  setPlayerState={setRightPlayerState}
-                  punkPlacementMode={punkPlacementMode}
-                  punkCardToPlace={punkCardToPlace}
-                  setPunkPlacementMode={setPunkPlacementMode}
-                  setPunkCardToPlace={setPunkCardToPlace}
-                  restoreMode={restoreMode}
-                  restorePlayer={restorePlayer}
-                  setRestoreMode={setRestoreMode}
-                  injureMode={injureMode}
-                  setInjureMode={setInjureMode}
-                  damageMode={damageMode}
-                  applyDamage={applyDamage}
-                  updateProtectedStatus={updateProtectionStatus}
-                  destroyCard={destroyCard}
-                  gameState={gameState}
-                  player="right"
-                  isInteractable={isInteractable}
-                  setSelectedCard={setSelectedCard}
-                  setSelectedCardLocation={setSelectedCardLocation}
-                  setIsAbilityModalOpen={setIsAbilityModalOpen}
-                  abilityRestoreMode={abilityRestoreMode}
-                  applyRestore={applyRestore}
-                  sniperMode={sniperMode}
-                  destroyPersonMode={destroyPersonMode}
-                  checkAbilityEnabled={checkAbilityEnabled}
-                  returnToHandMode={returnToHandMode}
-                  setReturnToHandMode={setReturnToHandMode}
-                  damageColumnMode={damageColumnMode}
-                  sacrificeMode={sacrificeMode}
-                  mimicMode={mimicMode}
-                  restorePersonReadyMode={restorePersonReadyMode}
-                  multiRestoreMode={multiRestoreMode}
-                  sacrificeEffect={sacrificeEffect}
-                  sacrificeSource={sacrificeSource}
-                  setSacrificeEffect={setSacrificeEffect}
-                  setSacrificeSource={setSacrificeSource}
-                  drawDeck={drawDeck}
-                  setDrawDeck={setDrawDeck}
-                  leftPlayerState={leftPlayerState}
-                  rightPlayerState={rightPlayerState}
-                  setLeftPlayerState={setLeftPlayerState}
-                  setRightPlayerState={setRightPlayerState}
-                  setRestorePlayer={setRestorePlayer}
-                  opponentChoiceDamageMode={opponentChoiceDamageMode}
-                  setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
-                  opponentChoiceDamageSource={opponentChoiceDamageSource}
-                  setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
-                  opponentChoiceDamageValue={opponentChoiceDamageValue}
-                  setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
-                  setSniperMode={setSniperMode}
-                  setDamageSource={setDamageSource}
-                  octagonSacrificeMode={octagonSacrificeMode}
-                  octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
-                  handleOctagonSacrifice={handleOctagonSacrifice}
-                  handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
-                  constructionYardSelectingPerson={constructionYardSelectingPerson}
-                  constructionYardSelectingDestination={constructionYardSelectingDestination}
-                  constructionYardSelectedPerson={constructionYardSelectedPerson}
-                  onPersonSelected={handlePersonSelected}
-                  onDestinationSelected={handleDestinationSelected}
-                />
-                <div
-                  className={`w-24 h-32 border-2 rounded
+                {/* Column 3 */}
+                <div className="flex flex-col">
+                  <PersonSlot
+                    index={4}
+                    card={rightPlayerState.personSlots[4]}
+                    playerState={rightPlayerState}
+                    setPlayerState={setRightPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="right"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    sniperMode={sniperMode}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <PersonSlot
+                    index={5}
+                    card={rightPlayerState.personSlots[5]}
+                    playerState={rightPlayerState}
+                    setPlayerState={setRightPlayerState}
+                    punkPlacementMode={punkPlacementMode}
+                    punkCardToPlace={punkCardToPlace}
+                    setPunkPlacementMode={setPunkPlacementMode}
+                    setPunkCardToPlace={setPunkCardToPlace}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    setRestoreMode={setRestoreMode}
+                    injureMode={injureMode}
+                    setInjureMode={setInjureMode}
+                    damageMode={damageMode}
+                    applyDamage={applyDamage}
+                    updateProtectedStatus={updateProtectionStatus}
+                    destroyCard={destroyCard}
+                    gameState={gameState}
+                    player="right"
+                    isInteractable={isInteractable}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    abilityRestoreMode={abilityRestoreMode}
+                    applyRestore={applyRestore}
+                    sniperMode={sniperMode}
+                    destroyPersonMode={destroyPersonMode}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    returnToHandMode={returnToHandMode}
+                    setReturnToHandMode={setReturnToHandMode}
+                    damageColumnMode={damageColumnMode}
+                    sacrificeMode={sacrificeMode}
+                    mimicMode={mimicMode}
+                    restorePersonReadyMode={restorePersonReadyMode}
+                    multiRestoreMode={multiRestoreMode}
+                    sacrificeEffect={sacrificeEffect}
+                    sacrificeSource={sacrificeSource}
+                    setSacrificeEffect={setSacrificeEffect}
+                    setSacrificeSource={setSacrificeSource}
+                    drawDeck={drawDeck}
+                    setDrawDeck={setDrawDeck}
+                    leftPlayerState={leftPlayerState}
+                    rightPlayerState={rightPlayerState}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
+                    setRestorePlayer={setRestorePlayer}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setOpponentChoiceDamageMode={setOpponentChoiceDamageMode}
+                    opponentChoiceDamageSource={opponentChoiceDamageSource}
+                    setOpponentChoiceDamageSource={setOpponentChoiceDamageSource}
+                    opponentChoiceDamageValue={opponentChoiceDamageValue}
+                    setOpponentChoiceDamageValue={setOpponentChoiceDamageValue}
+                    setSniperMode={setSniperMode}
+                    setDamageSource={setDamageSource}
+                    octagonSacrificeMode={octagonSacrificeMode}
+                    octagonOpponentSacrificeMode={octagonOpponentSacrificeMode}
+                    handleOctagonSacrifice={handleOctagonSacrifice}
+                    handleOctagonOpponentSacrifice={handleOctagonOpponentSacrifice}
+                    constructionYardSelectingPerson={constructionYardSelectingPerson}
+                    constructionYardSelectingDestination={constructionYardSelectingDestination}
+                    constructionYardSelectedPerson={constructionYardSelectedPerson}
+                    onPersonSelected={handlePersonSelected}
+                    onDestinationSelected={handleDestinationSelected}
+                  />
+                  <div
+                    className={`w-24 h-32 border-2 rounded
   ${
     rightPlayerState.campSlots[2] === null
       ? 'bg-black'
@@ -6744,282 +6784,299 @@ const GameBoard = () => {
       : 'border-gray-400'
   }
 `}
-                  onClick={() => {
-                    if (
-                      opponentChoiceDamageMode &&
-                      gameState.currentTurn === 'left' &&
-                      rightPlayerState.campSlots[2] &&
-                      !rightPlayerState.campSlots[2]?.isProtected
-                    ) {
-                      // Apply damage to the camp
-                      applyDamage(rightPlayerState.campSlots[2], 2, true);
-                      return;
-                    }
-                    if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) {
-                      // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                      applyDamage(rightPlayerState.campSlots[2], 2, true);
-
-                      // Reset targeting modes
-                      setDamageMode(false);
-                      setDamageSource(null);
-                      setDamageValue(0);
-                      setCampDamageMode(false);
-                      setSniperMode(false);
-
-                      return; // Exit early
-                    }
-                    if (
-                      multiRestoreMode &&
-                      gameState.currentTurn === 'right' &&
-                      rightPlayerState.campSlots[2] &&
-                      rightPlayerState.campSlots[2].isDamaged
-                    ) {
-                      // Use applyRestore function
-                      applyRestore(rightPlayerState.campSlots[2], 2, false);
-                      return; // Exit early to prevent other conditions
-                    }
-                    if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[2]) {
-                      const camp = rightPlayerState.campSlots[2];
-                      if (camp.isDamaged) {
-                        // If camp is already damaged, destroy it
-                        alert('Camp destroyed!');
-                        destroyCamp(camp, 2, false);
-                      } else {
-                        // Otherwise, damage it
-                        alert('Camp damaged!');
-                        setRightPlayerState((prev) => ({
-                          ...prev,
-                          campSlots: prev.campSlots.map((c, i) => (i === 2 ? { ...c, isDamaged: true } : c)),
-                        }));
-                      }
-                      // End raid mode
-                      setCampRaidMode(false);
-                      setRaidingPlayer(null);
-                      setRaidMessage('');
-                      // Continue to next phase
-                      setTimeout(() => {
-                        setGameState((prev) => ({
-                          ...prev,
-                          currentPhase: 'replenish',
-                        }));
-                      }, 100);
-                    } else if (damageColumnMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) {
-                      // Get the column index for this camp
-                      const columnIndex = 2;
-
-                      // Apply damage to all cards in this column
-                      // First, the person cards
-                      const frontPerson = rightPlayerState.personSlots[columnIndex * 2];
-                      const backPerson = rightPlayerState.personSlots[columnIndex * 2 + 1];
-
-                      // Damage front person if it exists
-                      if (frontPerson) {
-                        applyDamage(frontPerson, columnIndex * 2, true);
-                      }
-
-                      // Damage back person if it exists
-                      if (backPerson) {
-                        applyDamage(backPerson, columnIndex * 2 + 1, true);
-                      }
-
-                      // Damage the camp itself
-                      if (rightPlayerState.campSlots[columnIndex]) {
-                        applyDamage(rightPlayerState.campSlots[columnIndex], columnIndex, true);
-                      }
-
-                      // Reset column damage mode
-                      setDamageColumnMode(false);
-
-                      alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                    } else if (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) {
-                      // Handle destroy camp ability
-                      alert(`${rightPlayerState.campSlots[2].name} destroyed!`);
-                      destroyCamp(rightPlayerState.campSlots[2], 2, false);
-                      // Reset destroy camp mode
-                      setDestroyCampMode(false);
-                    } else if (
-                      damageMode &&
-                      gameState.currentTurn !== 'right' &&
-                      rightPlayerState.campSlots[2] &&
-                      (sniperMode || !rightPlayerState.campSlots[2].isProtected)
-                    ) {
-                      // Handle damage targeting
-                      applyDamage(rightPlayerState.campSlots[2], 2, true);
-                    } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[2]?.isDamaged) {
-                      // Use the restoreCard utility instead of directly modifying state
-                      const wasRestored = restoreCard(
-                        rightPlayerState.campSlots[2],
-                        2, // slotIndex
-                        false, // isLeftPlayer
-                        setRightPlayerState
-                      );
-
-                      if (
-                        rightPlayerState.campSlots[2]?.traits?.includes('cannot_self_restore') &&
-                        restoreSourceIndex === 2
-                      ) {
-                        alert(`${rightPlayerState.campSlots[2].name} cannot restore itself due to its special trait!`);
-                        return;
-                      }
-
-                      if (wasRestored) {
-                        alert(`Restored ${rightPlayerState.campSlots[2].name}`);
-                      }
-
-                      // Exit restore mode
-                      if (setRestoreMode) setRestoreMode(false);
-                    } else if (
-                      abilityRestoreMode &&
-                      gameState.currentTurn === 'right' &&
-                      rightPlayerState.campSlots[2]?.isDamaged
-                    ) {
-                      // Handle restore targeting
-                      applyRestore(rightPlayerState.campSlots[2], 2, true);
-                    } else if (isInteractable('camp', 'right', 2)) {
-                      // Get the camp card
-                      const campCard = rightPlayerState.campSlots[2];
-
-                      // Add an additional safety check for isReady
-                      if (!campCard.isReady) {
-                        alert('This camp has already used its ability this turn!');
-                        return; // Don't open the modal
-                      }
-
-                      if (!checkAbilityEnabled(campCard)) {
-                        return; // Don't open the modal if the ability can't be used
-                      }
-
-                      // If we passed the check, proceed as normal
-                      setSelectedCard(campCard);
-                      setSelectedCardLocation({ type: 'camp', index: 2 });
-                      setIsAbilityModalOpen(true);
-                    }
-                  }}
-                >
-                  <div className="text-white text-center text-xs mt-4">
-                    {rightPlayerState.campSlots[2] === null ? (
-                      <>
-                        Camp 3
-                        <br />
-                        Destroyed
-                      </>
-                    ) : (
-                      <>
-                        {rightPlayerState.campSlots[2]?.name}
-                        <br />
-                        {rightPlayerState.campSlots[2]?.type}
-                        <br />
-                        {rightPlayerState.campSlots[2]?.isProtected ? 'Protected' : 'Unprotected'}
-                        <br />
-                        {rightPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                        <br />
-                        {rightPlayerState.campSlots[2]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                        <br />
-                        {rightPlayerState.campSlots[2]?.isReady ? 'Ready' : 'Not Ready'}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/*Hand Area*/}
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
-              <div
-                className="flex flex-wrap gap-2"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const cardId = e.dataTransfer.getData('cardId');
-                  const sourceType = e.dataTransfer.getData('sourceType');
-                  const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
-
-                  if (sourceType === 'personSlot') {
-                    const card = leftPlayerState.personSlots[sourceIndex];
-                    if (card) {
-                      setLeftPlayerState((prev) => {
-                        const updatedSlots = prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot));
-                        return {
-                          ...prev,
-                          handCards: [...prev.handCards, card],
-                          personSlots: updateProtectionStatus(updatedSlots),
-                        };
-                      });
-                    }
-                  }
-                }}
-              >
-                {rightPlayerState.handCards.map((card) => (
-                  <div
-                    key={card.id}
-                    className={`w-16 h-24 border border-gray-400 rounded ${
-                      card.id === leftWaterSiloCard.id ? 'cursor-pointer hover:brightness-110' : ''
-                    } ${
-                      discardSelectionActive && gameState.currentTurn === 'left' && card.type !== 'watersilo'
-                        ? 'border-purple-400 animate-pulse cursor-pointer'
-                        : ''
-                    } ${
-                      card.type === 'person' && card.playCost > leftPlayerState.waterCount
-                        ? 'bg-gray-800 opacity-60'
-                        : 'bg-gray-600'
-                    }`}
-                    draggable="true"
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('cardId', card.id);
-                      e.dataTransfer.setData('sourcePlayer', 'right');
-                    }}
                     onClick={() => {
-                      if (scavengerCampSelectingCard) {
-                        handleScavengerCampDiscard(card);
+                      if (
+                        opponentChoiceDamageMode &&
+                        gameState.currentTurn === 'left' &&
+                        rightPlayerState.campSlots[2] &&
+                        !rightPlayerState.campSlots[2]?.isProtected
+                      ) {
+                        // Apply damage to the camp
+                        applyDamage(rightPlayerState.campSlots[2], 2, true);
                         return;
                       }
-                      if (card.id === rightWaterSiloCard.id) {
-                        setRightPlayerState((prev) => ({
-                          ...prev,
-                          waterSiloInHand: false,
-                          waterCount: prev.waterCount + 1,
-                          handCards: prev.handCards.filter((c) => c.id !== rightWaterSiloCard.id),
-                        }));
-                      } else if (
-                        discardSelectionActive &&
-                        gameState.currentTurn === 'right' &&
-                        card.type !== 'watersilo'
-                      ) {
-                        // Handle discard selection
-                        setRightPlayerState((prev) => ({
-                          ...prev,
-                          handCards: prev.handCards.filter((c) => c.id !== card.id),
-                        }));
-                        setDiscardPile((prev) => [...prev, card]);
-                        setDiscardSelectionCount((prev) => prev - 1);
+                      if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) {
+                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
+                        applyDamage(rightPlayerState.campSlots[2], 2, true);
 
-                        // Check if we've discarded enough cards
-                        if (discardSelectionCount <= 1) {
-                          setDiscardSelectionActive(false);
-                          alert('Discard complete!');
+                        // Reset targeting modes
+                        setDamageMode(false);
+                        setDamageSource(null);
+                        setDamageValue(0);
+                        setCampDamageMode(false);
+                        setSniperMode(false);
+
+                        return; // Exit early
+                      }
+                      if (
+                        multiRestoreMode &&
+                        gameState.currentTurn === 'right' &&
+                        rightPlayerState.campSlots[2] &&
+                        rightPlayerState.campSlots[2].isDamaged
+                      ) {
+                        // Use applyRestore function
+                        applyRestore(rightPlayerState.campSlots[2], 2, false);
+                        return; // Exit early to prevent other conditions
+                      }
+                      if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[2]) {
+                        const camp = rightPlayerState.campSlots[2];
+                        if (camp.isDamaged) {
+                          // If camp is already damaged, destroy it
+                          alert('Camp destroyed!');
+                          destroyCamp(camp, 2, false);
+                        } else {
+                          // Otherwise, damage it
+                          alert('Camp damaged!');
+                          setRightPlayerState((prev) => ({
+                            ...prev,
+                            campSlots: prev.campSlots.map((c, i) => (i === 2 ? { ...c, isDamaged: true } : c)),
+                          }));
                         }
+                        // End raid mode
+                        setCampRaidMode(false);
+                        setRaidingPlayer(null);
+                        setRaidMessage('');
+                        // Continue to next phase
+                        setTimeout(() => {
+                          setGameState((prev) => ({
+                            ...prev,
+                            currentPhase: 'replenish',
+                          }));
+                        }, 100);
+                      } else if (
+                        damageColumnMode &&
+                        gameState.currentTurn !== 'right' &&
+                        rightPlayerState.campSlots[2]
+                      ) {
+                        // Get the column index for this camp
+                        const columnIndex = 2;
+
+                        // Apply damage to all cards in this column
+                        // First, the person cards
+                        const frontPerson = rightPlayerState.personSlots[columnIndex * 2];
+                        const backPerson = rightPlayerState.personSlots[columnIndex * 2 + 1];
+
+                        // Damage front person if it exists
+                        if (frontPerson) {
+                          applyDamage(frontPerson, columnIndex * 2, true);
+                        }
+
+                        // Damage back person if it exists
+                        if (backPerson) {
+                          applyDamage(backPerson, columnIndex * 2 + 1, true);
+                        }
+
+                        // Damage the camp itself
+                        if (rightPlayerState.campSlots[columnIndex]) {
+                          applyDamage(rightPlayerState.campSlots[columnIndex], columnIndex, true);
+                        }
+
+                        // Reset column damage mode
+                        setDamageColumnMode(false);
+
+                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
+                      } else if (
+                        destroyCampMode &&
+                        gameState.currentTurn !== 'right' &&
+                        rightPlayerState.campSlots[2]
+                      ) {
+                        // Handle destroy camp ability
+                        alert(`${rightPlayerState.campSlots[2].name} destroyed!`);
+                        destroyCamp(rightPlayerState.campSlots[2], 2, false);
+                        // Reset destroy camp mode
+                        setDestroyCampMode(false);
+                      } else if (
+                        damageMode &&
+                        gameState.currentTurn !== 'right' &&
+                        rightPlayerState.campSlots[2] &&
+                        (sniperMode || !rightPlayerState.campSlots[2].isProtected)
+                      ) {
+                        // Handle damage targeting
+                        applyDamage(rightPlayerState.campSlots[2], 2, true);
+                      } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[2]?.isDamaged) {
+                        // Use the restoreCard utility instead of directly modifying state
+                        const wasRestored = restoreCard(
+                          rightPlayerState.campSlots[2],
+                          2, // slotIndex
+                          false, // isLeftPlayer
+                          setRightPlayerState
+                        );
+
+                        if (
+                          rightPlayerState.campSlots[2]?.traits?.includes('cannot_self_restore') &&
+                          restoreSourceIndex === 2
+                        ) {
+                          alert(
+                            `${rightPlayerState.campSlots[2].name} cannot restore itself due to its special trait!`
+                          );
+                          return;
+                        }
+
+                        if (wasRestored) {
+                          alert(`Restored ${rightPlayerState.campSlots[2].name}`);
+                        }
+
+                        // Exit restore mode
+                        if (setRestoreMode) setRestoreMode(false);
+                      } else if (
+                        abilityRestoreMode &&
+                        gameState.currentTurn === 'right' &&
+                        rightPlayerState.campSlots[2]?.isDamaged
+                      ) {
+                        // Handle restore targeting
+                        applyRestore(rightPlayerState.campSlots[2], 2, true);
+                      } else if (isInteractable('camp', 'right', 2)) {
+                        // Get the camp card
+                        const campCard = rightPlayerState.campSlots[2];
+
+                        // Add an additional safety check for isReady
+                        if (!campCard.isReady) {
+                          alert('This camp has already used its ability this turn!');
+                          return; // Don't open the modal
+                        }
+
+                        if (!checkAbilityEnabled(campCard)) {
+                          return; // Don't open the modal if the ability can't be used
+                        }
+
+                        // If we passed the check, proceed as normal
+                        setSelectedCard(campCard);
+                        setSelectedCardLocation({ type: 'camp', index: 2 });
+                        setIsAbilityModalOpen(true);
                       }
                     }}
                   >
                     <div className="text-white text-center text-xs mt-4">
-                      {card.name}
-                      <br />
-                      {card.type}
-                      <br />
-                      {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
-                      <br />
-                      {card.id}
+                      {rightPlayerState.campSlots[2] === null ? (
+                        <>
+                          Camp 3
+                          <br />
+                          Destroyed
+                        </>
+                      ) : (
+                        <>
+                          {rightPlayerState.campSlots[2]?.name}
+                          <br />
+                          {rightPlayerState.campSlots[2]?.type}
+                          <br />
+                          {rightPlayerState.campSlots[2]?.isProtected ? 'Protected' : 'Unprotected'}
+                          <br />
+                          {rightPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
+                          <br />
+                          {rightPlayerState.campSlots[2]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
+                          <br />
+                          {rightPlayerState.campSlots[2]?.isReady ? 'Ready' : 'Not Ready'}
+                        </>
+                      )}
                     </div>
                   </div>
-                ))}
+                </div>
+              </div>
+            </div>
+
+            {/*Hand Area*/}
+            <div className="absolute bottom-4 left-4 right-4">
+              <div className="border-2 border-gray-400 rounded bg-gray-700 p-4 min-h-32">
+                <div
+                  className="flex flex-wrap gap-2"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const cardId = e.dataTransfer.getData('cardId');
+                    const sourceType = e.dataTransfer.getData('sourceType');
+                    const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
+
+                    if (sourceType === 'personSlot') {
+                      const card = leftPlayerState.personSlots[sourceIndex];
+                      if (card) {
+                        setLeftPlayerState((prev) => {
+                          const updatedSlots = prev.personSlots.map((slot, i) => (i === sourceIndex ? null : slot));
+                          return {
+                            ...prev,
+                            handCards: [...prev.handCards, card],
+                            personSlots: updateProtectionStatus(updatedSlots),
+                          };
+                        });
+                      }
+                    }
+                  }}
+                >
+                  {rightPlayerState.handCards.map((card) => (
+                    <div
+                      key={card.id}
+                      className={`w-16 h-24 border border-gray-400 rounded ${
+                        card.id === leftWaterSiloCard.id ? 'cursor-pointer hover:brightness-110' : ''
+                      } ${
+                        discardSelectionActive && gameState.currentTurn === 'left' && card.type !== 'watersilo'
+                          ? 'border-purple-400 animate-pulse cursor-pointer'
+                          : ''
+                      } ${
+                        card.type === 'person' && card.playCost > leftPlayerState.waterCount
+                          ? 'bg-gray-800 opacity-60'
+                          : 'bg-gray-600'
+                      }`}
+                      draggable="true"
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('cardId', card.id);
+                        e.dataTransfer.setData('sourcePlayer', 'right');
+                      }}
+                      onClick={() => {
+                        if (scavengerCampSelectingCard) {
+                          handleScavengerCampDiscard(card);
+                          return;
+                        }
+                        if (card.id === rightWaterSiloCard.id) {
+                          setRightPlayerState((prev) => ({
+                            ...prev,
+                            waterSiloInHand: false,
+                            waterCount: prev.waterCount + 1,
+                            handCards: prev.handCards.filter((c) => c.id !== rightWaterSiloCard.id),
+                          }));
+                        } else if (
+                          discardSelectionActive &&
+                          gameState.currentTurn === 'right' &&
+                          card.type !== 'watersilo'
+                        ) {
+                          // Handle discard selection
+                          setRightPlayerState((prev) => ({
+                            ...prev,
+                            handCards: prev.handCards.filter((c) => c.id !== card.id),
+                          }));
+                          setDiscardPile((prev) => [...prev, card]);
+                          setDiscardSelectionCount((prev) => prev - 1);
+
+                          // Check if we've discarded enough cards
+                          if (discardSelectionCount <= 1) {
+                            setDiscardSelectionActive(false);
+                            alert('Discard complete!');
+                          }
+                        }
+                      }}
+                    >
+                      <div className="text-white text-center text-xs mt-4">
+                        {card.name}
+                        <br />
+                        {card.type}
+                        <br />
+                        {card.startingQueuePosition !== undefined ? `Queue: ${card.startingQueuePosition}` : ''}
+                        <br />
+                        {card.id}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      <AbilityModal
+        isOpen={isAbilityModalOpen}
+        onClose={() => setIsAbilityModalOpen(false)}
+        card={selectedCard}
+        location={selectedCardLocation}
+      />
+    </AbilityProvider>
   );
 };
 

@@ -3,6 +3,22 @@
 import { Card, JunkEffect } from '@/types/game';
 
 export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected' | 'isReady'> } = {
+  'card-drawer': {
+    id: 'person-card-drawer',
+    name: 'Card Drawer',
+    type: 'person',
+    playCost: 1,
+    abilities: [
+      {
+        effect: 'Draw 2 cards',
+        cost: 1,
+        type: 'draw',
+        value: 2
+      }
+    ],
+    traits: ['start_ready'],
+    junkEffect: 'extra_water'
+  },
   'looter': {
     id: 'person-looter',
     name: 'Looter',
