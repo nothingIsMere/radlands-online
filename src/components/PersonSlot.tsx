@@ -4,6 +4,7 @@ import { Card, PlayerState } from '@/types/game';
 import { hasCardTrait, hasKarliBlazeTrait, hasArgoYeskyTrait } from '@/utils/gameUtils';
 import { handleSacrificeEffect } from '@/utils/abilityUtils';
 import { updateProtectionStatus } from '@/utils/protectionUtils';
+import { useAbility } from '../../components/AbilityManager';
 
 interface PersonSlotProps {
   index: number;
@@ -145,6 +146,7 @@ const PersonSlot = ({
   onPersonSelected,
   onDestinationSelected,
 }: PersonSlotProps) => {
+  const { isAbilityActive, completeAbility } = useAbility();
   React.useEffect(() => {
     if (restoreMode && card?.name === 'Repair Bot') {
       console.log('Repair Bot in restore mode:', {
@@ -357,14 +359,11 @@ const PersonSlot = ({
           if (gameBoard && (gameBoard as any).setRestoreSourceIndex) {
             (gameBoard as any).setRestoreSourceIndex(undefined);
           }
-        } else if (injureMode && card && !card.isProtected) {
+        }
+        if (injureMode && card && !card.isProtected) {
           if (card.isPunk || card.isDamaged) {
             alert(`${card.isPunk ? 'Punk' : 'Damaged card'} destroyed!`);
-            if (destroyCard) {
-              // Use the player prop to determine if this is a right player card
-              // player will be either 'left' or 'right'
-              destroyCard(card, index, player === 'right');
-            }
+            destroyCard(card, index, player === 'right');
           } else {
             setPlayerState((prev) => ({
               ...prev,
@@ -373,7 +372,14 @@ const PersonSlot = ({
               ),
             }));
           }
+
+          // Reset inject mode
           if (setInjureMode) setInjureMode(false);
+
+          // Complete the ability if one is active
+          if (isAbilityActive()) {
+            completeAbility();
+          }
         } else if (damageMode && card && (sniperMode || !card.isProtected)) {
           // Handle damage targeting - call the applyDamage function
           applyDamage(card, index, player === 'right');

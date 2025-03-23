@@ -12,10 +12,14 @@ import React, { useEffect, createContext, useContext, useState } from 'react';
 // Create context for ability system
 interface AbilityContextType {
   executeAbility: (card: Card, ability: Ability, location: { type: 'person' | 'camp'; index: number }) => void;
+  isAbilityActive: () => boolean;
+  completeAbility: () => void;
 }
 
 const AbilityContext = createContext<AbilityContextType>({
   executeAbility: () => {},
+  isAbilityActive: () => false,
+  completeAbility: () => {},
 });
 
 // Custom hook to use ability context
@@ -97,5 +101,15 @@ export const AbilityProvider: React.FC<AbilityProviderProps> = ({
     AbilityRegistry.executeAbility(context);
   };
 
-  return <AbilityContext.Provider value={{ executeAbility }}>{children}</AbilityContext.Provider>;
+  return (
+    <AbilityContext.Provider
+      value={{
+        executeAbility,
+        isAbilityActive: AbilityService.isAbilityActive,
+        completeAbility: AbilityService.completeAbility,
+      }}
+    >
+      {children}
+    </AbilityContext.Provider>
+  );
 };

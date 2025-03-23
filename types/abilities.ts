@@ -22,6 +22,7 @@ export interface StateSetters {
   setRestoreMode: (active: boolean) => void;
   setRestorePlayer: (player: 'left' | 'right' | null) => void;
   setRestoreSourceIndex: (index: number | undefined) => void;
+  setInjureMode: (active: boolean) => void;
 }
 
 export interface AbilityContext {

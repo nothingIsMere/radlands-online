@@ -1109,7 +1109,7 @@ const GameBoard = () => {
     ],
 
     // No people in person slots
-    personSlots: [createPerson('healer'), null, null, null, null, null],
+    personSlots: [createPerson('vigilante'), null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
     campSlots: [createCamp('omen-clock'), createCamp('construction-yard'), { ...createCamp('oasis'), isDamaged: true }],
@@ -3202,75 +3202,6 @@ const GameBoard = () => {
         }
         break;
 
-      case 'draw':
-        // Draw ability - draw cards
-        if (drawDeck.length > 0) {
-          const cardsToDraw = ability.value || 1;
-          const cardsDrawn = Math.min(cardsToDraw, drawDeck.length);
-          const drawnCards = drawDeck.slice(-cardsDrawn);
-
-          setPlayerState((prev) => ({
-            ...prev,
-            handCards: [...prev.handCards, ...drawnCards],
-          }));
-          setDrawDeck((prev) => prev.slice(0, -cardsDrawn));
-
-          alert(`Drew ${cardsDrawn} card${cardsDrawn !== 1 ? 's' : ''}!`);
-        } else {
-          alert('Draw deck is empty!');
-        }
-        break;
-
-      case 'damage':
-        // Enter damage targeting mode
-        setDamageMode(true);
-        setDamageSource(card);
-        setDamageValue(ability.value || 1);
-        // Store the message to show during targeting
-        alert(`Select an unprotected enemy card to damage`);
-        break;
-
-      case 'restore':
-        // Check if there are any damaged cards (person or camp)
-        const hasDamagedCard = [...playerState.personSlots, ...playerState.campSlots].some(
-          (card) => card && card.isDamaged
-        );
-
-        if (!hasDamagedCard) {
-          alert('No damaged cards to restore!');
-
-          // Refund the water cost
-          setPlayerState((prev) => ({
-            ...prev,
-            waterCount: prev.waterCount + ability.cost,
-          }));
-
-          // Mark the card as ready again since the ability wasn't actually used
-          if (location.type === 'camp') {
-            setPlayerState((prev) => ({
-              ...prev,
-              campSlots: prev.campSlots.map((camp, idx) =>
-                idx === location.index ? { ...camp, isReady: true } : camp
-              ),
-            }));
-          } else if (location.type === 'person') {
-            setPlayerState((prev) => ({
-              ...prev,
-              personSlots: prev.personSlots.map((person, idx) =>
-                idx === location.index ? { ...person, isReady: true } : person
-              ),
-            }));
-          }
-
-          return; // Exit without entering restore mode
-        }
-
-        // If we have damaged cards, proceed as normal
-        setAbilityRestoreMode(true);
-        setRestoreSource(card);
-        alert(`Select a damaged card to restore`);
-        break;
-
       case 'raid': {
         console.log('Raid ability triggered');
 
@@ -3537,12 +3468,6 @@ const GameBoard = () => {
         setDiscardSelectionActive(true);
         break;
 
-      case 'injure':
-        // Enter injure targeting mode
-        setInjureMode(true);
-        alert(`Select an unprotected enemy person to injure`);
-        break;
-
       case 'return_to_hand':
         // Enter return to hand mode
         setReturnToHandMode(true);
@@ -3634,6 +3559,7 @@ const GameBoard = () => {
         (gameBoardRef.current as any).restoreSourceIndex = index;
       }
     },
+    setInjureMode,
   };
 
   return (
