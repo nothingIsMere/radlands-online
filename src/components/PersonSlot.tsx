@@ -159,6 +159,295 @@ const PersonSlot = ({
       });
     }
   }, [restoreMode, card, player, restorePlayer, index, isInteractable]);
+
+  const handlePunkPlacement = () => {
+    if (punkPlacementMode && !card && punkCardToPlace) {
+      setPlayerState((prev) => {
+        const punkShouldBeReady = true; // For testing purposes
+
+        return {
+          ...prev,
+          personSlots: prev.personSlots.map((slot, i) =>
+            i === index
+              ? {
+                  id: punkCardToPlace.id,
+                  name: 'Punk',
+                  type: 'person',
+                  isPunk: true,
+                  isReady: punkShouldBeReady,
+                }
+              : slot
+          ),
+          peoplePlayedThisTurn: prev.peoplePlayedThisTurn + 1,
+        };
+      });
+
+      if (setPunkPlacementMode) setPunkPlacementMode(false);
+      if (setPunkCardToPlace) setPunkCardToPlace(null);
+      return true;
+    }
+    return false;
+  };
+
+  const handleCardAbilityActivation = () => {
+    if (
+      gameState.currentPhase === 'actions' &&
+      player === gameState.currentTurn &&
+      card &&
+      card.isReady &&
+      card.abilities?.length > 0
+    ) {
+      // Check if ability can be used
+      if (checkAbilityEnabled && !checkAbilityEnabled(card)) {
+        return true; // Handled but ability check failed
+      }
+
+      // Handle Argo Yesky effect
+      let cardToUse = card;
+      const hasArgoYeskyEffect = hasArgoYeskyTrait(playerState);
+
+      if (hasArgoYeskyEffect) {
+        const argoYeskyAbility = {
+          effect: 'Do 1 damage to an unprotected enemy card (via Argo Yesky)',
+          cost: 1,
+          type: 'damage',
+          target: 'any',
+          value: 1,
+        };
+
+        const newAbilities =
+          cardToUse.abilities?.length > 0 ? [...cardToUse.abilities, argoYeskyAbility] : [argoYeskyAbility];
+
+        cardToUse = { ...card, abilities: newAbilities };
+      }
+
+      // Open ability modal
+      if (setSelectedCard) setSelectedCard(cardToUse);
+      if (setSelectedCardLocation) setSelectedCardLocation({ type: 'person', index: index });
+      if (setIsAbilityModalOpen) setIsAbilityModalOpen(true);
+
+      return true;
+    }
+    return false;
+  };
+
+  const handleMultiRestore = () => {
+    if (multiRestoreMode && card?.isDamaged && player === gameState.currentTurn) {
+      if (applyRestore) {
+        applyRestore(card, index, player === 'right');
+      }
+      return true;
+    }
+    return false;
+  };
+
+  const handleConstructionYard = () => {
+    // Construction Yard person selection
+    if (constructionYardSelectingPerson && card && onPersonSelected) {
+      onPersonSelected(card, index, player);
+      return true;
+    }
+
+    // Construction Yard destination selection
+    if (constructionYardSelectingDestination && onDestinationSelected) {
+      onDestinationSelected(index, player);
+      return true;
+    }
+
+    return false;
+  };
+
+  const processOctagonSacrifice = () => {
+    if (octagonSacrificeMode && handleOctagonSacrifice) {
+      handleOctagonSacrifice(card, index, player === 'right');
+      return true;
+    }
+
+    if (octagonOpponentSacrificeMode && handleOctagonOpponentSacrifice) {
+      handleOctagonOpponentSacrifice(card, index, player === 'right');
+      return true;
+    }
+
+    return false;
+  };
+
+  const handleDamageAndTargeting = () => {
+    if (opponentChoiceDamageMode && gameState.currentTurn !== player && card) {
+      if (applyDamage) {
+        applyDamage(card, index, player === 'right');
+      }
+      return true;
+    }
+
+    if (damageMode && card && (sniperMode || !card.isProtected)) {
+      applyDamage(card, index, player === 'right');
+      return true;
+    }
+
+    return false;
+  };
+
+  const handleRestoreTargeting = () => {
+    if (restorePersonReadyMode && player === gameState.currentTurn && card?.isDamaged) {
+      applyRestore(card, index, player === 'right');
+      return true;
+    }
+
+    if (abilityRestoreMode && card && card.isDamaged) {
+      applyRestore(card, index, player === 'right');
+      return true;
+    }
+
+    if (restoreMode && card?.isDamaged && player === restorePlayer) {
+      setPlayerState((prev) => ({
+        ...prev,
+        personSlots: prev.personSlots.map((slot, i) =>
+          i === index ? { ...slot, isDamaged: false, isReady: false } : slot
+        ),
+      }));
+      if (setRestoreMode) setRestoreMode(false);
+
+      // Reset restore source index
+      const gameBoard = document.getElementById('game-board');
+      if (gameBoard && (gameBoard as any).setRestoreSourceIndex) {
+        (gameBoard as any).setRestoreSourceIndex(undefined);
+      }
+      return true;
+    }
+
+    return false;
+  };
+
+  const handleOtherActions = () => {
+    if (injureMode && card && !card.isProtected) {
+      if (card.isPunk || card.isDamaged) {
+        alert(`${card.isPunk ? 'Punk' : 'Damaged card'} destroyed!`);
+        destroyCard(card, index, player === 'right');
+      } else {
+        setPlayerState((prev) => ({
+          ...prev,
+          personSlots: prev.personSlots.map((slot, i) =>
+            i === index ? { ...slot, isDamaged: true, isReady: false } : slot
+          ),
+        }));
+      }
+
+      if (setInjureMode) setInjureMode(false);
+      if (isAbilityActive()) completeAbility();
+      return true;
+    }
+
+    if (destroyPersonMode && card && !card.isProtected) {
+      alert(`${card.name} was destroyed!`);
+      destroyCard(card, index, player === 'right');
+
+      // Reset destroy person mode
+      if (typeof window !== 'undefined') {
+        const gameBoard = document.getElementById('game-board');
+        if (gameBoard && (gameBoard as any).setDestroyPersonMode) {
+          (gameBoard as any).setDestroyPersonMode(false);
+        }
+      }
+      return true;
+    }
+
+    if (returnToHandMode && card && player === gameState.currentTurn) {
+      handleReturnToHand();
+      return true;
+    }
+
+    if (sacrificeMode && card && player === gameState.currentTurn) {
+      handleSacrifice();
+      return true;
+    }
+
+    if (mimicMode && card) {
+      handleMimic();
+      return true;
+    }
+
+    return false;
+  };
+
+  // Helper functions for the above handlers
+  const handleReturnToHand = () => {
+    setPlayerState((prev) => {
+      const updatedHandCards = [...prev.handCards, card];
+      const updatedPersonSlots = prev.personSlots.map((slot, i) => (i === index ? null : slot));
+      const columnIndex = Math.floor(index / 2);
+      const { personSlots, campSlots } = updateProtectedStatus(updatedPersonSlots, prev.campSlots, columnIndex);
+
+      return {
+        ...prev,
+        handCards: updatedHandCards,
+        personSlots,
+        campSlots,
+      };
+    });
+
+    if (setReturnToHandMode) setReturnToHandMode(false);
+    alert(`${card.name} returned to your hand!`);
+  };
+
+  const handleSacrifice = () => {
+    // Destroy the card
+    destroyCard(card, index, player === 'right');
+
+    // Handle sacrifice effects
+    if (sacrificePendingDamage) {
+      setSacrificePendingDamage(false);
+      setDamageMode(true);
+      setDamageValue(1);
+      alert('Now select an enemy card to damage');
+    } else if (sacrificeEffect === 'draw') {
+      handleSacrificeDrawEffect();
+    } else if (sacrificeEffect === 'water') {
+      setPlayerState((prev) => ({
+        ...prev,
+        waterCount: prev.waterCount + 1,
+      }));
+      alert(`Sacrificed ${card.name} and gained 1 water`);
+    } else if (sacrificeEffect === 'restore') {
+      if (setRestoreMode) {
+        setRestoreMode(true);
+        if (setRestorePlayer) {
+          setRestorePlayer(player);
+        }
+        alert(`Sacrificed ${card.name}. Now select a damaged card to restore.`);
+      }
+    }
+
+    // Reset sacrifice mode
+    setSacrificeMode(false);
+    if (setSacrificeEffect) setSacrificeEffect(null);
+    if (setSacrificeSource) setSacrificeSource(null);
+  };
+
+  const handleSacrificeDrawEffect = () => {
+    if (drawDeck && drawDeck.length > 0 && setDrawDeck) {
+      const drawnCard = drawDeck[drawDeck.length - 1];
+      setPlayerState((prev) => ({
+        ...prev,
+        handCards: [...prev.handCards, drawnCard],
+      }));
+      setDrawDeck((prev) => prev.slice(0, -1));
+      alert(`Sacrificed ${card.name} and drew a card: ${drawnCard.name}`);
+    } else {
+      alert(`Sacrificed ${card.name}, but couldn't draw a card.`);
+    }
+  };
+
+  const handleMimic = () => {
+    alert(`Mimicking ${card.name}'s ability!`);
+
+    if (card.abilities && card.abilities.length > 0) {
+      if (setSelectedCard) setSelectedCard(card);
+      if (setSelectedCardLocation) setSelectedCardLocation({ type: 'person', index });
+      if (setIsAbilityModalOpen) setIsAbilityModalOpen(true);
+    } else {
+      alert('This card has no abilities to mimic!');
+    }
+  };
   return (
     <div
       className={`w-24 h-32 border-2 ${
@@ -184,315 +473,18 @@ const PersonSlot = ({
           : 'border-gray-400'
       } rounded bg-gray-700 mb-4`}
       onClick={() => {
-        // Construction Yard person selection (must be before all other card-specific conditions)
-        if (constructionYardSelectingPerson && card && isInteractable('person', player, index) && onPersonSelected) {
-          onPersonSelected(card, index, player);
-          return;
-        }
-
-        // Construction Yard destination selection (must handle both empty and occupied slots)
-        if (constructionYardSelectingDestination && isInteractable('person', player, index) && onDestinationSelected) {
-          onDestinationSelected(index, player);
-          return;
-        }
-        if (multiRestoreMode && card?.isDamaged && player === gameState.currentTurn) {
-          // Use the proper applyRestore function that was passed as a prop
-          if (applyRestore) {
-            applyRestore(card, index, player === 'right');
-          }
-          return; //
-        }
-        // Only allow interaction if the element is interactable
+        // Only proceed if interaction is allowed
         if (!isInteractable('person', player, index)) return;
 
-        if (punkPlacementMode && !card && punkCardToPlace) {
-          setPlayerState((prev) => {
-            // For testing purposes, always make punks enter Ready regardless of Argo Yesky
-            const punkShouldBeReady = true; // Always true for testing
-
-            return {
-              ...prev,
-              personSlots: prev.personSlots.map((slot, i) =>
-                i === index
-                  ? {
-                      id: punkCardToPlace.id,
-                      name: 'Punk',
-                      type: 'person',
-                      isPunk: true,
-                      isReady: punkShouldBeReady,
-                    }
-                  : slot
-              ),
-              peoplePlayedThisTurn: prev.peoplePlayedThisTurn + 1,
-            };
-          });
-
-          if (setPunkPlacementMode) setPunkPlacementMode(false);
-          if (setPunkCardToPlace) setPunkCardToPlace(null);
-        } else if (
-          gameState.currentPhase === 'actions' &&
-          player === gameState.currentTurn &&
-          card &&
-          card.isReady &&
-          card.abilities?.length > 0
-        ) {
-          // Open ability modal for this card
-          if (setSelectedCard && setSelectedCardLocation && setIsAbilityModalOpen) {
-            setSelectedCard(card);
-            setSelectedCardLocation({ type: 'person', index: index });
-            setIsAbilityModalOpen(true);
-          }
-        } else if (octagonSacrificeMode && isInteractable('person', player, index) && handleOctagonSacrifice) {
-          // Handle the current player sacrificing their person
-          handleOctagonSacrifice(card, index, player === 'right');
-        } else if (
-          octagonOpponentSacrificeMode &&
-          isInteractable('person', player, index) &&
-          handleOctagonOpponentSacrifice
-        ) {
-          // Handle the opponent sacrificing their person
-          handleOctagonOpponentSacrifice(card, index, player === 'right');
-        } else if (opponentChoiceDamageMode && gameState.currentTurn !== player && card) {
-          // Apply damage to the card
-          if (applyDamage) {
-            applyDamage(card, index, player === 'right');
-          }
-
-          // Reset the opponent choice mode is handled in applyDamage function
-          return;
-        } else if (octagonSacrificeMode && isInteractable('person', player, index)) {
-          // Handle the current player sacrificing their person
-          handleOctagonSacrifice(card, index, player === 'right');
-        } else if (octagonOpponentSacrificeMode && isInteractable('person', player, index)) {
-          // Handle the opponent sacrificing their person
-          handleOctagonOpponentSacrifice(card, index, player === 'right');
-        } else if (sacrificeMode && card && player === gameState.currentTurn) {
-          // Destroy the card
-          destroyCard(card, index, player === 'right');
-
-          // Check if this sacrifice is part of the Catapult ability sequence
-          if (sacrificePendingDamage) {
-            // Reset the pending damage flag
-            setSacrificePendingDamage(false);
-
-            // Reset other targeting modes
-            setDamageMode(false);
-            setDamageSource(null);
-            setDamageValue(0);
-            setSniperMode(false);
-
-            alert(`Sacrificed ${card.name}. Catapult ability complete.`);
-          }
-          // Handle other sacrifice effects
-          else if (sacrificeEffect === 'draw') {
-            if (drawDeck && drawDeck.length > 0 && setDrawDeck) {
-              const drawnCard = drawDeck[drawDeck.length - 1];
-              // Add to player's hand
-              setPlayerState((prev) => ({
-                ...prev,
-                handCards: [...prev.handCards, drawnCard],
-              }));
-              // Remove from draw deck
-              setDrawDeck((prev) => prev.slice(0, -1));
-              alert(`Sacrificed ${card.name} and drew a card: ${drawnCard.name}`);
-            } else {
-              alert(`Sacrificed ${card.name}, but couldn't draw a card.`);
-            }
-          } else if (sacrificeEffect === 'water') {
-            // Use the current setPlayerState prop that's already available
-            setPlayerState((prev) => ({
-              ...prev,
-              waterCount: prev.waterCount + 1,
-            }));
-            alert(`Sacrificed ${card.name} and gained 1 water`);
-          } else if (sacrificeEffect === 'restore') {
-            // Enter restore mode
-            if (setRestoreMode) {
-              setRestoreMode(true);
-              if (setRestorePlayer) {
-                setRestorePlayer(player);
-              }
-              alert(`Sacrificed ${card.name}. Now select a damaged card to restore.`);
-            }
-          }
-
-          // Reset sacrifice mode
-          setSacrificeMode(false);
-          if (setSacrificeEffect) setSacrificeEffect(null);
-          if (setSacrificeSource) setSacrificeSource(null);
-        } else if (restorePersonReadyMode && player === gameState.currentTurn && card?.isDamaged) {
-          applyRestore(card, index, player === 'right');
-        } else if (returnToHandMode && card && player === gameState.currentTurn) {
-          // Return the card to the player's hand
-          setPlayerState((prev) => {
-            // Add the card to hand
-            const updatedHandCards = [...prev.handCards, card];
-
-            // Remove the card from its slot
-            const updatedPersonSlots = prev.personSlots.map((slot, i) => (i === index ? null : slot));
-
-            // Update protection status
-            const columnIndex = Math.floor(index / 2);
-            const { personSlots, campSlots } = updateProtectedStatus(updatedPersonSlots, prev.campSlots, columnIndex);
-
-            return {
-              ...prev,
-              handCards: updatedHandCards,
-              personSlots,
-              campSlots,
-            };
-          });
-
-          // Reset return to hand mode
-          if (setReturnToHandMode) setReturnToHandMode(false);
-          alert(`${card.name} returned to your hand!`);
-        } else if (restoreMode && card?.isDamaged && player === restorePlayer) {
-          setPlayerState((prev) => ({
-            ...prev,
-            personSlots: prev.personSlots.map((slot, i) =>
-              i === index ? { ...slot, isDamaged: false, isReady: false } : slot
-            ),
-          }));
-          if (setRestoreMode) setRestoreMode(false);
-          // Reset restore source index when we exit restore mode
-          const gameBoard = document.getElementById('game-board');
-          if (gameBoard && (gameBoard as any).setRestoreSourceIndex) {
-            (gameBoard as any).setRestoreSourceIndex(undefined);
-          }
-        }
-        if (injureMode && card && !card.isProtected) {
-          if (card.isPunk || card.isDamaged) {
-            alert(`${card.isPunk ? 'Punk' : 'Damaged card'} destroyed!`);
-            destroyCard(card, index, player === 'right');
-          } else {
-            setPlayerState((prev) => ({
-              ...prev,
-              personSlots: prev.personSlots.map((slot, i) =>
-                i === index ? { ...slot, isDamaged: true, isReady: false } : slot
-              ),
-            }));
-          }
-
-          // Reset inject mode
-          if (setInjureMode) setInjureMode(false);
-
-          // Complete the ability if one is active
-          if (isAbilityActive()) {
-            completeAbility();
-          }
-        } else if (damageMode && card && (sniperMode || !card.isProtected)) {
-          // Handle damage targeting - call the applyDamage function
-          applyDamage(card, index, player === 'right');
-        } else if (abilityRestoreMode && card && card.isDamaged) {
-          // Handle restore targeting
-          applyRestore(card, index, player === 'right');
-        } else if (destroyPersonMode && card && !card.isProtected) {
-          // Handle destroy person targeting - directly destroy the card
-          alert(`${card.name} was destroyed!`);
-          destroyCard(card, index, player === 'right');
-
-          // Reset destroy person mode
-          if (typeof window !== 'undefined') {
-            // Look for global setDestroyPersonMode function in GameBoard
-            const gameBoard = document.getElementById('game-board');
-            if (gameBoard && (gameBoard as any).setDestroyPersonMode) {
-              (gameBoard as any).setDestroyPersonMode(false);
-            }
-          }
-        } else if (sacrificeMode && card && player === gameState.currentTurn) {
-          // Handle sacrificing this card
-          alert(`${card.name} sacrificed!`);
-
-          // Destroy the card
-          destroyCard(card, index, player === 'right');
-
-          // Reset sacrifice mode and enable damage mode
-          setSacrificeMode(false);
-          setSacrificePendingDamage(true);
-          setDamageMode(true);
-          setDamageValue(1);
-
-          alert('Now select an enemy card to damage');
-        } else if (mimicMode && card) {
-          // Handle mimicking this card's ability
-          alert(`Mimicking ${card.name}'s ability!`);
-
-          // Execute the target card's ability
-          if (card.abilities && card.abilities.length > 0) {
-            // We'll use the first ability of the target card
-            const abilityToMimic = card.abilities[0];
-
-            // Open the ability modal to use the ability
-            if (setSelectedCard) setSelectedCard(card);
-            if (setSelectedCardLocation) setSelectedCardLocation({ type: 'person', index });
-            if (setIsAbilityModalOpen) setIsAbilityModalOpen(true);
-          } else {
-            alert('This card has no abilities to mimic!');
-          }
-        } else if (gameState.currentPhase === 'actions' && player === gameState.currentTurn && card) {
-          // Check if card is ready
-          const isCardReady = card.isReady;
-          const isPunk = card.isPunk;
-          const hasNativeAbilities = card.abilities?.length > 0;
-
-          // Check if player has an undamaged Argo Yesky in play
-          const hasArgoYeskyEffect = hasArgoYeskyTrait(playerState);
-
-          // Card can use ability if:
-          // 1. It's ready and has native abilities, OR
-          // 2. It's ready and Argo Yesky is in play (which grants all cards a damage ability)
-          if (isCardReady && (hasNativeAbilities || hasArgoYeskyEffect)) {
-            console.log('Opening ability modal for:', card.name);
-
-            // Check if ability can be used
-            if (checkAbilityEnabled && !checkAbilityEnabled(card)) {
-              return; // Don't open ability modal if ability check fails
-            }
-
-            // Prepare the card to use in the ability modal
-            let cardToUse = card;
-
-            // If Argo Yesky is in play, add or append the damage ability
-            if (hasArgoYeskyEffect) {
-              const argoYeskyAbility = {
-                effect: 'Do 1 damage to an unprotected enemy card (via Argo Yesky)',
-                cost: 1,
-                type: 'damage',
-                target: 'any',
-                value: 1,
-              };
-
-              // If card already has abilities, add Argo's ability to the list
-              // Otherwise create a new abilities array with just Argo's ability
-              const newAbilities =
-                cardToUse.abilities?.length > 0 ? [...cardToUse.abilities, argoYeskyAbility] : [argoYeskyAbility];
-
-              cardToUse = {
-                ...card,
-                abilities: newAbilities,
-              };
-            }
-
-            // Open ability modal for this card
-            if (typeof setSelectedCard === 'function') {
-              console.log('setSelectedCard exists');
-              setSelectedCard(cardToUse);
-            } else {
-              console.log('setSelectedCard is not a function');
-            }
-
-            if (typeof setSelectedCardLocation === 'function') {
-              setSelectedCardLocation({ type: 'person', index: index });
-            }
-
-            if (typeof setIsAbilityModalOpen === 'function') {
-              console.log('Opening modal');
-              setIsAbilityModalOpen(true);
-            } else {
-              console.log('setIsAbilityModalOpen is not a function');
-            }
-          }
-        }
+        // Try each handler in sequence, stopping when one succeeds
+        if (handleConstructionYard()) return;
+        if (handleMultiRestore()) return;
+        if (handlePunkPlacement()) return;
+        if (processOctagonSacrifice()) return;
+        if (handleDamageAndTargeting()) return;
+        if (handleRestoreTargeting()) return;
+        if (handleOtherActions()) return;
+        if (handleCardAbilityActivation()) return;
       }}
       onDragOver={(e) => {
         e.preventDefault();

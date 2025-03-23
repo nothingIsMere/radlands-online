@@ -1,7 +1,7 @@
 // handlers/damageAbilityHandler.ts
 
 import { AbilityContext } from '../types/abilities';
-import { AbilityService } from '../services/abilityService';
+import { AbilityService } from '../../services/abilityService';
 
 export const damageAbilityHandler = (context: AbilityContext): void => {
   const { ability, stateSetters } = context;

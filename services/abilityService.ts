@@ -1,29 +1,64 @@
 // services/abilityService.ts
-
-import { AbilityContext } from '../types/abilities';
+import { AbilityContext, Ability } from '../types/abilities';
+import { AbilityRegistry } from './abilityRegistry';
+import { deductWaterCost, markCardUsedAbility } from '../src/utils/abilityUtils';
+import { hasVeraVoshTrait } from '../src/utils/gameUtils';
 
 export class AbilityService {
-  private static activeAbility: AbilityContext | null = null;
-  
-  static startAbility(context: AbilityContext): void {
-    this.activeAbility = context;
-    console.log(`Starting ability: ${context.ability.type} from ${context.sourceCard.name}`);
+  private static isActive: boolean = false;
+  private static currentContext: AbilityContext | null = null;
+
+  static executeAbility(context: AbilityContext): void {
+    const { 
+      sourceCard, 
+      sourceLocation, 
+      player, 
+      ability, 
+      gameState, 
+      playerState, 
+      stateSetters,
+      opponentState
+    } = context;
+
+    // Mark the ability as active
+    this.isActive = true;
+    this.currentContext = context;
+
+    // Deduct water cost
+    deductWaterCost(
+      player,
+      ability.cost,
+      player === 'left' ? playerState : opponentState,
+      player === 'right' ? playerState : opponentState,
+      stateSetters.setLeftPlayerState,
+      stateSetters.setRightPlayerState
+    );
+
+    // Mark the card as having used an ability
+    const hasVeraVoshEffect = hasVeraVoshTrait(playerState);
+    
+    // Call the appropriate handler
+    const handler = AbilityRegistry.getHandler(ability.type);
+    if (handler) {
+      // Execute the ability handler
+      handler(context);
+    } else {
+      console.error(`No handler registered for ability type: ${ability.type}`);
+      this.completeAbility();
+    }
   }
-  
+
   static completeAbility(): void {
-    if (!this.activeAbility) return;
-    
-    const context = this.activeAbility;
-    this.activeAbility = null;
-    
-    console.log(`Completing ability: ${context.ability.type} from ${context.sourceCard.name}`);
+    // Mark the ability as completed
+    this.isActive = false;
+    this.currentContext = null;
   }
-  
+
   static isAbilityActive(): boolean {
-    return this.activeAbility !== null;
+    return this.isActive;
   }
-  
-  static getActiveAbility(): AbilityContext | null {
-    return this.activeAbility;
+
+  static getCurrentContext(): AbilityContext | null {
+    return this.currentContext;
   }
 }

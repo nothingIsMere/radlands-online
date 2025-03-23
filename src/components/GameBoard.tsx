@@ -27,6 +27,8 @@ import { gameLogger } from '@/utils/actionLogger';
 import { createEndTurnAction } from '@/utils/actionCreators';
 import { AbilityProvider } from '../../components/AbilityManager';
 import { AbilityModal } from '../../components/AbilityModal';
+import { initializeAbilitySystem } from '../../utils/abilityExecutor';
+import { AbilityService } from '../../services/abilityService';
 
 interface PlayerState {
   handCards: Card[];
@@ -100,10 +102,6 @@ const rightWaterSiloCard: Card = {
 };
 
 const GameBoard = () => {
-  const debugWithAlert = (message) => {
-    alert(`DEBUG: ${message}`);
-  };
-
   const executeCacheAbility = (
     card: Card,
     location: { type: 'person' | 'camp'; index: number } | null,
@@ -1109,7 +1107,7 @@ const GameBoard = () => {
     ],
 
     // No people in person slots
-    personSlots: [createPerson('vigilante'), null, null, null, null, null],
+    personSlots: [createPerson('argo-yesky'), null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
     campSlots: [createCamp('omen-clock'), createCamp('construction-yard'), { ...createCamp('oasis'), isDamaged: true }],
@@ -1123,7 +1121,7 @@ const GameBoard = () => {
   });
 
   const rightTestPersonSlots: (Card | null)[] = [
-    createPerson('vigilante'), // Front row, column 1 - Added a Vigilante here
+    { ...createPerson('vigilante'), isDamaged: true }, // Front row, column 1 - Added a Vigilante here
     null, // Back row, column 1
     createPerson('muse'), // Front row, column 2 - Added a Muse here
     null, // Back row, column 2
@@ -1144,7 +1142,7 @@ const GameBoard = () => {
   const [rightPlayerState, setRightPlayerState] = useState<PlayerState>({
     handCards: [...rightTestCards],
     personSlots: initializedRightTestPersonSlots,
-    eventSlots: [null, null, null],
+    eventSlots: [createEvent('attack'), null, null],
 
     campSlots: initializedRightTestCamps,
     waterSiloInHand: false,
@@ -1403,6 +1401,53 @@ const GameBoard = () => {
     alert(`Opponent's events have been delayed in the queue!`);
   };
 
+  const stateSetters = {
+    setLeftPlayerState,
+    setRightPlayerState,
+    setDamageMode,
+    setDamageValue,
+    setDamageSource,
+    setDrawDeck,
+    setRestoreMode,
+    setRestorePlayer,
+    setRestoreSourceIndex: (index: number | undefined) => {
+      if (gameBoardRef.current) {
+        (gameBoardRef.current as any).restoreSourceIndex = index;
+      }
+    },
+    setInjureMode,
+    setSniperMode,
+    setCampDamageMode,
+    setDamageColumnMode,
+    setDestroyPersonMode,
+    setDestroyCampMode,
+    setReturnToHandMode,
+    setMultiRestoreMode,
+    setMutantModalOpen,
+    setMutantSourceCard,
+    setMutantSourceLocation,
+    setMutantPendingAction,
+    setSacrificeMode,
+    setSacrificePendingDamage,
+    setVanguardPendingCounter,
+    setPunkCardToPlace,
+    setPunkPlacementMode,
+    setDiscardSelectionCount,
+    setDiscardSelectionActive,
+    setCampRaidMode,
+    setRaidingPlayer,
+    setRaidMessage,
+    setLeftPlayedEventThisTurn,
+    setRightPlayedEventThisTurn,
+    setDiscardPile,
+    setScientistCards,
+    setIsScientistModalOpen,
+    setConstructionYardActive,
+    setConstructionYardSelectingPerson,
+    setConstructionYardSelectingDestination,
+    setConstructionYardSelectedPerson,
+  };
+
   useEffect(() => {
     return () => {
       // Clean up on unmount
@@ -1446,6 +1491,16 @@ const GameBoard = () => {
       (gameBoardRef.current as any).addToDiscardPile = addToDiscardPile;
     }
   }, []); // Remove dependencies to avoid re-assigning on every state change
+
+  useEffect(() => {
+    // Initialize the ability system when the component mounts
+    try {
+      initializeAbilitySystem();
+      console.log('Ability system initialized successfully');
+    } catch (error) {
+      console.error('Error initializing ability system:', error);
+    }
+  }, []);
 
   const [gameState, setGameState] = useState<GameTurnState>({
     currentTurn: 'left', // left player starts
@@ -2399,80 +2454,6 @@ const GameBoard = () => {
 
     // Handle ability effects based on type
     switch (ability.type) {
-      case 'move_person':
-        // Check if there are any people on the board to move
-        const leftHasPeople = leftPlayerState.personSlots.some((slot) => slot !== null);
-        const rightHasPeople = rightPlayerState.personSlots.some((slot) => slot !== null);
-
-        if (!leftHasPeople && !rightHasPeople) {
-          alert('There are no people to move on either side.');
-
-          // Refund water cost
-          setPlayerState((prev) => ({
-            ...prev,
-            waterCount: prev.waterCount + ability.cost,
-          }));
-
-          // Keep camp ready
-          if (location.type === 'camp') {
-            setPlayerState((prev) => ({
-              ...prev,
-              campSlots: prev.campSlots.map((camp, idx) =>
-                idx === location.index ? { ...camp, isReady: true } : camp
-              ),
-            }));
-          }
-          return;
-        }
-
-        // Enter person selection mode
-        setConstructionYardActive(true);
-        setConstructionYardSelectingPerson(true);
-
-        alert("Select a person to move (you can select your own or your opponent's people).");
-        break;
-
-      case 'advance_event':
-        // Check if there are any events that can be advanced
-        const leftAdvanceableEvents = leftPlayerState.eventSlots.some(
-          (event, index) => event !== null && canEventBeAdvanced(event, index, 'left')
-        );
-
-        const rightAdvanceableEvents = rightPlayerState.eventSlots.some(
-          (event, index) => event !== null && canEventBeAdvanced(event, index, 'right')
-        );
-
-        if (!leftAdvanceableEvents && !rightAdvanceableEvents) {
-          alert('There are no events that can be advanced (events need an empty space ahead of them).');
-
-          // Don't mark the camp as used since ability couldn't be executed
-          if (location.type === 'camp') {
-            setPlayerState((prev) => ({
-              ...prev,
-              campSlots: prev.campSlots.map((camp, idx) =>
-                idx === location.index ? { ...camp, isReady: true } : camp
-              ),
-            }));
-          }
-
-          // Refund water cost
-          setPlayerState((prev) => ({
-            ...prev,
-            waterCount: prev.waterCount + ability.cost,
-          }));
-
-          return;
-        }
-
-        // Store the Omen Clock location
-        setOmenClockLocation(location);
-
-        // Enter event selection mode
-        setOmenClockActive(true);
-
-        alert('Select an event to advance by 1 queue position. The event must have an empty space ahead of it.');
-        break;
-
       case 'exclusive_damage':
         // Set the state to indicate Resonator has been used
         setResonatorUsedThisTurn(true);
@@ -2508,135 +2489,6 @@ const GameBoard = () => {
         setScavengerCampLocation(location);
 
         alert('Select a card from your hand to discard (Water Silo cannot be selected).');
-        break;
-      case 'sacrifice_for_opponent_sacrifice':
-        // Check if the player has any people to sacrifice
-        const hasPeopleToSacrifice = playerState.personSlots.some((slot) => slot !== null && !slot.isPunk);
-
-        if (!hasPeopleToSacrifice) {
-          alert('You have no people to sacrifice!');
-
-          // Refund the water cost
-          setPlayerState((prev) => ({
-            ...prev,
-            waterCount: prev.waterCount + ability.cost,
-          }));
-
-          // Don't mark the card as used since ability couldn't be executed
-          if (location.type === 'camp') {
-            setPlayerState((prev) => ({
-              ...prev,
-              campSlots: prev.campSlots.map((camp, idx) =>
-                idx === location.index ? { ...camp, isReady: true } : camp
-              ),
-            }));
-          }
-          return;
-        }
-
-        // Store the source card for reference
-        setOctagonSourceCard(card);
-
-        // Enter sacrifice mode for current player
-        setOctagonSacrificeMode(true);
-
-        alert(`Select one of your people to sacrifice. Your opponent will then have to sacrifice one of theirs.`);
-        break;
-
-      case 'destroy_all_people':
-        const reactorCard = card;
-        // First destroy the Reactor camp itself
-        const reactorIndex = location.index;
-
-        // Show confirmation dialog
-        const confirmDestruction = window.confirm(
-          'Are you sure you want to activate the Reactor? This will destroy the Reactor and ALL people on both sides.'
-        );
-
-        if (!confirmDestruction) {
-          // Refund the water cost
-          setPlayerState((prev) => ({
-            ...prev,
-            waterCount: prev.waterCount + ability.cost,
-          }));
-          return; // Don't execute if user cancels
-        }
-
-        // Destroy all people from both players
-
-        leftPlayerState.personSlots.forEach((person, index) => {
-          // Make sure we only process actual person cards that exist
-          if (person && person.type === 'person') {
-            // For punks, return to draw deck
-            if (person.isPunk) {
-              const cleanedCard = {
-                id: person.id,
-                name: person.name || 'Unknown Card',
-                type: 'person',
-              };
-              setDrawDeck((prev) => [cleanedCard, ...prev]);
-            }
-            // Regular cards go to discard pile
-            else {
-              setDiscardPile((prev) => [...prev, person]);
-            }
-          }
-        });
-
-        // Clear all left player person slots
-        setLeftPlayerState((prev) => ({
-          ...prev,
-          personSlots: [null, null, null, null, null, null],
-        }));
-
-        rightPlayerState.personSlots.forEach((person, index) => {
-          // Make sure we only process actual person cards that exist
-          if (person && person.type === 'person') {
-            // For punks, return to draw deck
-            if (person.isPunk) {
-              const cleanedCard = {
-                id: person.id,
-                name: person.name || 'Unknown Card',
-                type: 'person',
-              };
-              setDrawDeck((prev) => [cleanedCard, ...prev]);
-            }
-            // Regular cards go to discard pile
-            else {
-              setDiscardPile((prev) => [...prev, person]);
-            }
-          }
-        });
-
-        // Clear all right player person slots
-        setRightPlayerState((prev) => ({
-          ...prev,
-          personSlots: [null, null, null, null, null, null],
-        }));
-
-        // Finally, destroy the Reactor itself
-        if (card && card.type === 'camp') {
-          destroyCamp(card, reactorIndex, gameState.currentTurn === 'right');
-        } else {
-          setPlayerState((prev) => ({
-            ...prev,
-            campSlots: prev.campSlots.map((camp, idx) => (idx === reactorIndex ? null : camp)),
-          }));
-        }
-
-        // Update protection status for both players
-        setLeftPlayerState((prev) => {
-          const { personSlots, campSlots } = updateProtectionStatus(prev.personSlots, prev.campSlots);
-          return { ...prev, personSlots, campSlots };
-        });
-
-        setRightPlayerState((prev) => {
-          const { personSlots, campSlots } = updateProtectionStatus(prev.personSlots, prev.campSlots);
-          return { ...prev, personSlots, campSlots };
-        });
-
-        alert('Nuclear meltdown! The Reactor and all people have been destroyed.');
-
         break;
 
       case 'damage_then_sacrifice':
@@ -2855,14 +2707,6 @@ const GameBoard = () => {
           return; // Exit without executing ability
         }
         break;
-      case 'raid_and_punk':
-        // Store the card and location for use in the modal
-        setCacheCard(card);
-        setCacheLocation(location);
-
-        // Show modal to let player choose execution order
-        setShowCacheModal(true);
-        break;
 
       case 'sacrifice_for_restore':
         // Get the current player's state
@@ -2906,25 +2750,6 @@ const GameBoard = () => {
 
         // If we have people, proceed with the sacrifice mode
         initiateSacrificeMode('water', card, location, setSacrificeMode, setSacrificeEffect, setSacrificeSource);
-        break;
-
-      // For Supply Depot
-      case 'draw_then_discard':
-        // Use the utility function
-        handleDrawThenDiscard(
-          2, // drawCount
-          1, // discardCount
-          drawDeck,
-          setDrawDeck,
-          gameState.currentTurn,
-          leftPlayerState,
-          rightPlayerState,
-          setLeftPlayerState,
-          setRightPlayerState,
-          setDiscardPile,
-          setSupplyDepotDrawnCards,
-          setSupplyDepotDiscardMode
-        );
         break;
 
       case 'sacrifice_for_draw':
@@ -2997,79 +2822,6 @@ const GameBoard = () => {
         setShowRestoreDoneButton(true);
         break;
 
-      case 'conditional_damage':
-        // For cards like Cannon with conditional abilities
-        let isConditionSatisfied = false; // Use a completely different name
-
-        if (ability.condition === 'self_undamaged') {
-          // For Cannon: "If this card is undamaged, Damage"
-          isConditionSatisfied = !card.isDamaged;
-        } else if (ability.condition === 'two_people_in_column') {
-          // For Training Camp: "If you have 2 people in this column, Damage"
-          // Determine which column this camp is in
-          const campColumnIndex = location.index; // Camp slots align with columns
-
-          // Count people in this column (front and back row)
-          const frontRowIndex = campColumnIndex * 2; // Convert column to person slot index
-          const backRowIndex = frontRowIndex + 1;
-
-          const frontRowPerson = playerState.personSlots[frontRowIndex];
-          const backRowPerson = playerState.personSlots[backRowIndex];
-
-          // Check if both slots in the column have people (not null and not punks)
-          const peopleInColumn =
-            (frontRowPerson && !frontRowPerson.isPunk ? 1 : 0) + (backRowPerson && !backRowPerson.isPunk ? 1 : 0);
-
-          isConditionSatisfied = peopleInColumn >= 2;
-
-          // Let the player know why the condition wasn't met
-          if (!isConditionSatisfied) {
-            alert(`Condition not met: You need 2 people in this column. Current count: ${peopleInColumn}`);
-          }
-        }
-        // We'll add more conditions later as needed
-
-        if (isConditionSatisfied) {
-          // Condition is met, proceed with damage effect
-          setDamageMode(true);
-          setDamageSource(card);
-          setDamageValue(ability.value || 1);
-          alert(`Select an unprotected enemy card to damage`);
-        } else {
-          // Condition not met, show message and refund water cost
-          if (ability.condition !== 'two_people_in_column') {
-            // General message for other conditions (already handled specially for two_people_in_column)
-            alert('Condition not met: This ability cannot be used right now.');
-          }
-
-          // Refund the water cost
-          const playerState = gameState.currentTurn === 'left' ? leftPlayerState : rightPlayerState;
-          const setPlayerState = gameState.currentTurn === 'left' ? setLeftPlayerState : setRightPlayerState;
-
-          setPlayerState((prev) => ({
-            ...prev,
-            waterCount: prev.waterCount + ability.cost,
-          }));
-
-          // Don't mark the card as unready since the ability wasn't used
-          if (location.type === 'camp') {
-            setPlayerState((prev) => ({
-              ...prev,
-              campSlots: prev.campSlots.map((camp, idx) =>
-                idx === location.index ? { ...camp, isReady: true } : camp
-              ),
-            }));
-          } else if (location.type === 'person') {
-            setPlayerState((prev) => ({
-              ...prev,
-              personSlots: prev.personSlots.map((person, idx) =>
-                idx === location.index ? { ...person, isReady: true } : person
-              ),
-            }));
-          }
-        }
-        break;
-
       case 'restore_person_ready':
         // For Atomic Garden
         // First check if there are any damaged person cards
@@ -3103,53 +2855,6 @@ const GameBoard = () => {
         alert(`Select a damaged person to restore and make them ready`);
         break;
 
-      case 'injure_all':
-        // Get the opponent's state and setter
-        const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
-        const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
-        const setOpponentState = opponentPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-
-        // Find all unprotected enemy person cards
-        const unprotectedPersons = opponentState.personSlots
-          .map((slot, index) => ({ slot, index }))
-          .filter(({ slot }) => slot && !slot.isProtected);
-
-        if (unprotectedPersons.length === 0) {
-          alert('No unprotected enemy persons to injure!');
-          break;
-        }
-
-        // Process each unprotected person
-        unprotectedPersons.forEach(({ slot, index }) => {
-          if (slot) {
-            if (slot.isDamaged || slot.isPunk) {
-              // If already damaged or is a punk, destroy it
-              alert(`${slot.name || 'Enemy card'} destroyed!`);
-              destroyCard(slot, index, opponentPlayer === 'right');
-            } else {
-              // Otherwise mark as damaged
-              setOpponentState((prev) => ({
-                ...prev,
-                personSlots: prev.personSlots.map((card, i) =>
-                  i === index ? { ...card, isDamaged: true, isReady: false } : card
-                ),
-              }));
-            }
-          }
-        });
-
-        alert(`Injured all unprotected enemy persons!`);
-        break;
-
-      case 'vanguard_damage':
-        // Enter damage targeting mode
-        setDamageMode(true);
-        setDamageSource(card);
-        setDamageValue(1);
-        setVanguardPendingCounter(true); // Flag to indicate counter-damage is pending
-        alert(`Select an unprotected enemy card to damage. Your opponent will then damage one of your cards.`);
-        break;
-
       case 'mimic_ability':
         // Enter mimic mode to select a card whose ability to copy
         setMimicMode(true);
@@ -3170,252 +2875,10 @@ const GameBoard = () => {
         }
         break;
 
-      case 'punk_damage':
-        // Check if player has a punk in play
-        const hasPunk = playerState.personSlots.some((card) => card && card.isPunk);
-
-        if (hasPunk) {
-          // Enter damage targeting mode
-          setDamageMode(true);
-          setDamageSource(card);
-          setDamageValue(1);
-          alert(`Select an unprotected enemy card to damage`);
-        } else {
-          // If no punk in play, don't allow the ability
-          alert('You need a punk in play to use this ability!');
-
-          // Refund the water cost since the ability cannot be used
-          setPlayerState((prev) => ({
-            ...prev,
-            waterCount: prev.waterCount + ability.cost,
-          }));
-
-          // Don't mark the card as unready since the ability wasn't used
-          if (location.type === 'person') {
-            setPlayerState((prev) => ({
-              ...prev,
-              personSlots: prev.personSlots.map((slot, idx) =>
-                idx === location.index ? { ...slot, isReady: true } : slot
-              ),
-            }));
-          }
-        }
-        break;
-
-      case 'raid': {
-        console.log('Raid ability triggered');
-
-        // Mark that an event is being played
-        markEventPlayed(gameState.currentTurn, setLeftPlayedEventThisTurn, setRightPlayedEventThisTurn);
-
-        // Check for Zeto Kahn's immediate effect
-        const shouldExecuteImmediately = checkZetoKahnEffect(
-          gameState.currentTurn,
-          leftPlayerState,
-          rightPlayerState,
-          leftPlayedEventThisTurn,
-          rightPlayedEventThisTurn
-        );
-
-        if (shouldExecuteImmediately) {
-          console.log("Zeto Kahn's effect applies - executing raid immediately");
-          // Execute raid immediately
-          executeRaid(gameState.currentTurn);
-          return; // Exit early
-        }
-
-        // Normal Raiders movement logic
-        console.log('Normal Raiders logic executing');
-
-        switch (playerState.raidersLocation) {
-          case 'default':
-            // Create Raiders card
-            const raidersCard = {
-              id: 'raiders',
-              name: 'Raiders',
-              type: 'event',
-              startingQueuePosition: 2,
-              owner: gameState.currentTurn,
-            };
-
-            // Simple logic to manually place Raiders in the right slot
-            // First try slot 2 (index 1)
-            if (playerState.eventSlots[1] === null) {
-              // Slot 2 is available, place Raiders there
-              setPlayerState((prev) => ({
-                ...prev,
-                eventSlots: [prev.eventSlots[0], raidersCard, prev.eventSlots[2]],
-                raidersLocation: 'event2',
-              }));
-            }
-            // If slot 2 is occupied, try slot 3 (index 0)
-            else if (playerState.eventSlots[0] === null) {
-              // Slot 3 is available, place Raiders there
-              setPlayerState((prev) => ({
-                ...prev,
-                eventSlots: [raidersCard, prev.eventSlots[1], prev.eventSlots[2]],
-                raidersLocation: 'event3',
-              }));
-            }
-            // If both slots are occupied
-            else {
-              alert('No valid slot available for Raiders!');
-            }
-            break;
-
-          case 'event2':
-            // Move to slot 1 if empty
-            if (!playerState.eventSlots[2]) {
-              setPlayerState((prev) => ({
-                ...prev,
-                eventSlots: [
-                  prev.eventSlots[0],
-                  null,
-                  { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 1 },
-                ],
-                raidersLocation: 'event1',
-              }));
-            } else {
-              alert('Event slot 1 is occupied. Raiders cannot advance.');
-            }
-            break;
-
-          case 'event1':
-            // Execute raid AND reset Raiders position
-            const opponentPlayer = gameState.currentTurn === 'left' ? 'right' : 'left';
-
-            // IMPORTANT: First reset the Raiders card position to default
-            setPlayerState((prev) => ({
-              ...prev,
-              eventSlots: [
-                prev.eventSlots[0],
-                prev.eventSlots[1],
-                null, // Remove Raiders from slot 1
-              ],
-              raidersLocation: 'default', // Reset to default position
-            }));
-
-            // Set up raid mode
-            setCampRaidMode(true);
-            setRaidingPlayer(gameState.currentTurn);
-            setRaidMessage(`${opponentPlayer.toUpperCase()} PLAYER: Choose a camp to damage from the raid!`);
-            break;
-
-          case 'event3':
-            // Move from slot 3 to slot 2 if empty
-            if (!playerState.eventSlots[1]) {
-              setPlayerState((prev) => ({
-                ...prev,
-                eventSlots: [
-                  null, // Clear slot 3
-                  { id: 'raiders', name: 'Raiders', type: 'event', startingQueuePosition: 2 },
-                  prev.eventSlots[2],
-                ],
-                raidersLocation: 'event2',
-              }));
-            } else {
-              alert('Event slot 2 is occupied. Raiders cannot advance.');
-            }
-            break;
-        }
-        break;
-      }
-
-      case 'sniper_damage':
-        // Enter special sniper damage targeting mode that ignores protection
-        setDamageMode(true);
-        setDamageSource(card);
-        setDamageValue(ability.value || 1);
-        setSniperMode(true); // Add a new state to track when sniper ability is active
-        alert(`Select any enemy card to damage (protection is ignored)`);
-        break;
-
-      case 'damage_camp':
-        // Enter camp damage targeting mode - only unprotected camps
-        setDamageMode(true);
-        setDamageSource(card);
-        setDamageValue(ability.value || 1);
-        setCampDamageMode(true); // Add a new state for camp-only targeting
-        alert(`Select an unprotected enemy camp to damage`);
-        break;
-
-      case 'damage_column':
-        // Enter column damage targeting mode
-        setDamageColumnMode(true);
-        setDamageSource(card);
-        setDamageValue(1); // Set the damage value to 1
-        alert(`Select an enemy column to damage all cards in it`);
-        break;
-
-      case 'destroy_person':
-        // Enter destroy person targeting mode
-        setDestroyPersonMode(true);
-        alert(`Select an unprotected enemy person to destroy`);
-        break;
-
       case 'destroy_any_camp':
         // Enter destroy camp targeting mode
         setDestroyCampMode(true);
         alert(`Select any enemy camp to destroy`);
-        break;
-
-      case 'destroy_damaged_all': {
-        // Using a block scope (notice the curly braces after the case statement)
-        // Explicitly define all variables we need within this block
-        const currentTurn = gameState.currentTurn;
-        const enemyPlayer = currentTurn === 'left' ? 'right' : 'left';
-        const enemyState = enemyPlayer === 'left' ? leftPlayerState : rightPlayerState;
-        const setEnemyState = enemyPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-
-        // Get all damaged enemy person cards
-        const damagedPersons = enemyState.personSlots
-          .map((slot, index) => ({ slot, index }))
-          .filter(({ slot }) => slot && slot.isDamaged);
-
-        // Get all damaged enemy camp cards
-        const damagedCamps = enemyState.campSlots
-          .map((slot, index) => ({ slot, index }))
-          .filter(({ slot }) => slot && slot.isDamaged);
-
-        if (damagedPersons.length === 0 && damagedCamps.length === 0) {
-          alert('No damaged enemy cards to destroy!');
-          break;
-        }
-
-        // Destroy all damaged persons
-        damagedPersons.forEach(({ slot, index }) => {
-          if (slot) {
-            alert(`${slot.name || 'Enemy card'} destroyed!`);
-            destroyCard(slot, index, enemyPlayer === 'right');
-          }
-        });
-
-        // Destroy all damaged camps
-        damagedCamps.forEach(({ slot, index }) => {
-          if (slot) {
-            alert(`${slot.name || 'Enemy camp'} destroyed!`);
-            setEnemyState((prev) => ({
-              ...prev,
-              campSlots: prev.campSlots.map((camp, i) => (i === index ? null : camp)),
-            }));
-          }
-        });
-
-        alert(`All damaged enemy cards destroyed!`);
-        break;
-      }
-
-      case 'mutant_ability':
-        // Open a special modal for choosing Mutant options
-        setMutantModalOpen(true);
-        setMutantSourceCard(card);
-        setMutantSourceLocation(location);
-        break;
-
-      case 'sacrifice_then_damage':
-        // First step: enter sacrifice mode to select own person to destroy
-        setSacrificeMode(true);
-        alert(`Select one of your people to sacrifice`);
         break;
 
       case 'scientist_ability':
@@ -3437,41 +2900,6 @@ const GameBoard = () => {
 
         // Open the modal to choose a junk effect
         setIsScientistModalOpen(true);
-        break;
-
-      case 'draw_then_discard':
-        // Check if there are cards in the draw deck
-        if (drawDeck.length === 0) {
-          alert('Draw deck is empty!');
-          break;
-        }
-
-        // Determine how many cards to draw (up to 3, based on what's available)
-        const cardsToDraw = Math.min(3, drawDeck.length);
-
-        // Get the top cards from the draw deck
-        const zetoDrawnCards = drawDeck.slice(-cardsToDraw);
-
-        // Add them to the player's hand
-        setPlayerState((prev) => ({
-          ...prev,
-          handCards: [...prev.handCards, ...zetoDrawnCards],
-        }));
-
-        // Remove the drawn cards from the draw deck
-        setDrawDeck((prev) => prev.slice(0, prev.length - cardsToDraw));
-
-        alert(`Drew ${cardsToDraw} cards. Now select ${cardsToDraw} cards to discard.`);
-
-        // Set the state to track discard selection
-        setDiscardSelectionCount(cardsToDraw);
-        setDiscardSelectionActive(true);
-        break;
-
-      case 'return_to_hand':
-        // Enter return to hand mode
-        setReturnToHandMode(true);
-        alert(`Select one of your people to return to your hand`);
         break;
 
       case 'damage_conditional_event': {
@@ -3544,23 +2972,6 @@ const GameBoard = () => {
     setLeftPlayerState((prev) => ({ ...prev, peoplePlayedThisTurn: 0 }));
     setRightPlayerState((prev) => ({ ...prev, peoplePlayedThisTurn: 0 }));
   }, [gameState.currentTurn]);
-
-  const stateSetters = {
-    setLeftPlayerState,
-    setRightPlayerState,
-    setDamageMode,
-    setDamageValue,
-    setDamageSource,
-    setDrawDeck,
-    setRestoreMode,
-    setRestorePlayer,
-    setRestoreSourceIndex: (index) => {
-      if (gameBoardRef.current) {
-        (gameBoardRef.current as any).restoreSourceIndex = index;
-      }
-    },
-    setInjureMode,
-  };
 
   return (
     <AbilityProvider
@@ -7011,6 +6422,11 @@ const GameBoard = () => {
         onClose={() => setIsAbilityModalOpen(false)}
         card={selectedCard}
         location={selectedCardLocation}
+        gameState={gameState}
+        leftPlayerState={leftPlayerState}
+        rightPlayerState={rightPlayerState}
+        stateSetters={stateSetters}
+        drawDeck={drawDeck}
       />
     </AbilityProvider>
   );

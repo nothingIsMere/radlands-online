@@ -1,26 +1,21 @@
 // services/abilityRegistry.ts
-
-import { Ability, AbilityContext } from '../types/abilities';
-import { AbilityService } from './abilityService';
+import { AbilityContext } from '../types/abilities';
+import { AbilityType } from '../types/abilityTypes';
 
 type AbilityHandler = (context: AbilityContext) => void;
 
 export class AbilityRegistry {
-  private static handlers: Record<string, AbilityHandler> = {};
-  
-  static register(abilityType: string, handler: AbilityHandler): void {
-    this.handlers[abilityType] = handler;
-    console.log(`Registered handler for ability: ${abilityType}`);
+  private static handlers: Map<AbilityType, AbilityHandler> = new Map();
+
+  static register(type: AbilityType, handler: AbilityHandler): void {
+    this.handlers.set(type, handler);
   }
-  
-  static executeAbility(context: AbilityContext): void {
-    const handler = this.handlers[context.ability.type];
-    if (!handler) {
-      console.error(`No handler registered for ability type: ${context.ability.type}`);
-      return;
-    }
-    
-    AbilityService.startAbility(context);
-    handler(context);
+
+  static getHandler(type: AbilityType): AbilityHandler | undefined {
+    return this.handlers.get(type);
+  }
+
+  static hasHandler(type: AbilityType): boolean {
+    return this.handlers.has(type);
   }
 }

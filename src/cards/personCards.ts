@@ -3,38 +3,6 @@
 import { Card, JunkEffect } from '@/types/game';
 
 export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected' | 'isReady'> } = {
-  'healer': {
-    id: 'person-healer',
-    name: 'Healer',
-    type: 'person',
-    playCost: 1,
-    abilities: [
-      {
-        effect: 'Restore a damaged card',
-        cost: 1,
-        type: 'restore',
-        target: 'own_any'
-      }
-    ],
-    traits: ['start_ready'],
-    junkEffect: 'draw_card'
-  },
-  'card-drawer': {
-    id: 'person-card-drawer',
-    name: 'Card Drawer',
-    type: 'person',
-    playCost: 1,
-    abilities: [
-      {
-        effect: 'Draw 2 cards',
-        cost: 1,
-        type: 'draw',
-        value: 2
-      }
-    ],
-    traits: ['start_ready'],
-    junkEffect: 'extra_water'
-  },
   'looter': {
     id: 'person-looter',
     name: 'Looter',
@@ -328,7 +296,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'punk_damage',
       }
     ],
-    traits: [],
+    traits: ['start_ready'],
     junkEffect: 'raid'
   },
   'vanguard': {
@@ -390,7 +358,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'draw_then_discard',
       }
     ],
-    traits: ['immediate_events'], // This trait should be checked regardless of ready status
+    traits: ['start_ready', 'immediate_events'], // This trait should be checked regardless of ready status
     junkEffect: 'gain_punk'
   },
   'vera-vosh': {
@@ -407,7 +375,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['keep_ready_first_ability'],
+    traits: ['start_ready', 'keep_ready_first_ability'],
     junkEffect: 'gain_punk'  // Junk effect is gain_punk
   },
   'karli-blaze': {

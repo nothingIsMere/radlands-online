@@ -1,6 +1,7 @@
 // handlers/raidAbilityHandler.ts
-import { AbilityContext, AbilityService } from '@/types/abilities';
-import { checkZetoKahnEffect } from '@/utils/gameUtils';
+import { AbilityContext } from '../types/abilities';
+import { AbilityService } from '../services/abilityService'; 
+import { checkZetoKahnEffect } from '../src/utils/gameUtils';
 
 export const raidAbilityHandler = (context: AbilityContext): void => {
   const { player, playerState, stateSetters, opponentState } = context;
