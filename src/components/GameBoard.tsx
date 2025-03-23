@@ -1109,7 +1109,7 @@ const GameBoard = () => {
     ],
 
     // No people in person slots
-    personSlots: [createPerson('card-drawer'), null, null, null, null, null],
+    personSlots: [createPerson('healer'), null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
     campSlots: [createCamp('omen-clock'), createCamp('construction-yard'), { ...createCamp('oasis'), isDamaged: true }],
@@ -2316,6 +2316,9 @@ const GameBoard = () => {
     const gameBoardElement = document.getElementById('game-board');
     if (gameBoardElement) {
       (gameBoardElement as any).restoreSourceIndex = undefined;
+    }
+    if (AbilityService.isAbilityActive()) {
+      AbilityService.completeAbility();
     }
   };
 
@@ -3624,6 +3627,13 @@ const GameBoard = () => {
     setDamageValue,
     setDamageSource,
     setDrawDeck,
+    setRestoreMode,
+    setRestorePlayer,
+    setRestoreSourceIndex: (index) => {
+      if (gameBoardRef.current) {
+        (gameBoardRef.current as any).restoreSourceIndex = index;
+      }
+    },
   };
 
   return (

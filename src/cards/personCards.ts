@@ -3,6 +3,22 @@
 import { Card, JunkEffect } from '@/types/game';
 
 export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected' | 'isReady'> } = {
+  'healer': {
+    id: 'person-healer',
+    name: 'Healer',
+    type: 'person',
+    playCost: 1,
+    abilities: [
+      {
+        effect: 'Restore a damaged card',
+        cost: 1,
+        type: 'restore',
+        target: 'own_any'
+      }
+    ],
+    traits: ['start_ready'],
+    junkEffect: 'draw_card'
+  },
   'card-drawer': {
     id: 'person-card-drawer',
     name: 'Card Drawer',

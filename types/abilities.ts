@@ -19,6 +19,9 @@ export interface StateSetters {
   setDamageValue: (value: number) => void;
   setDamageSource: (source: Card | null) => void;
   setDrawDeck: (updater: (prev: Card[]) => Card[]) => void;
+  setRestoreMode: (active: boolean) => void;
+  setRestorePlayer: (player: 'left' | 'right' | null) => void;
+  setRestoreSourceIndex: (index: number | undefined) => void;
 }
 
 export interface AbilityContext {

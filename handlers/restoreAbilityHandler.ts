@@ -1,5 +1,7 @@
 // handlers/restoreAbilityHandler.ts
-import { AbilityContext, AbilityService } from '@/types/abilities';
+
+import { AbilityContext } from '../types/abilities';
+import { AbilityService } from '../services/abilityService';
 
 export const restoreAbilityHandler = (context: AbilityContext): void => {
   const { player, stateSetters, sourceLocation } = context;
