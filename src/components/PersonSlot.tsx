@@ -4,7 +4,7 @@ import { Card, PlayerState } from '@/types/game';
 import { hasCardTrait, hasKarliBlazeTrait, hasArgoYeskyTrait } from '@/utils/gameUtils';
 import { handleSacrificeEffect } from '@/utils/abilityUtils';
 import { updateProtectionStatus } from '@/utils/protectionUtils';
-import { useAbility } from '../../components/AbilityManager';
+import { useAbility } from '../../src/components/AbilityManager';
 
 interface PersonSlotProps {
   index: number;

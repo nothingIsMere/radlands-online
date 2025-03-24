@@ -4,9 +4,9 @@
 
 import { Card, PlayerState, GameTurnState } from '../src/types/game';
 import { Ability, AbilityContext, StateSetters } from '../types/abilities';
-import { AbilityRegistry } from '../services/abilityRegistry';
-import { AbilityService } from '../services/abilityService';
-import { initializeAbilitySystem } from '../utils/abilityExecutor';
+import { AbilityRegistry } from '../../services/abilityRegistry';
+import { AbilityService } from '../../services/abilityService';
+import { initializeAbilitySystem } from '../../src/utils/abilityExecutor';
 import React, { useEffect, createContext, useContext, useState } from 'react';
 
 // Create context for ability system

@@ -1,19 +1,14 @@
 // handlers/person/injureAllAbilityHandler.ts
-import { AbilityContext } from '../types/abilities';
+import { AbilityContext } from '../../types/abilities';
 import { AbilityService } from '../../services/abilityService';
 
 export const injureAllAbilityHandler = (context: AbilityContext): void => {
-  const { player, leftPlayerState, rightPlayerState, stateSetters } = context;
-  
-  // Get the opponent's state
+  const { player, opponentState, stateSetters } = context;
   const opponentPlayer = player === 'left' ? 'right' : 'left';
-  const opponentState = opponentPlayer === 'left' ? leftPlayerState : rightPlayerState;
-  const setOpponentState = opponentPlayer === 'left' ? stateSetters.setLeftPlayerState : stateSetters.setRightPlayerState;
   
-  // Find all unprotected enemy person cards
+  // Get all unprotected enemy persons
   const unprotectedPersons = opponentState.personSlots
-    .map((slot, index) => ({ slot, index }))
-    .filter(({ slot }) => slot && !slot.isProtected);
+    .filter(card => card && !card.isProtected);
   
   if (unprotectedPersons.length === 0) {
     alert('No unprotected enemy persons to injure!');
@@ -21,34 +16,34 @@ export const injureAllAbilityHandler = (context: AbilityContext): void => {
     return;
   }
   
-  // Process each unprotected person
-  unprotectedPersons.forEach(({ slot, index }) => {
-    if (slot) {
-      if (slot.isDamaged || slot.isPunk) {
-        // If already damaged or is a punk, destroy it
-        alert(`${slot.name || 'Enemy card'} destroyed!`);
-        
-        // Add to discard pile if not a punk
-        if (!slot.isPunk) {
-          stateSetters.setDiscardPile(prev => [...prev, slot]);
+  const setOpponentState = opponentPlayer === 'left' ? 
+    stateSetters.setLeftPlayerState : 
+    stateSetters.setRightPlayerState;
+  
+  // Apply injury to all unprotected enemy persons
+  setOpponentState(prev => ({
+    ...prev,
+    personSlots: prev.personSlots.map(card => {
+      if (card && !card.isProtected) {
+        // If already damaged or a punk, destroy it
+        if (card.isDamaged || card.isPunk) {
+          // Handle destruction logic
+          if (card.isPunk) {
+            // Punks go back to draw deck
+            stateSetters.setDrawDeck(deck => [card, ...deck]);
+          } else {
+            // Cards go to discard pile
+            stateSetters.setDiscardPile(pile => [...pile, card]);
+          }
+          return null;
+        } else {
+          // Otherwise mark as damaged and not ready
+          return { ...card, isDamaged: true, isReady: false };
         }
-        
-        // Remove from slot
-        setOpponentState(prev => ({
-          ...prev,
-          personSlots: prev.personSlots.map((c, i) => i === index ? null : c)
-        }));
-      } else {
-        // Otherwise mark as damaged
-        setOpponentState(prev => ({
-          ...prev,
-          personSlots: prev.personSlots.map((card, i) => 
-            i === index ? { ...card, isDamaged: true, isReady: false } : card
-          )
-        }));
       }
-    }
-  });
+      return card;
+    })
+  }));
   
   alert(`Injured all unprotected enemy persons!`);
   AbilityService.completeAbility();

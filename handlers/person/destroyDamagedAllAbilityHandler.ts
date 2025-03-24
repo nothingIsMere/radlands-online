@@ -1,24 +1,14 @@
-// handlers/person/destroyDamagedAllHandler.ts
-import { AbilityContext } from '../types/abilities';
+// handlers/person/destroyDamagedAllAbilityHandler.ts
+import { AbilityContext } from '../../types/abilities';
 import { AbilityService } from '../../services/abilityService';
 
 export const destroyDamagedAllAbilityHandler = (context: AbilityContext): void => {
-  const { player, stateSetters } = context;
+  const { player, opponentState, stateSetters } = context;
+  const opponentPlayer = player === 'left' ? 'right' : 'left';
   
-  // Determine the opponent
-  const enemyPlayer = player === 'left' ? 'right' : 'left';
-  const enemyState = player === 'left' ? context.opponentState : context.playerState;
-  const setEnemyState = enemyPlayer === 'left' ? stateSetters.setLeftPlayerState : stateSetters.setRightPlayerState;
-  
-  // Get all damaged enemy person cards
-  const damagedPersons = enemyState.personSlots
-    .map((slot, index) => ({ slot, index }))
-    .filter(({ slot }) => slot && slot.isDamaged);
-  
-  // Get all damaged enemy camp cards
-  const damagedCamps = enemyState.campSlots
-    .map((slot, index) => ({ slot, index }))
-    .filter(({ slot }) => slot && slot.isDamaged);
+  // Count damaged cards
+  const damagedPersons = opponentState.personSlots.filter(card => card && card.isDamaged);
+  const damagedCamps = opponentState.campSlots.filter(camp => camp && camp.isDamaged);
   
   if (damagedPersons.length === 0 && damagedCamps.length === 0) {
     alert('No damaged enemy cards to destroy!');
@@ -26,37 +16,34 @@ export const destroyDamagedAllAbilityHandler = (context: AbilityContext): void =
     return;
   }
   
-  // Destroy all damaged persons
-  damagedPersons.forEach(({ slot, index }) => {
-    if (slot) {
-      alert(`${slot.name || 'Enemy card'} destroyed!`);
-      // You'll need a reference to destroyCard here, which might come from context or elsewhere
-      // destroyCard(slot, index, enemyPlayer === 'right');
-      
-      // For now, we'll remove them directly
-      setEnemyState(prev => ({
-        ...prev,
-        personSlots: prev.personSlots.map((card, i) => i === index ? null : card)
-      }));
-      
-      // Add to discard pile
-      if (!slot.isPunk) {
-        stateSetters.setDiscardPile(prev => [...prev, slot]);
+  // Destroy all damaged enemy cards
+  const setOpponentState = opponentPlayer === 'left' ? 
+    stateSetters.setLeftPlayerState : 
+    stateSetters.setRightPlayerState;
+  
+  // Destroy damaged persons
+  damagedPersons.forEach(person => {
+    if (person) {
+      const index = opponentState.personSlots.findIndex(p => p && p.id === person.id);
+      if (index !== -1) {
+        if (person.isPunk) {
+          // Punks go back to the draw deck
+          stateSetters.setDrawDeck(prev => [person, ...prev]);
+        } else {
+          // Cards go to discard pile
+          stateSetters.setDiscardPile(prev => [...prev, person]);
+        }
       }
     }
   });
   
-  // Destroy all damaged camps
-  damagedCamps.forEach(({ slot, index }) => {
-    if (slot) {
-      alert(`${slot.name || 'Enemy camp'} destroyed!`);
-      setEnemyState(prev => ({
-        ...prev,
-        campSlots: prev.campSlots.map((camp, i) => i === index ? null : camp)
-      }));
-    }
-  });
+  // Update opponent state
+  setOpponentState(prev => ({
+    ...prev,
+    personSlots: prev.personSlots.map(card => card?.isDamaged ? null : card),
+    campSlots: prev.campSlots.map(camp => camp?.isDamaged ? null : camp)
+  }));
   
-  alert(`All damaged enemy cards destroyed!`);
+  alert(`Destroyed all damaged enemy cards!`);
   AbilityService.completeAbility();
 };

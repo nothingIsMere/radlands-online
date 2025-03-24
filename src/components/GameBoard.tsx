@@ -25,9 +25,9 @@ import { Card, PlayerState, GameTurnState } from '@/types/game';
 import { advanceToNextPhase, processCurrentPhase, endTurn } from '@/utils/turnUtils';
 import { gameLogger } from '@/utils/actionLogger';
 import { createEndTurnAction } from '@/utils/actionCreators';
-import { AbilityProvider } from '../../components/AbilityManager';
-import { AbilityModal } from '../../components/AbilityModal';
-import { initializeAbilitySystem } from '../../utils/abilityExecutor';
+import { AbilityProvider } from '../../src/components/AbilityManager';
+import { AbilityModal } from '../../src/components/AbilityModal';
+import { initializeAbilitySystem } from '@/utils/abilityExecutor';
 import { AbilityService } from '../../services/abilityService';
 
 interface PlayerState {
@@ -1080,34 +1080,10 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Hand cards: several random people plus two with "gain_punk" junk effect
-    handCards: [
-      // Regular person cards
-      { ...createPerson('repair-bot'), id: 'test-repair-bot-1', isReady: true },
-      { ...createPerson('assassin'), id: 'test-assassin-1' },
-      { ...createPerson('scientist'), id: 'test-scientist-1' },
-      { ...createPerson('sniper'), id: 'test-sniper-1' },
-
-      // Two cards with gain_punk junk effect
-      {
-        id: 'test-punk-generator-1',
-        name: 'Punk Generator Alpha',
-        type: 'person',
-        playCost: 1,
-        abilities: [],
-        junkEffect: 'gain_punk', // This card can be junked to gain a punk
-      },
-      {
-        id: 'test-punk-generator-2',
-        name: 'Punk Generator Beta',
-        type: 'person',
-        playCost: 1,
-        abilities: [],
-        junkEffect: 'gain_punk', // This card can be junked to gain a punk
-      },
-    ],
+    handCards: [createPerson('repair-bot'), createPerson('scientist')],
 
     // No people in person slots
-    personSlots: [createPerson('argo-yesky'), null, null, null, null, null],
+    personSlots: [null, null, null, null, null, null],
 
     // Camp slots with Nest of Spies for testing
     campSlots: [createCamp('omen-clock'), createCamp('construction-yard'), { ...createCamp('oasis'), isDamaged: true }],

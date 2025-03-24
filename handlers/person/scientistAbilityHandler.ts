@@ -1,5 +1,5 @@
 // handlers/person/scientistAbilityHandler.ts
-import { AbilityContext } from '../types/abilities';
+import { AbilityContext } from '../../types/abilities';
 import { AbilityService } from '../../services/abilityService';
 
 export const scientistAbilityHandler = (context: AbilityContext): void => {
@@ -21,6 +21,4 @@ export const scientistAbilityHandler = (context: AbilityContext): void => {
   
   // Open the modal to choose a junk effect
   stateSetters.setIsScientistModalOpen(true);
-  
-  // The ability will be completed after the user selects a card and executes the junk effect
 };

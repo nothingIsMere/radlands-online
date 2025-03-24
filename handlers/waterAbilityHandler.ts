@@ -1,26 +1,22 @@
 // handlers/waterAbilityHandler.ts
-
 import { AbilityContext } from '../types/abilities';
 import { AbilityService } from '../services/abilityService';
 
 export const waterAbilityHandler = (context: AbilityContext): void => {
-  const { ability, player, stateSetters } = context;
+  const { player, ability, stateSetters } = context;
+  const waterAmount = ability.value || 1;
   
-  // Get the player's state setter
-  const setPlayerState = player === 'left' ? stateSetters.setLeftPlayerState : stateSetters.setRightPlayerState;
+  const setPlayerState = player === 'left' ? 
+    stateSetters.setLeftPlayerState : 
+    stateSetters.setRightPlayerState;
   
-  // Determine how much water to gain
-  const waterToGain = ability.value || 1;
-  
-  // Add water to the player's supply
-  setPlayerState(prev => ({
+  setPlayerState((prev) => ({
     ...prev,
-    waterCount: prev.waterCount + waterToGain
+    waterCount: prev.waterCount + waterAmount
   }));
   
-  // Notify the player
-  alert(`Gained ${waterToGain} water!`);
+  alert(`Gained ${waterAmount} water!`);
   
-  // Complete the ability
+  // Complete the ability immediately since no user interaction is needed
   AbilityService.completeAbility();
 };

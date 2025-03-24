@@ -1,7 +1,7 @@
 // components/AbilityModal.tsx
 import React from 'react';
 import { Card } from '@/types/game';
-import { AbilityService } from '../services/abilityService';
+import { AbilityService } from '../../services/abilityService';
 
 interface AbilityModalProps {
   isOpen: boolean;

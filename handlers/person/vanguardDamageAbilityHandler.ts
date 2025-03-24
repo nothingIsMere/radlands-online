@@ -1,19 +1,22 @@
-// handlers/vanguardDamageAbilityHandler.ts
-import { AbilityContext } from '../types/abilities';
-import { AbilityService } from '../../services/abilityService';
+// handlers/person/vanguardDamageAbilityHandler.ts
+import { AbilityContext } from '../../types/abilities';
+import { createTargetingHandler } from '../../src/utils/abilityHandlerUtils';
 
 export const vanguardDamageAbilityHandler = (context: AbilityContext): void => {
-  const { stateSetters, sourceCard } = context;
-  
-  // Enter damage targeting mode
-  stateSetters.setDamageMode(true);
-  stateSetters.setDamageSource(sourceCard);
-  stateSetters.setDamageValue(1);
-  stateSetters.setVanguardPendingCounter(true); // Flag to indicate counter-damage is pending
-  
-  // Notify the player
-  alert(`Select an unprotected enemy card to damage. Your opponent will then damage one of your cards.`);
-  
-  // The ability will be completed after both players have selected their targets
-  // This is typically handled in the UI component after both damages are applied
+  createTargetingHandler(
+    context,
+    (ctx) => {
+      // First set up regular damage targeting
+      ctx.stateSetters.setDamageMode(true);
+      ctx.stateSetters.setDamageSource(ctx.sourceCard);
+      ctx.stateSetters.setDamageValue(1);
+      
+      // Also set flag that counter-damage will be needed
+      ctx.stateSetters.setVanguardPendingCounter(true);
+      ctx.stateSetters.setVanguardOriginalPlayer(ctx.player);
+      
+      alert(`Select an unprotected enemy card to damage. Opponent will get to counter-damage afterward.`);
+    },
+    true
+  );
 };

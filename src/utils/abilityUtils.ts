@@ -423,3 +423,51 @@ export const applyDamageToTarget = (
     }
   }
 };
+
+// Add this function to a utils file like utils/abilityUtils.ts
+
+/**
+ * Resets all ability-related state flags to prevent state leakage between abilities
+ */
+ export const resetAllAbilityStates = (stateSetters: StateSetters): void => {
+  // Reset targeting modes
+  stateSetters.setDamageMode(false);
+  stateSetters.setRestoreMode(false);
+  stateSetters.setInjureMode(false);
+  stateSetters.setSniperMode(false);
+  stateSetters.setCampDamageMode(false);
+  stateSetters.setDamageColumnMode(false);
+  stateSetters.setDestroyPersonMode(false);
+  stateSetters.setDestroyCampMode(false);
+  stateSetters.setReturnToHandMode(false);
+  stateSetters.setMultiRestoreMode(false);
+  stateSetters.setMutantModalOpen(false);
+  stateSetters.setSacrificeMode(false);
+  stateSetters.setSacrificePendingDamage(false);
+  stateSetters.setPunkPlacementMode(false);
+  stateSetters.setDiscardSelectionActive(false);
+  stateSetters.setCampRaidMode(false);
+  stateSetters.setVanguardCounterActive(false);
+  stateSetters.setAnyCardDamageMode(false);
+  stateSetters.setOpponentChoiceDamageMode(false);
+  stateSetters.setRestorePersonReadyMode(false);
+  stateSetters.setShowRestoreDoneButton(false);
+  
+  // Reset source/target references
+  stateSetters.setDamageSource(null);
+  stateSetters.setDamageValue(0);
+  stateSetters.setRestorePlayer(null);
+  stateSetters.setRestoreSourceIndex(undefined);
+  stateSetters.setRaidingPlayer(null);
+  stateSetters.setRaidMessage('');
+  stateSetters.setMutantSourceCard(null);
+  stateSetters.setMutantSourceLocation(null);
+  stateSetters.setMutantPendingAction(null);
+  stateSetters.setPunkCardToPlace(null);
+  stateSetters.setOpponentChoiceDamageSource(null);
+  stateSetters.setOpponentChoiceDamageValue(0);
+  stateSetters.setRestoreSource(null);
+  stateSetters.setSacrificeEffect(null);
+  stateSetters.setSacrificeSource(null);
+  stateSetters.setVanguardOriginalPlayer(null);
+};

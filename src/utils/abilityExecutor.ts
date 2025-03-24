@@ -1,5 +1,5 @@
 // utils/abilityExecutor.ts
-import { AbilityRegistry } from '../services/abilityRegistry';
+import { AbilityRegistry } from '../../services/abilityRegistry';
 import { 
   SharedAbilityType, 
   PersonAbilityType, 
@@ -7,31 +7,31 @@ import {
 } from '../types/abilityTypes';
 
 // Import shared abilities
-import { damageAbilityHandler } from '../handlers/damageAbilityHandler';
-import { drawAbilityHandler } from '../handlers/drawAbilityHandler';
-import { gainPunkAbilityHandler } from '../handlers/gainPunkAbilityHandler';
-import { injureAbilityHandler } from '../handlers/injureAbilityHandler';
-import { raidAbilityHandler } from '../handlers/raidAbilityHandler';
-import { restoreAbilityHandler } from '../handlers/restoreAbilityHandler';
-import { waterAbilityHandler } from '../handlers/waterAbilityHandler';
+import { damageAbilityHandler } from '../../handlers/damageAbilityHandler';
+import { drawAbilityHandler } from '../../handlers/drawAbilityHandler';
+import { gainPunkAbilityHandler } from '../../handlers/gainPunkAbilityHandler';
+import { injureAbilityHandler } from '../../handlers/injureAbilityHandler';
+import { raidAbilityHandler } from '../../handlers/raidAbilityHandler';
+import { restoreAbilityHandler } from '../../handlers/restoreAbilityHandler';
+import { waterAbilityHandler } from '../../handlers/waterAbilityHandler';
 
 // Import person-specific abilities
-import { damageCampAbilityHandler } from '../handlers/person/damageCampAbilityHandler';
-import { damageColumnAbilityHandler } from '../handlers/person/damageColumnAbilityHandler';
-import { damageConditionalEventAbilityHandler } from '../handlers/person/damageConditionalEventAbilityHandler';
-import { destroyDamagedAllAbilityHandler } from '../handlers/person/destroyDamagedAllAbilityHandler';
-import { destroyPersonAbilityHandler } from '../handlers/person/destroyPersonAbilityHandler';
-import { drawThenDiscardAbilityHandler } from '../handlers/person/drawThenDiscardAbilityHandler';
-import { injureAllAbilityHandler } from '../handlers/person/injureAllAbilityHandler';
-import { mimicAbilityHandler } from '../handlers/person/mimicAbilityHandler';
-import { mutantAbilityHandler } from '../handlers/person/mutantAbilityHandler';
-import { punkDamageAbilityHandler } from '../handlers/person/punkDamageAbilityHandler';
-import { returnToHandAbilityHandler } from '../handlers/person/returnToHandAbilityHandler';
-import { sacrificeThenDamageAbilityHandler } from '../handlers/person/sacrificeThenDamageAbilityHandler';
-import { scientistAbilityHandler } from '../handlers/person/scientistAbilityHandler';
-import { sniperDamageAbilityHandler } from '../handlers/person/sniperDamageAbilityHandler';
-import { vanguardDamageAbilityHandler } from '../handlers/person/vanguardDamageAbilityHandler';
-import { destroyAnyCampAbilityHandler } from '../handlers/person/destroyAnyCampAbilityHandler';
+import { damageCampAbilityHandler } from '../../handlers/person/damageCampAbilityHandler';
+import { damageColumnAbilityHandler } from '../../handlers/person/damageColumnAbilityHandler';
+import { damageConditionalEventAbilityHandler } from '../../handlers/person/damageConditionalEventAbilityHandler';
+import { destroyDamagedAllAbilityHandler } from '../../handlers/person/destroyDamagedAllAbilityHandler';
+import { destroyPersonAbilityHandler } from '../../handlers/person/destroyPersonAbilityHandler';
+import { drawThenDiscardAbilityHandler } from '../../handlers/person/drawThenDiscardAbilityHandler';
+import { injureAllAbilityHandler } from '../../handlers/person/injureAllAbilityHandler';
+import { mimicAbilityHandler } from '../../handlers/person/mimicAbilityHandler';
+import { mutantAbilityHandler } from '../../handlers/person/mutantAbilityHandler';
+import { punkDamageAbilityHandler } from '../../handlers/person/punkDamageAbilityHandler';
+import { returnToHandAbilityHandler } from '../../handlers/person/returnToHandAbilityHandler';
+import { sacrificeThenDamageAbilityHandler } from '../../handlers/person/sacrificeThenDamageAbilityHandler';
+import { scientistAbilityHandler } from '../../handlers/person/scientistAbilityHandler';
+import { sniperDamageAbilityHandler } from '../../handlers/person/sniperDamageAbilityHandler';
+import { vanguardDamageAbilityHandler } from '../../handlers/person/vanguardDamageAbilityHandler';
+import { destroyAnyCampAbilityHandler } from '../../handlers/person/destroyAnyCampAbilityHandler';
 
 // Import camp-specific abilities (commented out for now - will implement later)
 // import { advanceEventAbilityHandler } from '../handlers/camp/advanceEventAbilityHandler';
