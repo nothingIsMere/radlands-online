@@ -50,6 +50,7 @@ export class AbilityService {
   }
 
   static completeAbility(): void {
+    
     // Clean up all ability-related states if we have a context
     if (this.currentContext) {
       // Mark the source card as not ready

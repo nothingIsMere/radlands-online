@@ -70,7 +70,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         target: 'own_any',
       }
     ],
-    traits: ['start_ready', 'restore_on_entry'],
+    traits: ['start_ready', /*'restore_on_entry'*/],
     junkEffect: 'injure'
   },
   'gunner': {

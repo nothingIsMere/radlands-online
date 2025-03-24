@@ -430,6 +430,7 @@ export const applyDamageToTarget = (
  * Resets all ability-related state flags to prevent state leakage between abilities
  */
  export const resetAllAbilityStates = (stateSetters: StateSetters): void => {
+  
   // Reset targeting modes
   stateSetters.setDamageMode(false);
   stateSetters.setRestoreMode(false);

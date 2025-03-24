@@ -68,6 +68,13 @@ export const createRestoreHandler = (
   makeTargetReady: boolean = false
 ): void => {
   const { stateSetters, player, sourceCard } = context;
+
+  console.log("Creating restore handler", {
+    player,
+    sourceCard: sourceCard.name,
+    multipleTargets,
+    makeTargetReady
+  });
   
   if (multipleTargets) {
     stateSetters.setMultiRestoreMode(true);
@@ -76,8 +83,12 @@ export const createRestoreHandler = (
     stateSetters.setRestorePersonReadyMode(true);
     stateSetters.setRestoreSource(sourceCard);
   } else {
-    stateSetters.setAbilityRestoreMode(true);
+    stateSetters.setRestoreMode(true);
+    stateSetters.setRestorePlayer(player);
     stateSetters.setRestoreSource(sourceCard);
+
+
+    alert("Select a damaged card to restore");
   }
   
   // Mark as pending user selection

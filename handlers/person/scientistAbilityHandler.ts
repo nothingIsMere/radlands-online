@@ -21,4 +21,6 @@ export const scientistAbilityHandler = (context: AbilityContext): void => {
   
   // Open the modal to choose a junk effect
   stateSetters.setIsScientistModalOpen(true);
+
+  AbilityService.setPendingAbility(true);
 };

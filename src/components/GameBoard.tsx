@@ -513,37 +513,29 @@ const GameBoard = () => {
     }
 
     if (restoreMode) {
-      // In restore mode, a player can only interact with their own damaged cards
-      const playerState = elementPlayer === 'left' ? leftPlayerState : rightPlayerState;
+      // For restore mode, a card is interactable if:
+      // 1. It belongs to the restore player
+      // 2. It is damaged
+      if (element === 'person' || element === 'camp') {
+        // Get the correct player state
+        const elementPlayerState = elementPlayer === 'left' ? leftPlayerState : rightPlayerState;
 
-      // Get the correct card based on element type
-      const card =
-        element === 'person'
-          ? playerState.personSlots[slotIndex]
-          : element === 'camp'
-          ? playerState.campSlots[slotIndex]
-          : null;
+        // Get the correct card based on element type
+        const card =
+          element === 'person' ? elementPlayerState.personSlots[slotIndex] : elementPlayerState.campSlots[slotIndex];
 
-      // Handle camps with cannot_self_restore trait
-      if (element === 'camp' && card && card.traits?.includes('cannot_self_restore')) {
-        // Check if this camp is the source of the restore effect
+        // Get the source index from the game board element if available
         const gameBoard = document.getElementById('game-board');
-        const restoreSourceIndex = gameBoard && (gameBoard as any).restoreSourceIndex;
+        const restoreSourceIndex = gameBoard ? (gameBoard as any).restoreSourceIndex : undefined;
 
-        // If this is the same camp that activated the restore, it can't target itself
-        if (restoreSourceIndex !== undefined && restoreSourceIndex === slotIndex) {
-          return false;
-        }
+        // Special case for Repair Bot - can't target itself during its own restore effect
+        const isRepairBotSource =
+          card && card.name === 'Repair Bot' && element === 'person' && slotIndex === restoreSourceIndex;
+
+        // Return true if card is damaged, belongs to restore player, and isn't the source Repair Bot
+        return elementPlayer === restorePlayer && card && card.isDamaged && !isRepairBotSource;
       }
-
-      if (!card || !card.isDamaged) return false;
-
-      // Special case for Repair Bot
-      if (element === 'person' && card.name === 'Repair Bot' && gameState.currentPhase === 'actions') {
-        return false; // Exclude the Repair Bot from being a valid target for its own entry effect
-      }
-
-      return elementPlayer === restorePlayer;
+      return false; // Not a person or camp
     }
 
     if (sacrificeMode) {
@@ -1080,7 +1072,7 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Hand cards: several random people plus two with "gain_punk" junk effect
-    handCards: [createPerson('sniper'), createPerson('scientist')],
+    handCards: [createPerson('assassin'), createPerson('scientist'), createPerson('repair-bot')],
 
     // No people in person slots
     personSlots: [null, null, null, null, null, null],
@@ -1272,6 +1264,8 @@ const GameBoard = () => {
     setRestoreMode(true);
     setRestorePlayer(playerSide);
     setRestoreSourceIndex(sourceIndex);
+
+    alert('Select a damaged card to restore');
   };
 
   // Function to handle drawing a card and damaging the Wounded Soldier
@@ -1935,9 +1929,6 @@ const GameBoard = () => {
     // Show appropriate message based on result
     if (wasDestroyed) {
       alert(`${target.isPunk ? 'Punk' : 'Damaged card'} destroyed!`);
-    } else {
-      // Use the correct damage value in the message
-      alert(`Applied ${damageValueToApply} damage to ${target.name}`);
     }
 
     // Check for secondary effects based on the damage source
@@ -2056,6 +2047,10 @@ const GameBoard = () => {
   };
 
   const executeJunkEffect = (card: Card) => {
+    console.log('executeJunkEffect called', {
+      cardName: card.name,
+      junkEffect: card.junkEffect,
+    });
     // Use the current turn to determine the player
     const currentPlayer = gameState.currentTurn;
     const playerState = currentPlayer === 'left' ? leftPlayerState : rightPlayerState;
@@ -2161,12 +2156,28 @@ const GameBoard = () => {
         break;
 
       case 'injure':
-        setInjureMode(true);
-        break;
+        // First, ensure any other targeting modes are reset
+        stateSetters.setDamageMode(false);
+        stateSetters.setRestoreMode(false);
+        // other targeting modes...
 
-      default:
-        alert(`Unknown junk effect: ${card.junkEffect}`);
-        break;
+        // Now set injure mode
+        console.log('About to set injureMode to true');
+        setInjureMode(true);
+        console.log('injureMode set to true');
+
+        // Here's the important part - set the ability to pending
+        AbilityService.setPendingAbility(true);
+
+        // You might need to store the current context in the AbilityService
+        AbilityService.storeContext({
+          ability: { type: 'injure' },
+          player: currentPlayer,
+          // other necessary context
+        });
+
+        alert('Select an unprotected enemy person to injure');
+        return; // Important to return early
     }
   };
 
@@ -2932,6 +2943,11 @@ const GameBoard = () => {
     }
   }, [leftPlayedEventThisTurn, rightPlayedEventThisTurn]);
 
+  // Add somewhere in your GameBoard.tsx component
+  useEffect(() => {
+    console.log('injureMode state changed:', injureMode);
+  }, [injureMode]);
+
   useEffect(() => {
     if (gameState.currentPhase === 'events') {
       handleEventsPhase();
@@ -3060,7 +3076,10 @@ const GameBoard = () => {
                     key={index}
                     className="bg-gray-700 border border-gray-600 rounded p-2 cursor-pointer hover:bg-gray-600"
                     onClick={() => {
-                      debugWithAlert(`Selected card: ${card.name}, Junk effect: ${card.junkEffect}`);
+                      console.log('Card clicked in Scientist modal', {
+                        cardName: card.name,
+                        junkEffect: card.junkEffect,
+                      });
                       // Close the modal
                       setIsScientistModalOpen(false);
 
@@ -3096,8 +3115,10 @@ const GameBoard = () => {
                         }
                       }
 
+                      console.log('About to execute junk effect');
                       // Normal flow for other effects or when ZK conditions aren't met
                       executeJunkEffect(card);
+                      console.log('Junk effect executed');
 
                       // Add all cards to discard pile
                       setDiscardPile((prev) => [...prev, ...scientistCards]);
@@ -3106,6 +3127,8 @@ const GameBoard = () => {
                       setScientistCards([]);
 
                       alert(`Used ${card.name}'s junk effect: ${card.junkEffect}`);
+
+                      AbilityService.completeAbility();
                     }}
                   >
                     <div className="text-white text-center text-xs">
