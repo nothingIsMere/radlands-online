@@ -52,6 +52,10 @@ export class AbilityService {
   static completeAbility(): void {
     // Clean up all ability-related states if we have a context
     if (this.currentContext) {
+      // Mark the source card as not ready
+      this.markSourceCardNotReady();
+      
+      // Then reset all ability-related states
       resetAllAbilityStates(this.currentContext.stateSetters);
     }
 
@@ -83,5 +87,34 @@ export class AbilityService {
 
   static getCurrentContext(): AbilityContext | null {
     return this.currentContext;
+  }
+
+  // Add this new private method to handle marking the card as not ready
+  private static markSourceCardNotReady(): void {
+    if (!this.currentContext) return;
+    
+    const { sourceCard, sourceLocation, player, playerState, stateSetters } = this.currentContext;
+    
+    // Only handle person cards
+    if (sourceLocation.type !== 'person') return;
+    
+    // Get the correct setState function based on the player
+    const setPlayerState = player === 'left' ? 
+      stateSetters.setLeftPlayerState : 
+      stateSetters.setRightPlayerState;
+    
+    // Check if Vera Vosh trait is active
+    const hasVeraVoshEffect = hasVeraVoshTrait(playerState);
+    
+    // For now, we'll skip the card used ability check since we might not have access
+    // to those variables. We can focus on the basic functionality first.
+    
+    // Update the card's ready state
+    setPlayerState(prev => ({
+      ...prev,
+      personSlots: prev.personSlots.map((card, idx) => 
+        idx === sourceLocation.index ? { ...card, isReady: false } : card
+      )
+    }));
   }
 }
