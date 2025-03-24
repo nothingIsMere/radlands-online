@@ -1072,7 +1072,7 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Hand cards: several random people plus two with "gain_punk" junk effect
-    handCards: [createPerson('assassin'), createPerson('scientist'), createPerson('repair-bot')],
+    handCards: [createPerson('assassin'), createPerson('scientist'), createPerson('muse')],
 
     // No people in person slots
     personSlots: [null, null, null, null, null, null],

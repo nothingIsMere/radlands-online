@@ -335,11 +335,7 @@ const PersonSlot = ({
 
   const handleOtherActions = () => {
     if (injureMode && card && !card.isProtected) {
-      console.log('Injure target selected:', card.name);
-
-      // This is the key issue - make sure we're checking this is an enemy card
       const isOpponent = player !== gameState.currentTurn;
-
       // Only proceed if this is an opponent's card
       if (isOpponent) {
         if (card.isPunk || card.isDamaged) {
@@ -352,9 +348,6 @@ const PersonSlot = ({
               i === index ? { ...slot, isDamaged: true, isReady: false } : slot
             ),
           }));
-
-          // Add visual feedback
-          console.log(`Applied injure to ${card.name} - card should now be damaged`);
         }
       } else {
         console.log('Cannot injure your own card:', card.name);
@@ -362,16 +355,11 @@ const PersonSlot = ({
 
       // Reset injure mode
       if (setInjureMode) {
-        console.log('Resetting injureMode to false');
         setInjureMode(false);
       }
 
-      alert(`Applied injure to ${card.name}`);
-
       // Make sure the ability is completed
-      console.log('Checking if ability is active:', isAbilityActive());
       if (isAbilityActive()) {
-        console.log('Completing ability after injure');
         completeAbility();
       }
 
