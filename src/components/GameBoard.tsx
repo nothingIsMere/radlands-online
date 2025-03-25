@@ -29,6 +29,7 @@ import { AbilityProvider } from '../../src/components/AbilityManager';
 import { AbilityModal } from '../../src/components/AbilityModal';
 import { initializeAbilitySystem } from '@/utils/abilityExecutor';
 import { AbilityService } from '../../services/abilityService';
+import CampSlot from '@/components/CampSlot';
 
 interface PlayerState {
   handCards: Card[];
@@ -3580,226 +3581,49 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                   />
-                  <div
-                    className={`w-24 h-32 border-2 rounded
-  ${
-    leftPlayerState.campSlots[0] === null
-      ? 'bg-black'
-      : leftPlayerState.campSlots[0]?.isDamaged
-      ? 'bg-red-900'
-      : 'bg-gray-700'
-  }
-  ${
-    (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[0]) ||
-    (damageMode &&
-      gameState.currentTurn !== 'left' &&
-      leftPlayerState.campSlots[0] &&
-      (sniperMode || !leftPlayerState.campSlots[0]?.isProtected)) ||
-    (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) ||
-    (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[0]?.isDamaged) ||
-    (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[0]?.isDamaged) ||
-    (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[0]?.isDamaged) ||
-    (damageColumnMode && gameState.currentTurn !== 'right') ||
-    (opponentChoiceDamageMode &&
-      gameState.currentTurn === 'right' &&
-      leftPlayerState.campSlots[0] &&
-      !leftPlayerState.campSlots[0]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'left') ||
-    (campDamageMode &&
-      gameState.currentTurn !== 'left' &&
-      leftPlayerState.campSlots[0] &&
-      (sniperMode || !leftPlayerState.campSlots[0]?.isProtected)) ||
-    (damageMode &&
-      anyCardDamageMode &&
-      leftPlayerState.campSlots[0] &&
-      (sniperMode || !leftPlayerState.campSlots[0].isProtected))
-      ? 'border-purple-400 animate-pulse cursor-pointer'
-      : leftPlayerState.campSlots[0]?.isDamaged
-      ? 'border-red-700'
-      : 'border-gray-400'
-  }
-`}
-                    onClick={() => {
-                      if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[0]) {
-                        // Apply damage to the camp
-                        applyDamage(leftPlayerState.campSlots[0], 0, false);
-                        return; // Exit early
-                      }
-                      if (
-                        opponentChoiceDamageMode &&
-                        gameState.currentTurn === 'right' &&
-                        leftPlayerState.campSlots[0] &&
-                        !leftPlayerState.campSlots[0]?.isProtected
-                      ) {
-                        // Apply damage to the camp
-                        applyDamage(leftPlayerState.campSlots[0], 0, false);
-                        return;
-                      }
-                      if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
-                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                        applyDamage(leftPlayerState.campSlots[0], 0, false);
-
-                        // Reset targeting modes
-                        setDamageMode(false);
-                        setDamageSource(null);
-                        setDamageValue(0);
-                        setCampDamageMode(false);
-                        setSniperMode(false);
-
-                        return; // Exit early
-                      }
-                      if (
-                        multiRestoreMode &&
-                        gameState.currentTurn === 'left' &&
-                        leftPlayerState.campSlots[0] &&
-                        leftPlayerState.campSlots[0].isDamaged
-                      ) {
-                        // Use applyRestore function
-                        applyRestore(leftPlayerState.campSlots[0], 0, false);
-                        return; // Exit early to prevent other conditions
-                      }
-                      if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[0]) {
-                        const camp = leftPlayerState.campSlots[0];
-                        if (camp.isDamaged) {
-                          // If camp is already damaged, destroy it
-                          alert('Camp destroyed!');
-                          destroyCamp(camp, 0, false);
-                        } else {
-                          // Otherwise, damage it
-                          alert('Camp damaged!');
-                          setLeftPlayerState((prev) => ({
-                            ...prev,
-                            campSlots: prev.campSlots.map((c, i) => (i === 0 ? { ...c, isDamaged: true } : c)),
-                          }));
-                        }
-                        // End raid mode
-                        setCampRaidMode(false);
-                        setRaidingPlayer(null);
-                        setRaidMessage('');
-                        // Continue to next phase
-                        setTimeout(() => {
-                          setGameState((prev) => ({
-                            ...prev,
-                            currentPhase: 'replenish',
-                          }));
-                        }, 100);
-                      } else if (damageColumnMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
-                        // Get the column index (0 for this camp)
-                        const columnIndex = 0;
-
-                        // Apply damage to all cards in this column
-                        // First, the person cards (indices 0 and 1 for column 0)
-                        const frontPerson = leftPlayerState.personSlots[columnIndex * 2];
-                        const backPerson = leftPlayerState.personSlots[columnIndex * 2 + 1];
-
-                        // Damage front person if it exists
-                        if (frontPerson) {
-                          applyDamage(frontPerson, columnIndex * 2, true);
-                        }
-
-                        // Damage back person if it exists
-                        if (backPerson) {
-                          applyDamage(backPerson, columnIndex * 2 + 1, true);
-                        }
-
-                        // Damage the camp itself
-                        if (leftPlayerState.campSlots[columnIndex]) {
-                          applyDamage(leftPlayerState.campSlots[columnIndex], columnIndex, true);
-                        }
-
-                        // Reset column damage mode
-                        setDamageColumnMode(false);
-
-                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                      } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) {
-                        // Handle destroy camp ability
-                        alert(`${leftPlayerState.campSlots[0].name} destroyed!`);
-                        destroyCamp(leftPlayerState.campSlots[0], 0, false);
-                        // Reset destroy camp mode
-                        setDestroyCampMode(false);
-                      } else if (
-                        damageMode &&
-                        gameState.currentTurn !== 'left' &&
-                        leftPlayerState.campSlots[0] &&
-                        (sniperMode || !leftPlayerState.campSlots[0].isProtected)
-                      ) {
-                        // Handle damage targeting
-                        applyDamage(leftPlayerState.campSlots[0], 0, false);
-                      } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[0]?.isDamaged) {
-                        // Use the restoreCard utility instead of directly modifying state
-                        const wasRestored = restoreCard(
-                          leftPlayerState.campSlots[0],
-                          0, // slotIndex
-                          false, // isRightPlayer
-                          setLeftPlayerState
-                        );
-
-                        if (
-                          leftPlayerState.campSlots[0]?.traits?.includes('cannot_self_restore') &&
-                          restoreSourceIndex === 0
-                        ) {
-                          alert(`${leftPlayerState.campSlots[0].name} cannot restore itself due to its special trait!`);
-                          return;
-                        }
-
-                        if (wasRestored) {
-                          alert(`Restored ${leftPlayerState.campSlots[0].name}`);
-                        }
-
-                        // Exit restore mode
-                        if (setRestoreMode) setRestoreMode(false);
-                      } else if (
-                        abilityRestoreMode &&
-                        gameState.currentTurn === 'left' &&
-                        leftPlayerState.campSlots[0]?.isDamaged
-                      ) {
-                        // Handle restore targeting
-                        applyRestore(leftPlayerState.campSlots[0], 0, false);
-                      } else if (isInteractable('camp', 'left', 0)) {
-                        // Get the camp card
-                        const campCard = leftPlayerState.campSlots[0];
-
-                        // Add an additional safety check for isReady
-                        if (!campCard.isReady) {
-                          alert('This camp has already used its ability this turn!');
-                          return; // Don't open the modal
-                        }
-
-                        if (!checkAbilityEnabled(campCard)) {
-                          return; // Don't open the modal if the ability can't be used
-                        }
-
-                        // If we passed the check, proceed as normal
-                        setSelectedCard(campCard);
-                        setSelectedCardLocation({ type: 'camp', index: 0 });
-                        setIsAbilityModalOpen(true);
-                      }
-                    }}
-                  >
-                    <div className="text-white text-center text-xs mt-4">
-                      {leftPlayerState.campSlots[0] === null ? (
-                        <>
-                          Camp 1
-                          <br />
-                          Destroyed
-                        </>
-                      ) : (
-                        <>
-                          {leftPlayerState.campSlots[0]?.name}
-                          <br />
-                          {leftPlayerState.campSlots[0]?.type}
-                          <br />
-                          {leftPlayerState.campSlots[0]?.isProtected ? 'Protected' : 'Unprotected'}
-                          <br />
-                          {leftPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                          <br />
-                          {leftPlayerState.campSlots[0]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                          <br />
-                          {leftPlayerState.campSlots[0]?.isReady ? 'Ready' : 'Not Ready'}
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  <CampSlot
+                    index={0}
+                    card={leftPlayerState.campSlots[0]}
+                    playerState={leftPlayerState}
+                    setPlayerState={setLeftPlayerState}
+                    gameState={gameState}
+                    player="left"
+                    isInteractable={isInteractable}
+                    applyDamage={applyDamage}
+                    campRaidMode={campRaidMode}
+                    raidingPlayer={raidingPlayer}
+                    damageMode={damageMode}
+                    sniperMode={sniperMode}
+                    campDamageMode={campDamageMode}
+                    destroyCampMode={destroyCampMode}
+                    damageColumnMode={damageColumnMode}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    abilityRestoreMode={abilityRestoreMode}
+                    multiRestoreMode={multiRestoreMode}
+                    applyRestore={applyRestore}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    setDamageMode={setDamageMode}
+                    setDamageSource={setDamageSource}
+                    setDamageValue={setDamageValue}
+                    setCampDamageMode={setCampDamageMode}
+                    setSniperMode={setSniperMode}
+                    destroyCamp={destroyCamp}
+                    restoreCard={restoreCard}
+                    setRestoreMode={setRestoreMode}
+                    restoreSourceIndex={restoreSourceIndex}
+                    setDamageColumnMode={setDamageColumnMode}
+                    setCampRaidMode={setCampRaidMode}
+                    setRaidingPlayer={setRaidingPlayer}
+                    setRaidMessage={setRaidMessage}
+                    setGameState={setGameState}
+                    anyCardDamageMode={anyCardDamageMode}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setDestroyCampMode={setDestroyCampMode}
+                  />
                 </div>
                 {/* Column 2 */}
                 <div className="flex flex-col">
@@ -3941,225 +3765,49 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                   />
-                  <div
-                    className={`w-24 h-32 border-2 rounded
-  ${
-    leftPlayerState.campSlots[1] === null
-      ? 'bg-black'
-      : leftPlayerState.campSlots[1]?.isDamaged
-      ? 'bg-red-900'
-      : 'bg-gray-700'
-  }
-  ${
-    (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[1]) ||
-    (damageMode &&
-      gameState.currentTurn !== 'left' &&
-      leftPlayerState.campSlots[1] &&
-      (sniperMode || !leftPlayerState.campSlots[1]?.isProtected)) ||
-    (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) ||
-    (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[1]?.isDamaged) ||
-    (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[1]?.isDamaged) ||
-    (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[1]?.isDamaged) ||
-    (opponentChoiceDamageMode &&
-      gameState.currentTurn === 'right' &&
-      leftPlayerState.campSlots[1] &&
-      !leftPlayerState.campSlots[1]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'left') ||
-    (damageMode &&
-      anyCardDamageMode &&
-      leftPlayerState.campSlots[1] &&
-      (sniperMode || !leftPlayerState.campSlots[1].isProtected)) ||
-    (campDamageMode &&
-      gameState.currentTurn !== 'left' &&
-      leftPlayerState.campSlots[1] &&
-      (sniperMode || !leftPlayerState.campSlots[1]?.isProtected))
-      ? 'border-purple-400 animate-pulse cursor-pointer'
-      : leftPlayerState.campSlots[1]?.isDamaged
-      ? 'border-red-700'
-      : 'border-gray-400'
-  }
-`}
-                    onClick={() => {
-                      if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[1]) {
-                        // Apply damage to the camp
-                        applyDamage(leftPlayerState.campSlots[1], 1, false);
-                        return; // Exit early
-                      }
-                      if (
-                        opponentChoiceDamageMode &&
-                        gameState.currentTurn === 'right' &&
-                        leftPlayerState.campSlots[1] &&
-                        !leftPlayerState.campSlots[1]?.isProtected
-                      ) {
-                        // Apply damage to the camp
-                        applyDamage(leftPlayerState.campSlots[1], 1, false);
-                        return;
-                      }
-                      if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
-                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                        applyDamage(leftPlayerState.campSlots[1], 1, false);
-
-                        // Reset targeting modes
-                        setDamageMode(false);
-                        setDamageSource(null);
-                        setDamageValue(0);
-                        setCampDamageMode(false);
-                        setSniperMode(false);
-
-                        return; // Exit early
-                      }
-                      if (
-                        multiRestoreMode &&
-                        gameState.currentTurn === 'left' &&
-                        leftPlayerState.campSlots[1] &&
-                        leftPlayerState.campSlots[1].isDamaged
-                      ) {
-                        // Use applyRestore function
-                        applyRestore(leftPlayerState.campSlots[1], 1, false);
-                        return; // Exit early to prevent other conditions
-                      }
-                      if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[1]) {
-                        const camp = leftPlayerState.campSlots[1];
-                        if (camp.isDamaged) {
-                          // If camp is already damaged, destroy it
-                          alert('Camp destroyed!');
-                          destroyCamp(camp, 1, false);
-                        } else {
-                          // Otherwise, damage it
-                          alert('Camp damaged!');
-                          setLeftPlayerState((prev) => ({
-                            ...prev,
-                            campSlots: prev.campSlots.map((c, i) => (i === 1 ? { ...c, isDamaged: true } : c)),
-                          }));
-                        }
-                        // End raid mode
-                        setCampRaidMode(false);
-                        setRaidingPlayer(null);
-                        setRaidMessage('');
-                        // Continue to next phase
-                        setTimeout(() => {
-                          setGameState((prev) => ({
-                            ...prev,
-                            currentPhase: 'replenish',
-                          }));
-                        }, 100);
-                      } else if (damageColumnMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
-                        // Get the column index (0 for this camp)
-                        const columnIndex = 1;
-
-                        // Apply damage to all cards in this column
-                        // First, the person cards (indices 0 and 1 for column 0)
-                        const frontPerson = leftPlayerState.personSlots[columnIndex * 2];
-                        const backPerson = leftPlayerState.personSlots[columnIndex * 2 + 1];
-
-                        // Damage front person if it exists
-                        if (frontPerson) {
-                          applyDamage(frontPerson, columnIndex * 2, true);
-                        }
-
-                        // Damage back person if it exists
-                        if (backPerson) {
-                          applyDamage(backPerson, columnIndex * 2 + 1, true);
-                        }
-
-                        // Damage the camp itself
-                        if (leftPlayerState.campSlots[columnIndex]) {
-                          applyDamage(leftPlayerState.campSlots[columnIndex], columnIndex, true);
-                        }
-
-                        // Reset column damage mode
-                        setDamageColumnMode(false);
-
-                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                      } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1]) {
-                        // Handle destroy camp ability
-                        alert(`${leftPlayerState.campSlots[1].name} destroyed!`);
-                        destroyCamp(leftPlayerState.campSlots[1], 1, false);
-                        // Reset destroy camp mode
-                        setDestroyCampMode(false);
-                      } else if (
-                        damageMode &&
-                        gameState.currentTurn !== 'left' &&
-                        leftPlayerState.campSlots[1] &&
-                        (sniperMode || !leftPlayerState.campSlots[1].isProtected)
-                      ) {
-                        // Handle damage targeting
-                        applyDamage(leftPlayerState.campSlots[1], 1, false);
-                      } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[1]?.isDamaged) {
-                        // Use the restoreCard utility instead of directly modifying state
-                        const wasRestored = restoreCard(
-                          leftPlayerState.campSlots[1],
-                          1, // slotIndex
-                          false, // isRightPlayer
-                          setLeftPlayerState
-                        );
-
-                        if (
-                          leftPlayerState.campSlots[1]?.traits?.includes('cannot_self_restore') &&
-                          restoreSourceIndex === 1
-                        ) {
-                          alert(`${leftPlayerState.campSlots[1].name} cannot restore itself due to its special trait!`);
-                          return;
-                        }
-
-                        if (wasRestored) {
-                          alert(`Restored ${leftPlayerState.campSlots[1].name}`);
-                        }
-
-                        // Exit restore mode
-                        if (setRestoreMode) setRestoreMode(false);
-                      } else if (
-                        abilityRestoreMode &&
-                        gameState.currentTurn === 'left' &&
-                        leftPlayerState.campSlots[1]?.isDamaged
-                      ) {
-                        // Handle restore targeting
-                        applyRestore(leftPlayerState.campSlots[1], 1, false);
-                      } else if (isInteractable('camp', 'left', 1)) {
-                        // Get the camp card
-                        const campCard = leftPlayerState.campSlots[1];
-
-                        // Add an additional safety check for isReady
-                        if (!campCard.isReady) {
-                          alert('This camp has already used its ability this turn!');
-                          return; // Don't open the modal
-                        }
-
-                        if (!checkAbilityEnabled(campCard)) {
-                          return; // Don't open the modal if the ability can't be used
-                        }
-
-                        // If we passed the check, proceed as normal
-                        setSelectedCard(campCard);
-                        setSelectedCardLocation({ type: 'camp', index: 1 });
-                        setIsAbilityModalOpen(true);
-                      }
-                    }}
-                  >
-                    <div className="text-white text-center text-xs mt-4">
-                      {leftPlayerState.campSlots[1] === null ? (
-                        <>
-                          Camp 2
-                          <br />
-                          Destroyed
-                        </>
-                      ) : (
-                        <>
-                          {leftPlayerState.campSlots[1]?.name}
-                          <br />
-                          {leftPlayerState.campSlots[1]?.type}
-                          <br />
-                          {leftPlayerState.campSlots[1]?.isProtected ? 'Protected' : 'Unprotected'}
-                          <br />
-                          {leftPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                          <br />
-                          {leftPlayerState.campSlots[1]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                          <br />
-                          {leftPlayerState.campSlots[1]?.isReady ? 'Ready' : 'Not Ready'}
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  <CampSlot
+                    index={1}
+                    card={leftPlayerState.campSlots[1]}
+                    playerState={leftPlayerState}
+                    setPlayerState={setLeftPlayerState}
+                    gameState={gameState}
+                    player="left"
+                    isInteractable={isInteractable}
+                    applyDamage={applyDamage}
+                    campRaidMode={campRaidMode}
+                    raidingPlayer={raidingPlayer}
+                    damageMode={damageMode}
+                    sniperMode={sniperMode}
+                    campDamageMode={campDamageMode}
+                    destroyCampMode={destroyCampMode}
+                    damageColumnMode={damageColumnMode}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    abilityRestoreMode={abilityRestoreMode}
+                    multiRestoreMode={multiRestoreMode}
+                    applyRestore={applyRestore}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    setDamageMode={setDamageMode}
+                    setDamageSource={setDamageSource}
+                    setDamageValue={setDamageValue}
+                    setCampDamageMode={setCampDamageMode}
+                    setSniperMode={setSniperMode}
+                    destroyCamp={destroyCamp}
+                    restoreCard={restoreCard}
+                    setRestoreMode={setRestoreMode}
+                    restoreSourceIndex={restoreSourceIndex}
+                    setDamageColumnMode={setDamageColumnMode}
+                    setCampRaidMode={setCampRaidMode}
+                    setRaidingPlayer={setRaidingPlayer}
+                    setRaidMessage={setRaidMessage}
+                    setGameState={setGameState}
+                    anyCardDamageMode={anyCardDamageMode}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setDestroyCampMode={setDestroyCampMode}
+                  />
                 </div>
                 {/* Column 3 */}
                 <div className="flex flex-col">
@@ -4301,225 +3949,49 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                   />
-                  <div
-                    className={`w-24 h-32 border-2 rounded
-  ${
-    leftPlayerState.campSlots[2] === null
-      ? 'bg-black'
-      : leftPlayerState.campSlots[2]?.isDamaged
-      ? 'bg-red-900'
-      : 'bg-gray-700'
-  }
-  ${
-    (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[2]) ||
-    (damageMode &&
-      gameState.currentTurn !== 'left' &&
-      leftPlayerState.campSlots[2] &&
-      (sniperMode || !leftPlayerState.campSlots[2]?.isProtected)) ||
-    (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) ||
-    (abilityRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
-    (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
-    (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
-    (opponentChoiceDamageMode &&
-      gameState.currentTurn === 'right' &&
-      leftPlayerState.campSlots[2] &&
-      !leftPlayerState.campSlots[2]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'left') ||
-    (damageMode &&
-      anyCardDamageMode &&
-      leftPlayerState.campSlots[2] &&
-      (sniperMode || !leftPlayerState.campSlots[2].isProtected)) ||
-    (campDamageMode &&
-      gameState.currentTurn !== 'left' &&
-      leftPlayerState.campSlots[2] &&
-      (sniperMode || !leftPlayerState.campSlots[2]?.isProtected))
-      ? 'border-purple-400 animate-pulse cursor-pointer'
-      : leftPlayerState.campSlots[2]?.isDamaged
-      ? 'border-red-700'
-      : 'border-gray-400'
-  }
-`}
-                    onClick={() => {
-                      if (damageMode && anyCardDamageMode && leftPlayerState.campSlots[2]) {
-                        // Apply damage to the camp
-                        applyDamage(leftPlayerState.campSlots[2], 2, false);
-                        return; // Exit early
-                      }
-                      if (
-                        opponentChoiceDamageMode &&
-                        gameState.currentTurn === 'right' &&
-                        leftPlayerState.campSlots[2] &&
-                        !leftPlayerState.campSlots[2]?.isProtected
-                      ) {
-                        // Apply damage to the camp
-                        applyDamage(leftPlayerState.campSlots[2], 2, false);
-                        return;
-                      }
-                      if (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
-                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                        applyDamage(leftPlayerState.campSlots[2], 2, false);
-
-                        // Reset targeting modes
-                        setDamageMode(false);
-                        setDamageSource(null);
-                        setDamageValue(0);
-                        setCampDamageMode(false);
-                        setSniperMode(false);
-
-                        return; // Exit early
-                      }
-                      if (
-                        multiRestoreMode &&
-                        gameState.currentTurn === 'left' &&
-                        leftPlayerState.campSlots[2] &&
-                        leftPlayerState.campSlots[2].isDamaged
-                      ) {
-                        // Use applyRestore function
-                        applyRestore(leftPlayerState.campSlots[2], 2, false);
-                        return; // Exit early to prevent other conditions
-                      }
-                      if (campRaidMode && raidingPlayer !== 'left' && leftPlayerState.campSlots[2]) {
-                        const camp = leftPlayerState.campSlots[2];
-                        if (camp.isDamaged) {
-                          // If camp is already damaged, destroy it
-                          alert('Camp destroyed!');
-                          destroyCamp(camp, 2, false);
-                        } else {
-                          // Otherwise, damage it
-                          alert('Camp damaged!');
-                          setLeftPlayerState((prev) => ({
-                            ...prev,
-                            campSlots: prev.campSlots.map((c, i) => (i === 2 ? { ...c, isDamaged: true } : c)),
-                          }));
-                        }
-                        // End raid mode
-                        setCampRaidMode(false);
-                        setRaidingPlayer(null);
-                        setRaidMessage('');
-                        // Continue to next phase
-                        setTimeout(() => {
-                          setGameState((prev) => ({
-                            ...prev,
-                            currentPhase: 'replenish',
-                          }));
-                        }, 100);
-                      } else if (damageColumnMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
-                        // Get the column index (0 for this camp)
-                        const columnIndex = 2;
-
-                        // Apply damage to all cards in this column
-                        // First, the person cards (indices 0 and 1 for column 0)
-                        const frontPerson = leftPlayerState.personSlots[columnIndex * 2];
-                        const backPerson = leftPlayerState.personSlots[columnIndex * 2 + 1];
-
-                        // Damage front person if it exists
-                        if (frontPerson) {
-                          applyDamage(frontPerson, columnIndex * 2, true);
-                        }
-
-                        // Damage back person if it exists
-                        if (backPerson) {
-                          applyDamage(backPerson, columnIndex * 2 + 1, true);
-                        }
-
-                        // Damage the camp itself
-                        if (leftPlayerState.campSlots[columnIndex]) {
-                          applyDamage(leftPlayerState.campSlots[columnIndex], columnIndex, true);
-                        }
-
-                        // Reset column damage mode
-                        setDamageColumnMode(false);
-
-                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                      } else if (destroyCampMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2]) {
-                        // Handle destroy camp ability
-                        alert(`${leftPlayerState.campSlots[2].name} destroyed!`);
-                        destroyCamp(leftPlayerState.campSlots[2], 2, false);
-                        // Reset destroy camp mode
-                        setDestroyCampMode(false);
-                      } else if (
-                        damageMode &&
-                        gameState.currentTurn !== 'left' &&
-                        leftPlayerState.campSlots[2] &&
-                        (sniperMode || !leftPlayerState.campSlots[2].isProtected)
-                      ) {
-                        // Handle damage targeting
-                        applyDamage(leftPlayerState.campSlots[2], 2, false);
-                      } else if (restoreMode && restorePlayer === 'left' && leftPlayerState.campSlots[2]?.isDamaged) {
-                        // Use the restoreCard utility instead of directly modifying state
-                        const wasRestored = restoreCard(
-                          leftPlayerState.campSlots[2],
-                          2, // slotIndex
-                          false, // isRightPlayer
-                          setLeftPlayerState
-                        );
-
-                        if (
-                          leftPlayerState.campSlots[2]?.traits?.includes('cannot_self_restore') &&
-                          restoreSourceIndex === 2
-                        ) {
-                          alert(`${leftPlayerState.campSlots[2].name} cannot restore itself due to its special trait!`);
-                          return;
-                        }
-
-                        if (wasRestored) {
-                          alert(`Restored ${leftPlayerState.campSlots[2].name}`);
-                        }
-
-                        // Exit restore mode
-                        if (setRestoreMode) setRestoreMode(false);
-                      } else if (
-                        abilityRestoreMode &&
-                        gameState.currentTurn === 'left' &&
-                        leftPlayerState.campSlots[2]?.isDamaged
-                      ) {
-                        // Handle restore targeting
-                        applyRestore(leftPlayerState.campSlots[2], 2, false);
-                      } else if (isInteractable('camp', 'left', 2)) {
-                        // Get the camp card
-                        const campCard = leftPlayerState.campSlots[2];
-
-                        // Add an additional safety check for isReady
-                        if (!campCard.isReady) {
-                          alert('This camp has already used its ability this turn!');
-                          return; // Don't open the modal
-                        }
-
-                        if (!checkAbilityEnabled(campCard)) {
-                          return; // Don't open the modal if the ability can't be used
-                        }
-
-                        // If we passed the check, proceed as normal
-                        setSelectedCard(campCard);
-                        setSelectedCardLocation({ type: 'camp', index: 2 });
-                        setIsAbilityModalOpen(true);
-                      }
-                    }}
-                  >
-                    <div className="text-white text-center text-xs mt-4">
-                      {leftPlayerState.campSlots[2] === null ? (
-                        <>
-                          Camp 3
-                          <br />
-                          Destroyed
-                        </>
-                      ) : (
-                        <>
-                          {leftPlayerState.campSlots[2]?.name}
-                          <br />
-                          {leftPlayerState.campSlots[2]?.type}
-                          <br />
-                          {leftPlayerState.campSlots[2]?.isProtected ? 'Protected' : 'Unprotected'}
-                          <br />
-                          {leftPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                          <br />
-                          {leftPlayerState.campSlots[2]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                          <br />
-                          {leftPlayerState.campSlots[2]?.isReady ? 'Ready' : 'Not Ready'}
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  <CampSlot
+                    index={2}
+                    card={leftPlayerState.campSlots[2]}
+                    playerState={leftPlayerState}
+                    setPlayerState={setLeftPlayerState}
+                    gameState={gameState}
+                    player="left"
+                    isInteractable={isInteractable}
+                    applyDamage={applyDamage}
+                    campRaidMode={campRaidMode}
+                    raidingPlayer={raidingPlayer}
+                    damageMode={damageMode}
+                    sniperMode={sniperMode}
+                    campDamageMode={campDamageMode}
+                    destroyCampMode={destroyCampMode}
+                    damageColumnMode={damageColumnMode}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    abilityRestoreMode={abilityRestoreMode}
+                    multiRestoreMode={multiRestoreMode}
+                    applyRestore={applyRestore}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    setDamageMode={setDamageMode}
+                    setDamageSource={setDamageSource}
+                    setDamageValue={setDamageValue}
+                    setCampDamageMode={setCampDamageMode}
+                    setSniperMode={setSniperMode}
+                    destroyCamp={destroyCamp}
+                    restoreCard={restoreCard}
+                    setRestoreMode={setRestoreMode}
+                    restoreSourceIndex={restoreSourceIndex}
+                    setDamageColumnMode={setDamageColumnMode}
+                    setCampRaidMode={setCampRaidMode}
+                    setRaidingPlayer={setRaidingPlayer}
+                    setRaidMessage={setRaidMessage}
+                    setGameState={setGameState}
+                    anyCardDamageMode={anyCardDamageMode}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setDestroyCampMode={setDestroyCampMode}
+                  />
                 </div>
               </div>
             </div>
@@ -5412,238 +4884,49 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                   />
-                  <div
-                    className={`w-24 h-32 border-2 rounded
-  ${
-    rightPlayerState.campSlots[0] === null
-      ? 'bg-black'
-      : rightPlayerState.campSlots[0]?.isDamaged
-      ? 'bg-red-900'
-      : 'bg-gray-700'
-  }
-  ${
-    (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[0]) ||
-    (damageMode &&
-      gameState.currentTurn !== 'right' &&
-      rightPlayerState.campSlots[0] &&
-      (sniperMode || !rightPlayerState.campSlots[0]?.isProtected)) ||
-    (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) ||
-    (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
-    (multiRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
-    (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[0]?.isDamaged) ||
-    (opponentChoiceDamageMode &&
-      gameState.currentTurn === 'left' &&
-      rightPlayerState.campSlots[0] &&
-      !rightPlayerState.campSlots[0]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'right') ||
-    (damageMode &&
-      anyCardDamageMode &&
-      rightPlayerState.campSlots[0] &&
-      (sniperMode || !rightPlayerState.campSlots[0].isProtected)) ||
-    (campDamageMode &&
-      gameState.currentTurn !== 'right' &&
-      rightPlayerState.campSlots[0] &&
-      (sniperMode || !rightPlayerState.campSlots[0]?.isProtected))
-      ? 'border-purple-400 animate-pulse cursor-pointer'
-      : rightPlayerState.campSlots[0]?.isDamaged
-      ? 'border-red-700'
-      : 'border-gray-400'
-  }
-`}
-                    onClick={() => {
-                      if (damageMode && anyCardDamageMode && rightPlayerState.campSlots[0]) {
-                        // Apply damage to the camp
-                        applyDamage(rightPlayerState.campSlots[0], 0, false);
-                        return; // Exit early
-                      }
-                      if (
-                        opponentChoiceDamageMode &&
-                        gameState.currentTurn === 'left' &&
-                        rightPlayerState.campSlots[0] &&
-                        !rightPlayerState.campSlots[0]?.isProtected
-                      ) {
-                        // Apply damage to the camp
-                        applyDamage(rightPlayerState.campSlots[0], 0, true);
-                        return;
-                      }
-                      if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0]) {
-                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                        applyDamage(rightPlayerState.campSlots[0], 0, true);
-
-                        // Reset targeting modes
-                        setDamageMode(false);
-                        setDamageSource(null);
-                        setDamageValue(0);
-                        setCampDamageMode(false);
-                        setSniperMode(false);
-
-                        return; // Exit early
-                      }
-                      if (
-                        multiRestoreMode &&
-                        gameState.currentTurn === 'right' &&
-                        rightPlayerState.campSlots[0] &&
-                        rightPlayerState.campSlots[0].isDamaged
-                      ) {
-                        // Use applyRestore function
-                        applyRestore(rightPlayerState.campSlots[0], 0, false);
-                        return; // Exit early to prevent other conditions
-                      }
-                      if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[0]) {
-                        const camp = rightPlayerState.campSlots[0];
-                        if (camp.isDamaged) {
-                          // If camp is already damaged, destroy it
-                          alert('Camp destroyed!');
-                          setRightPlayerState((prev) => ({
-                            ...prev,
-                            campSlots: prev.campSlots.map((c, i) => (i === 0 ? null : c)),
-                          }));
-                        } else {
-                          // Otherwise, damage it
-                          alert('Camp damaged!');
-                          setRightPlayerState((prev) => ({
-                            ...prev,
-                            campSlots: prev.campSlots.map((c, i) => (i === 0 ? { ...c, isDamaged: true } : c)),
-                          }));
-                        }
-                        // End raid mode
-                        setCampRaidMode(false);
-                        setRaidingPlayer(null);
-                        setRaidMessage('');
-                        // Continue to next phase
-                        setTimeout(() => {
-                          setGameState((prev) => ({
-                            ...prev,
-                            currentPhase: 'replenish',
-                          }));
-                        }, 100);
-                      } else if (
-                        damageColumnMode &&
-                        gameState.currentTurn !== 'right' &&
-                        rightPlayerState.campSlots[0]
-                      ) {
-                        // Get the column index (0 for this camp)
-                        const columnIndex = 0;
-
-                        // Apply damage to all cards in this column
-                        // First, the person cards (indices 0 and 1 for column 0)
-                        const frontPerson = rightPlayerState.personSlots[columnIndex * 2];
-                        const backPerson = rightPlayerState.personSlots[columnIndex * 2 + 1];
-
-                        // Damage front person if it exists
-                        if (frontPerson) {
-                          applyDamage(frontPerson, columnIndex * 2, true);
-                        }
-
-                        // Damage back person if it exists
-                        if (backPerson) {
-                          applyDamage(backPerson, columnIndex * 2 + 1, true);
-                        }
-
-                        // Damage the camp itself
-                        if (rightPlayerState.campSlots[columnIndex]) {
-                          applyDamage(rightPlayerState.campSlots[columnIndex], columnIndex, true);
-                        }
-
-                        // Reset column damage mode
-                        setDamageColumnMode(false);
-
-                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                      } else if (
-                        destroyCampMode &&
-                        gameState.currentTurn !== 'right' &&
-                        rightPlayerState.campSlots[0]
-                      ) {
-                        // Handle destroy camp ability
-                        alert(`${rightPlayerState.campSlots[0].name} destroyed!`);
-                        destroyCamp(rightPlayerState.campSlots[0], 0, true);
-                        // Reset destroy camp mode
-                        setDestroyCampMode(false);
-                      } else if (
-                        damageMode &&
-                        gameState.currentTurn !== 'right' &&
-                        rightPlayerState.campSlots[0] &&
-                        (sniperMode || !rightPlayerState.campSlots[0].isProtected)
-                      ) {
-                        // Handle damage targeting
-                        applyDamage(rightPlayerState.campSlots[0], 0, true);
-                      } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[0]?.isDamaged) {
-                        // Use the restoreCard utility instead of directly modifying state
-                        const wasRestored = restoreCard(
-                          rightPlayerState.campSlots[0],
-                          0, // slotIndex
-                          false, // isLeftPlayer
-                          setRightPlayerState
-                        );
-
-                        if (
-                          rightPlayerState.campSlots[0]?.traits?.includes('cannot_self_restore') &&
-                          restoreSourceIndex === 0
-                        ) {
-                          alert(
-                            `${rightPlayerState.campSlots[0].name} cannot restore itself due to its special trait!`
-                          );
-                          return;
-                        }
-
-                        if (wasRestored) {
-                          alert(`Restored ${rightPlayerState.campSlots[0].name}`);
-                        }
-
-                        // Exit restore mode
-                        if (setRestoreMode) setRestoreMode(false);
-                      } else if (
-                        abilityRestoreMode &&
-                        gameState.currentTurn === 'right' &&
-                        rightPlayerState.campSlots[0]?.isDamaged
-                      ) {
-                        // Handle restore targeting
-                        applyRestore(rightPlayerState.campSlots[0], 0, true);
-                      } else if (isInteractable('camp', 'right', 0)) {
-                        // Get the camp card
-                        const campCard = rightPlayerState.campSlots[0];
-
-                        // Add an additional safety check for isReady
-                        if (!campCard.isReady) {
-                          alert('This camp has already used its ability this turn!');
-                          return; // Don't open the modal
-                        }
-
-                        if (!checkAbilityEnabled(campCard)) {
-                          return; // Don't open the modal if the ability can't be used
-                        }
-
-                        // If we passed the check, proceed as normal
-                        setSelectedCard(campCard);
-                        setSelectedCardLocation({ type: 'camp', index: 0 });
-                        setIsAbilityModalOpen(true);
-                      }
-                    }}
-                  >
-                    <div className="text-white text-center text-xs mt-4">
-                      {rightPlayerState.campSlots[0] === null ? (
-                        <>
-                          Camp 1
-                          <br />
-                          Destroyed
-                        </>
-                      ) : (
-                        <>
-                          {rightPlayerState.campSlots[0]?.name}
-                          <br />
-                          {rightPlayerState.campSlots[0]?.type}
-                          <br />
-                          {rightPlayerState.campSlots[0]?.isProtected ? 'Protected' : 'Unprotected'}
-                          <br />
-                          {rightPlayerState.campSlots[0]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                          <br />
-                          {rightPlayerState.campSlots[0]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                          <br />
-                          {rightPlayerState.campSlots[0]?.isReady ? 'Ready' : 'Not Ready'}
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  <CampSlot
+                    index={0}
+                    card={rightPlayerState.campSlots[0]}
+                    playerState={rightPlayerState}
+                    setPlayerState={setRightPlayerState}
+                    gameState={gameState}
+                    player="right"
+                    isInteractable={isInteractable}
+                    applyDamage={applyDamage}
+                    campRaidMode={campRaidMode}
+                    raidingPlayer={raidingPlayer}
+                    damageMode={damageMode}
+                    sniperMode={sniperMode}
+                    campDamageMode={campDamageMode}
+                    destroyCampMode={destroyCampMode}
+                    damageColumnMode={damageColumnMode}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    abilityRestoreMode={abilityRestoreMode}
+                    multiRestoreMode={multiRestoreMode}
+                    applyRestore={applyRestore}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    setDamageMode={setDamageMode}
+                    setDamageSource={setDamageSource}
+                    setDamageValue={setDamageValue}
+                    setCampDamageMode={setCampDamageMode}
+                    setSniperMode={setSniperMode}
+                    destroyCamp={destroyCamp}
+                    restoreCard={restoreCard}
+                    setRestoreMode={setRestoreMode}
+                    restoreSourceIndex={restoreSourceIndex}
+                    setDamageColumnMode={setDamageColumnMode}
+                    setCampRaidMode={setCampRaidMode}
+                    setRaidingPlayer={setRaidingPlayer}
+                    setRaidMessage={setRaidMessage}
+                    setGameState={setGameState}
+                    anyCardDamageMode={anyCardDamageMode}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setDestroyCampMode={setDestroyCampMode}
+                  />
                 </div>
                 {/* Column 2 */}
                 <div className="flex flex-col">
@@ -5777,235 +5060,49 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                   />
-                  <div
-                    className={`w-24 h-32 border-2 rounded
-  ${
-    rightPlayerState.campSlots[1] === null
-      ? 'bg-black'
-      : rightPlayerState.campSlots[1]?.isDamaged
-      ? 'bg-red-900'
-      : 'bg-gray-700'
-  }
-  ${
-    (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[1]) ||
-    (damageMode &&
-      gameState.currentTurn !== 'right' &&
-      rightPlayerState.campSlots[1] &&
-      (sniperMode || !rightPlayerState.campSlots[1]?.isProtected)) ||
-    (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) ||
-    (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
-    (multiRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
-    (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[1]?.isDamaged) ||
-    (opponentChoiceDamageMode &&
-      gameState.currentTurn === 'left' &&
-      rightPlayerState.campSlots[1] &&
-      !rightPlayerState.campSlots[1]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'right') ||
-    (damageMode &&
-      anyCardDamageMode &&
-      rightPlayerState.campSlots[1] &&
-      (sniperMode || !rightPlayerState.campSlots[1].isProtected)) ||
-    (campDamageMode &&
-      gameState.currentTurn !== 'right' &&
-      rightPlayerState.campSlots[1] &&
-      (sniperMode || !rightPlayerState.campSlots[1]?.isProtected))
-      ? 'border-purple-400 animate-pulse cursor-pointer'
-      : rightPlayerState.campSlots[1]?.isDamaged
-      ? 'border-red-700'
-      : 'border-gray-400'
-  }
-`}
-                    onClick={() => {
-                      if (damageMode && anyCardDamageMode && rightPlayerState.campSlots[1]) {
-                        // Apply damage to the camp
-                        applyDamage(rightPlayerState.campSlots[1], 1, false);
-                        return; // Exit early
-                      }
-                      if (
-                        opponentChoiceDamageMode &&
-                        gameState.currentTurn === 'left' &&
-                        rightPlayerState.campSlots[1] &&
-                        !rightPlayerState.campSlots[1]?.isProtected
-                      ) {
-                        // Apply damage to the camp
-                        applyDamage(rightPlayerState.campSlots[1], 1, true);
-                        return;
-                      }
-                      if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1]) {
-                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                        applyDamage(rightPlayerState.campSlots[1], 1, true);
-
-                        // Reset targeting modes
-                        setDamageMode(false);
-                        setDamageSource(null);
-                        setDamageValue(0);
-                        setCampDamageMode(false);
-                        setSniperMode(false);
-
-                        return; // Exit early
-                      }
-                      if (
-                        multiRestoreMode &&
-                        gameState.currentTurn === 'right' &&
-                        rightPlayerState.campSlots[1] &&
-                        rightPlayerState.campSlots[1].isDamaged
-                      ) {
-                        // Use applyRestore function
-                        applyRestore(rightPlayerState.campSlots[1], 1, false);
-                        return; // Exit early to prevent other conditions
-                      }
-                      if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[1]) {
-                        const camp = rightPlayerState.campSlots[1];
-                        if (camp.isDamaged) {
-                          // If camp is already damaged, destroy it
-                          alert('Camp destroyed!');
-                          destroyCamp(camp, 1, false);
-                        } else {
-                          // Otherwise, damage it
-                          alert('Camp damaged!');
-                          setRightPlayerState((prev) => ({
-                            ...prev,
-                            campSlots: prev.campSlots.map((c, i) => (i === 1 ? { ...c, isDamaged: true } : c)),
-                          }));
-                        }
-                        // End raid mode
-                        setCampRaidMode(false);
-                        setRaidingPlayer(null);
-                        setRaidMessage('');
-                        // Continue to next phase
-                        setTimeout(() => {
-                          setGameState((prev) => ({
-                            ...prev,
-                            currentPhase: 'replenish',
-                          }));
-                        }, 100);
-                      } else if (
-                        damageColumnMode &&
-                        gameState.currentTurn !== 'right' &&
-                        rightPlayerState.campSlots[1]
-                      ) {
-                        // Get the column index (0 for this camp)
-                        const columnIndex = 1;
-
-                        // Apply damage to all cards in this column
-                        // First, the person cards (indices 0 and 1 for column 0)
-                        const frontPerson = rightPlayerState.personSlots[columnIndex * 2];
-                        const backPerson = rightPlayerState.personSlots[columnIndex * 2 + 1];
-
-                        // Damage front person if it exists
-                        if (frontPerson) {
-                          applyDamage(frontPerson, columnIndex * 2, true);
-                        }
-
-                        // Damage back person if it exists
-                        if (backPerson) {
-                          applyDamage(backPerson, columnIndex * 2 + 1, true);
-                        }
-
-                        // Damage the camp itself
-                        if (rightPlayerState.campSlots[columnIndex]) {
-                          applyDamage(rightPlayerState.campSlots[columnIndex], columnIndex, true);
-                        }
-
-                        // Reset column damage mode
-                        setDamageColumnMode(false);
-
-                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                      } else if (
-                        destroyCampMode &&
-                        gameState.currentTurn !== 'right' &&
-                        rightPlayerState.campSlots[1]
-                      ) {
-                        // Handle destroy camp ability
-                        alert(`${rightPlayerState.campSlots[1].name} destroyed!`);
-                        destroyCamp(rightPlayerState.campSlots[1], 1, true);
-                        // Reset destroy camp mode
-                        setDestroyCampMode(false);
-                      } else if (
-                        damageMode &&
-                        gameState.currentTurn !== 'right' &&
-                        rightPlayerState.campSlots[1] &&
-                        (sniperMode || !rightPlayerState.campSlots[1].isProtected)
-                      ) {
-                        // Handle damage targeting
-                        applyDamage(rightPlayerState.campSlots[1], 1, true);
-                      } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[1]?.isDamaged) {
-                        // Use the restoreCard utility instead of directly modifying state
-                        const wasRestored = restoreCard(
-                          rightPlayerState.campSlots[1],
-                          1, // slotIndex
-                          false, // isLeftPlayer
-                          setRightPlayerState
-                        );
-
-                        if (
-                          rightPlayerState.campSlots[1]?.traits?.includes('cannot_self_restore') &&
-                          restoreSourceIndex === 1
-                        ) {
-                          alert(
-                            `${rightPlayerState.campSlots[1].name} cannot restore itself due to its special trait!`
-                          );
-                          return;
-                        }
-
-                        if (wasRestored) {
-                          alert(`Restored ${rightPlayerState.campSlots[1].name}`);
-                        }
-
-                        // Exit restore mode
-                        if (setRestoreMode) setRestoreMode(false);
-                      } else if (
-                        abilityRestoreMode &&
-                        gameState.currentTurn === 'right' &&
-                        rightPlayerState.campSlots[1]?.isDamaged
-                      ) {
-                        // Handle restore targeting
-                        applyRestore(rightPlayerState.campSlots[1], 1, true);
-                      } else if (isInteractable('camp', 'right', 1)) {
-                        // Get the camp card
-                        const campCard = rightPlayerState.campSlots[1];
-
-                        // Add an additional safety check for isReady
-                        if (!campCard.isReady) {
-                          alert('This camp has already used its ability this turn!');
-                          return; // Don't open the modal
-                        }
-
-                        if (!checkAbilityEnabled(campCard)) {
-                          return; // Don't open the modal if the ability can't be used
-                        }
-
-                        // If we passed the check, proceed as normal
-                        setSelectedCard(campCard);
-                        setSelectedCardLocation({ type: 'camp', index: 1 });
-                        setIsAbilityModalOpen(true);
-                      }
-                    }}
-                  >
-                    <div className="text-white text-center text-xs mt-4">
-                      {rightPlayerState.campSlots[1] === null ? (
-                        <>
-                          Camp 2
-                          <br />
-                          Destroyed
-                        </>
-                      ) : (
-                        <>
-                          {rightPlayerState.campSlots[1]?.name}
-                          <br />
-                          {rightPlayerState.campSlots[1]?.type}
-                          <br />
-                          {rightPlayerState.campSlots[1]?.isProtected ? 'Protected' : 'Unprotected'}
-                          <br />
-                          {rightPlayerState.campSlots[1]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                          <br />
-                          {rightPlayerState.campSlots[1]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                          <br />
-                          {rightPlayerState.campSlots[1]?.isReady ? 'Ready' : 'Not Ready'}
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  <CampSlot
+                    index={1}
+                    card={rightPlayerState.campSlots[1]}
+                    playerState={rightPlayerState}
+                    setPlayerState={setRightPlayerState}
+                    gameState={gameState}
+                    player="right"
+                    isInteractable={isInteractable}
+                    applyDamage={applyDamage}
+                    campRaidMode={campRaidMode}
+                    raidingPlayer={raidingPlayer}
+                    damageMode={damageMode}
+                    sniperMode={sniperMode}
+                    campDamageMode={campDamageMode}
+                    destroyCampMode={destroyCampMode}
+                    damageColumnMode={damageColumnMode}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    abilityRestoreMode={abilityRestoreMode}
+                    multiRestoreMode={multiRestoreMode}
+                    applyRestore={applyRestore}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    setDamageMode={setDamageMode}
+                    setDamageSource={setDamageSource}
+                    setDamageValue={setDamageValue}
+                    setCampDamageMode={setCampDamageMode}
+                    setSniperMode={setSniperMode}
+                    destroyCamp={destroyCamp}
+                    restoreCard={restoreCard}
+                    setRestoreMode={setRestoreMode}
+                    restoreSourceIndex={restoreSourceIndex}
+                    setDamageColumnMode={setDamageColumnMode}
+                    setCampRaidMode={setCampRaidMode}
+                    setRaidingPlayer={setRaidingPlayer}
+                    setRaidMessage={setRaidMessage}
+                    setGameState={setGameState}
+                    anyCardDamageMode={anyCardDamageMode}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setDestroyCampMode={setDestroyCampMode}
+                  />
                 </div>
                 {/* Column 3 */}
                 <div className="flex flex-col">
@@ -6139,230 +5236,49 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                   />
-                  <div
-                    className={`w-24 h-32 border-2 rounded
-  ${
-    rightPlayerState.campSlots[2] === null
-      ? 'bg-black'
-      : rightPlayerState.campSlots[2]?.isDamaged
-      ? 'bg-red-900'
-      : 'bg-gray-700'
-  }
-  ${
-    (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[2]) ||
-    (damageMode &&
-      gameState.currentTurn !== 'right' &&
-      rightPlayerState.campSlots[2] &&
-      (sniperMode || !rightPlayerState.campSlots[2]?.isProtected)) ||
-    (destroyCampMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) ||
-    (abilityRestoreMode && gameState.currentTurn === 'right' && rightPlayerState.campSlots[2]?.isDamaged) ||
-    (multiRestoreMode && gameState.currentTurn === 'left' && leftPlayerState.campSlots[2]?.isDamaged) ||
-    (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[2]?.isDamaged) ||
-    (opponentChoiceDamageMode &&
-      gameState.currentTurn === 'left' &&
-      rightPlayerState.campSlots[2] &&
-      !rightPlayerState.campSlots[2]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'right') ||
-    (damageMode &&
-      anyCardDamageMode &&
-      rightPlayerState.campSlots[2] &&
-      (sniperMode || !rightPlayerState.campSlots[2].isProtected)) ||
-    (campDamageMode &&
-      gameState.currentTurn !== 'right' &&
-      rightPlayerState.campSlots[2] &&
-      (sniperMode || !rightPlayerState.campSlots[2]?.isProtected))
-      ? 'border-purple-400 animate-pulse cursor-pointer'
-      : rightPlayerState.campSlots[2]?.isDamaged
-      ? 'border-red-700'
-      : 'border-gray-400'
-  }
-`}
-                    onClick={() => {
-                      if (
-                        opponentChoiceDamageMode &&
-                        gameState.currentTurn === 'left' &&
-                        rightPlayerState.campSlots[2] &&
-                        !rightPlayerState.campSlots[2]?.isProtected
-                      ) {
-                        // Apply damage to the camp
-                        applyDamage(rightPlayerState.campSlots[2], 2, true);
-                        return;
-                      }
-                      if (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2]) {
-                        // Apply damage to the camp (ignoring protection due to Mercenary Camp ability)
-                        applyDamage(rightPlayerState.campSlots[2], 2, true);
-
-                        // Reset targeting modes
-                        setDamageMode(false);
-                        setDamageSource(null);
-                        setDamageValue(0);
-                        setCampDamageMode(false);
-                        setSniperMode(false);
-
-                        return; // Exit early
-                      }
-                      if (
-                        multiRestoreMode &&
-                        gameState.currentTurn === 'right' &&
-                        rightPlayerState.campSlots[2] &&
-                        rightPlayerState.campSlots[2].isDamaged
-                      ) {
-                        // Use applyRestore function
-                        applyRestore(rightPlayerState.campSlots[2], 2, false);
-                        return; // Exit early to prevent other conditions
-                      }
-                      if (campRaidMode && raidingPlayer !== 'right' && rightPlayerState.campSlots[2]) {
-                        const camp = rightPlayerState.campSlots[2];
-                        if (camp.isDamaged) {
-                          // If camp is already damaged, destroy it
-                          alert('Camp destroyed!');
-                          destroyCamp(camp, 2, false);
-                        } else {
-                          // Otherwise, damage it
-                          alert('Camp damaged!');
-                          setRightPlayerState((prev) => ({
-                            ...prev,
-                            campSlots: prev.campSlots.map((c, i) => (i === 2 ? { ...c, isDamaged: true } : c)),
-                          }));
-                        }
-                        // End raid mode
-                        setCampRaidMode(false);
-                        setRaidingPlayer(null);
-                        setRaidMessage('');
-                        // Continue to next phase
-                        setTimeout(() => {
-                          setGameState((prev) => ({
-                            ...prev,
-                            currentPhase: 'replenish',
-                          }));
-                        }, 100);
-                      } else if (
-                        damageColumnMode &&
-                        gameState.currentTurn !== 'right' &&
-                        rightPlayerState.campSlots[2]
-                      ) {
-                        // Get the column index for this camp
-                        const columnIndex = 2;
-
-                        // Apply damage to all cards in this column
-                        // First, the person cards
-                        const frontPerson = rightPlayerState.personSlots[columnIndex * 2];
-                        const backPerson = rightPlayerState.personSlots[columnIndex * 2 + 1];
-
-                        // Damage front person if it exists
-                        if (frontPerson) {
-                          applyDamage(frontPerson, columnIndex * 2, true);
-                        }
-
-                        // Damage back person if it exists
-                        if (backPerson) {
-                          applyDamage(backPerson, columnIndex * 2 + 1, true);
-                        }
-
-                        // Damage the camp itself
-                        if (rightPlayerState.campSlots[columnIndex]) {
-                          applyDamage(rightPlayerState.campSlots[columnIndex], columnIndex, true);
-                        }
-
-                        // Reset column damage mode
-                        setDamageColumnMode(false);
-
-                        alert(`Damaged all cards in column ${columnIndex + 1}!`);
-                      } else if (
-                        destroyCampMode &&
-                        gameState.currentTurn !== 'right' &&
-                        rightPlayerState.campSlots[2]
-                      ) {
-                        // Handle destroy camp ability
-                        alert(`${rightPlayerState.campSlots[2].name} destroyed!`);
-                        destroyCamp(rightPlayerState.campSlots[2], 2, true);
-                        // Reset destroy camp mode
-                        setDestroyCampMode(false);
-                      } else if (
-                        damageMode &&
-                        gameState.currentTurn !== 'right' &&
-                        rightPlayerState.campSlots[2] &&
-                        (sniperMode || !rightPlayerState.campSlots[2].isProtected)
-                      ) {
-                        // Handle damage targeting
-                        applyDamage(rightPlayerState.campSlots[2], 2, true);
-                      } else if (restoreMode && restorePlayer === 'right' && rightPlayerState.campSlots[2]?.isDamaged) {
-                        // Use the restoreCard utility instead of directly modifying state
-                        const wasRestored = restoreCard(
-                          rightPlayerState.campSlots[2],
-                          2, // slotIndex
-                          false, // isLeftPlayer
-                          setRightPlayerState
-                        );
-
-                        if (
-                          rightPlayerState.campSlots[2]?.traits?.includes('cannot_self_restore') &&
-                          restoreSourceIndex === 2
-                        ) {
-                          alert(
-                            `${rightPlayerState.campSlots[2].name} cannot restore itself due to its special trait!`
-                          );
-                          return;
-                        }
-
-                        if (wasRestored) {
-                          alert(`Restored ${rightPlayerState.campSlots[2].name}`);
-                        }
-
-                        // Exit restore mode
-                        if (setRestoreMode) setRestoreMode(false);
-                      } else if (
-                        abilityRestoreMode &&
-                        gameState.currentTurn === 'right' &&
-                        rightPlayerState.campSlots[2]?.isDamaged
-                      ) {
-                        // Handle restore targeting
-                        applyRestore(rightPlayerState.campSlots[2], 2, true);
-                      } else if (isInteractable('camp', 'right', 2)) {
-                        // Get the camp card
-                        const campCard = rightPlayerState.campSlots[2];
-
-                        // Add an additional safety check for isReady
-                        if (!campCard.isReady) {
-                          alert('This camp has already used its ability this turn!');
-                          return; // Don't open the modal
-                        }
-
-                        if (!checkAbilityEnabled(campCard)) {
-                          return; // Don't open the modal if the ability can't be used
-                        }
-
-                        // If we passed the check, proceed as normal
-                        setSelectedCard(campCard);
-                        setSelectedCardLocation({ type: 'camp', index: 2 });
-                        setIsAbilityModalOpen(true);
-                      }
-                    }}
-                  >
-                    <div className="text-white text-center text-xs mt-4">
-                      {rightPlayerState.campSlots[2] === null ? (
-                        <>
-                          Camp 3
-                          <br />
-                          Destroyed
-                        </>
-                      ) : (
-                        <>
-                          {rightPlayerState.campSlots[2]?.name}
-                          <br />
-                          {rightPlayerState.campSlots[2]?.type}
-                          <br />
-                          {rightPlayerState.campSlots[2]?.isProtected ? 'Protected' : 'Unprotected'}
-                          <br />
-                          {rightPlayerState.campSlots[2]?.isDamaged ? 'Damaged (can use abilities)' : 'Not Damaged'}
-                          <br />
-                          {rightPlayerState.campSlots[2]?.traits?.includes('starts_damaged') ? '(Starts Damaged)' : ''}
-                          <br />
-                          {rightPlayerState.campSlots[2]?.isReady ? 'Ready' : 'Not Ready'}
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  <CampSlot
+                    index={2}
+                    card={rightPlayerState.campSlots[2]}
+                    playerState={rightPlayerState}
+                    setPlayerState={setRightPlayerState}
+                    gameState={gameState}
+                    player="right"
+                    isInteractable={isInteractable}
+                    applyDamage={applyDamage}
+                    campRaidMode={campRaidMode}
+                    raidingPlayer={raidingPlayer}
+                    damageMode={damageMode}
+                    sniperMode={sniperMode}
+                    campDamageMode={campDamageMode}
+                    destroyCampMode={destroyCampMode}
+                    damageColumnMode={damageColumnMode}
+                    restoreMode={restoreMode}
+                    restorePlayer={restorePlayer}
+                    abilityRestoreMode={abilityRestoreMode}
+                    multiRestoreMode={multiRestoreMode}
+                    applyRestore={applyRestore}
+                    setSelectedCard={setSelectedCard}
+                    setSelectedCardLocation={setSelectedCardLocation}
+                    setIsAbilityModalOpen={setIsAbilityModalOpen}
+                    checkAbilityEnabled={checkAbilityEnabled}
+                    setDamageMode={setDamageMode}
+                    setDamageSource={setDamageSource}
+                    setDamageValue={setDamageValue}
+                    setCampDamageMode={setCampDamageMode}
+                    setSniperMode={setSniperMode}
+                    destroyCamp={destroyCamp}
+                    restoreCard={restoreCard}
+                    setRestoreMode={setRestoreMode}
+                    restoreSourceIndex={restoreSourceIndex}
+                    setDamageColumnMode={setDamageColumnMode}
+                    setCampRaidMode={setCampRaidMode}
+                    setRaidingPlayer={setRaidingPlayer}
+                    setRaidMessage={setRaidMessage}
+                    setGameState={setGameState}
+                    anyCardDamageMode={anyCardDamageMode}
+                    opponentChoiceDamageMode={opponentChoiceDamageMode}
+                    setDestroyCampMode={setDestroyCampMode}
+                  />
                 </div>
               </div>
             </div>
