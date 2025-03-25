@@ -660,11 +660,24 @@ const GameBoard = () => {
 
       // Special case for Pyromaniac or Mercenary Camp: can only target camps
       if (campDamageMode) {
+        // In camp damage mode, a player can only target unprotected enemy camps
         if (element === 'camp') {
           const targetCamp =
             elementPlayer === 'left' ? leftPlayerState.campSlots[slotIndex] : rightPlayerState.campSlots[slotIndex];
-          // Allow targeting protected camps if sniperMode is active
-          return isOpponentElement && targetCamp && (sniperMode || !targetCamp.isProtected);
+
+          // Check if this is an enemy camp AND it's not protected
+          const isEnemyCamp = elementPlayer !== gameState.currentTurn;
+          const isUnprotected = targetCamp && !targetCamp.isProtected;
+
+          console.log('Camp targeting check:', {
+            camp: targetCamp?.name,
+            isEnemy: isEnemyCamp,
+            isUnprotected,
+            sniperMode, // Log if sniper mode is active
+          });
+
+          // Only allow targeting if it's an enemy camp AND either it's unprotected OR sniper mode is active
+          return isEnemyCamp && targetCamp && (sniperMode || !targetCamp.isProtected);
         }
         return false;
       }
@@ -1072,7 +1085,14 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Hand cards: several random people plus two with "gain_punk" junk effect
-    handCards: [createPerson('assassin'), createPerson('scientist'), createPerson('muse')],
+    handCards: [
+      createPerson('magnus-karv'),
+      createPerson('karli-blaze'),
+      createPerson('vera-vosh'),
+      createPerson('zeto-kahn'),
+      createPerson('molgur-stang'),
+      createPerson('argo-yesky'),
+    ],
 
     // No people in person slots
     personSlots: [null, null, null, null, null, null],
@@ -1416,6 +1436,11 @@ const GameBoard = () => {
     setConstructionYardSelectingPerson,
     setConstructionYardSelectingDestination,
     setConstructionYardSelectedPerson,
+    setVanguardCounterActive,
+    setAnyCardDamageMode,
+    setOpponentChoiceDamageMode,
+    setRestorePersonReadyMode,
+    setShowRestoreDoneButton,
   };
 
   useEffect(() => {
@@ -1427,6 +1452,10 @@ const GameBoard = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    console.log('campDamageMode changed:', campDamageMode);
+  }, [campDamageMode]);
 
   useEffect(() => {
     // Check if punk placement is complete and we need to execute a raid
@@ -3575,8 +3604,11 @@ const GameBoard = () => {
       gameState.currentTurn === 'right' &&
       leftPlayerState.campSlots[0] &&
       !leftPlayerState.campSlots[0]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'right') ||
-    (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[0]) ||
+    (damageColumnMode && gameState.currentTurn !== 'left') ||
+    (campDamageMode &&
+      gameState.currentTurn !== 'left' &&
+      leftPlayerState.campSlots[0] &&
+      (sniperMode || !leftPlayerState.campSlots[0]?.isProtected)) ||
     (damageMode &&
       anyCardDamageMode &&
       leftPlayerState.campSlots[0] &&
@@ -3932,12 +3964,15 @@ const GameBoard = () => {
       gameState.currentTurn === 'right' &&
       leftPlayerState.campSlots[1] &&
       !leftPlayerState.campSlots[1]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'right') ||
+    (damageColumnMode && gameState.currentTurn !== 'left') ||
     (damageMode &&
       anyCardDamageMode &&
       leftPlayerState.campSlots[1] &&
       (sniperMode || !leftPlayerState.campSlots[1].isProtected)) ||
-    (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[1])
+    (campDamageMode &&
+      gameState.currentTurn !== 'left' &&
+      leftPlayerState.campSlots[1] &&
+      (sniperMode || !leftPlayerState.campSlots[1]?.isProtected))
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[1]?.isDamaged
       ? 'border-red-700'
@@ -4289,12 +4324,15 @@ const GameBoard = () => {
       gameState.currentTurn === 'right' &&
       leftPlayerState.campSlots[2] &&
       !leftPlayerState.campSlots[2]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'right') ||
+    (damageColumnMode && gameState.currentTurn !== 'left') ||
     (damageMode &&
       anyCardDamageMode &&
       leftPlayerState.campSlots[2] &&
       (sniperMode || !leftPlayerState.campSlots[2].isProtected)) ||
-    (campDamageMode && gameState.currentTurn !== 'left' && leftPlayerState.campSlots[2])
+    (campDamageMode &&
+      gameState.currentTurn !== 'left' &&
+      leftPlayerState.campSlots[2] &&
+      (sniperMode || !leftPlayerState.campSlots[2]?.isProtected))
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : leftPlayerState.campSlots[2]?.isDamaged
       ? 'border-red-700'
@@ -5397,12 +5435,15 @@ const GameBoard = () => {
       gameState.currentTurn === 'left' &&
       rightPlayerState.campSlots[0] &&
       !rightPlayerState.campSlots[0]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'left') ||
+    (damageColumnMode && gameState.currentTurn !== 'right') ||
     (damageMode &&
       anyCardDamageMode &&
       rightPlayerState.campSlots[0] &&
       (sniperMode || !rightPlayerState.campSlots[0].isProtected)) ||
-    (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[0])
+    (campDamageMode &&
+      gameState.currentTurn !== 'right' &&
+      rightPlayerState.campSlots[0] &&
+      (sniperMode || !rightPlayerState.campSlots[0]?.isProtected))
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[0]?.isDamaged
       ? 'border-red-700'
@@ -5515,7 +5556,7 @@ const GameBoard = () => {
                       ) {
                         // Handle destroy camp ability
                         alert(`${rightPlayerState.campSlots[0].name} destroyed!`);
-                        destroyCamp(rightPlayerState.campSlots[0], 0, false);
+                        destroyCamp(rightPlayerState.campSlots[0], 0, true);
                         // Reset destroy camp mode
                         setDestroyCampMode(false);
                       } else if (
@@ -5759,12 +5800,15 @@ const GameBoard = () => {
       gameState.currentTurn === 'left' &&
       rightPlayerState.campSlots[1] &&
       !rightPlayerState.campSlots[1]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'left') ||
+    (damageColumnMode && gameState.currentTurn !== 'right') ||
     (damageMode &&
       anyCardDamageMode &&
       rightPlayerState.campSlots[1] &&
       (sniperMode || !rightPlayerState.campSlots[1].isProtected)) ||
-    (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[1])
+    (campDamageMode &&
+      gameState.currentTurn !== 'right' &&
+      rightPlayerState.campSlots[1] &&
+      (sniperMode || !rightPlayerState.campSlots[1]?.isProtected))
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[1]?.isDamaged
       ? 'border-red-700'
@@ -5874,7 +5918,7 @@ const GameBoard = () => {
                       ) {
                         // Handle destroy camp ability
                         alert(`${rightPlayerState.campSlots[1].name} destroyed!`);
-                        destroyCamp(rightPlayerState.campSlots[1], 1, false);
+                        destroyCamp(rightPlayerState.campSlots[1], 1, true);
                         // Reset destroy camp mode
                         setDestroyCampMode(false);
                       } else if (
@@ -6118,12 +6162,15 @@ const GameBoard = () => {
       gameState.currentTurn === 'left' &&
       rightPlayerState.campSlots[2] &&
       !rightPlayerState.campSlots[2]?.isProtected) ||
-    (damageColumnMode && gameState.currentTurn !== 'left') ||
+    (damageColumnMode && gameState.currentTurn !== 'right') ||
     (damageMode &&
       anyCardDamageMode &&
       rightPlayerState.campSlots[2] &&
       (sniperMode || !rightPlayerState.campSlots[2].isProtected)) ||
-    (campDamageMode && gameState.currentTurn !== 'right' && rightPlayerState.campSlots[2])
+    (campDamageMode &&
+      gameState.currentTurn !== 'right' &&
+      rightPlayerState.campSlots[2] &&
+      (sniperMode || !rightPlayerState.campSlots[2]?.isProtected))
       ? 'border-purple-400 animate-pulse cursor-pointer'
       : rightPlayerState.campSlots[2]?.isDamaged
       ? 'border-red-700'
@@ -6228,7 +6275,7 @@ const GameBoard = () => {
                       ) {
                         // Handle destroy camp ability
                         alert(`${rightPlayerState.campSlots[2].name} destroyed!`);
-                        destroyCamp(rightPlayerState.campSlots[2], 2, false);
+                        destroyCamp(rightPlayerState.campSlots[2], 2, true);
                         // Reset destroy camp mode
                         setDestroyCampMode(false);
                       } else if (

@@ -28,13 +28,20 @@ export const createTargetingHandler = (
 /**
  * Helper for damage-based ability handlers
  */
-export const createDamageHandler = (
+ export const createDamageHandler = (
   context: AbilityContext,
   targetProtectedCards: boolean = false,
   targetCampsOnly: boolean = false,
   targetAnyCard: boolean = false,
   damageValue: number = 1
 ): void => {
+  console.log("createDamageHandler called", {
+    sourceCard: context.sourceCard.name,
+    targetProtectedCards,
+    targetCampsOnly,
+    targetAnyCard,
+    damageValue
+  });
   const { stateSetters, sourceCard } = context;
   
   // Set up standard damage targeting mode

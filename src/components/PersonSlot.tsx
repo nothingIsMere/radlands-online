@@ -7,8 +7,8 @@ import { updateProtectionStatus } from '@/utils/protectionUtils';
 import { useAbility } from '../../src/components/AbilityManager';
 import { AbilityService } from '../../services/abilityService';
 
-const isAbilityActive = () => AbilityService.isAbilityActive();
-const completeAbility = () => AbilityService.completeAbility();
+const isAbilityActive = AbilityService.isAbilityActive.bind(AbilityService);
+const completeAbility = AbilityService.completeAbility.bind(AbilityService);
 
 interface PersonSlotProps {
   index: number;
