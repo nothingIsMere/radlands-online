@@ -26,6 +26,7 @@ interface CampSlotProps {
   abilityRestoreMode?: boolean;
   multiRestoreMode?: boolean;
   applyRestore?: (card: Card, slotIndex: number, isRightPlayer: boolean) => void;
+  addToDiscardPile?: (card: Card) => void;
 
   // Add any other props needed
   setSelectedCard?: (card: Card | null) => void;
@@ -73,7 +74,27 @@ const CampSlot: React.FC<CampSlotProps> = ({
   setCampDamageMode,
   setSniperMode,
   destroyCamp,
+  setDamageColumnMode,
+  updateProtectionStatus,
+  addToDiscardPile,
 }) => {
+  const processColumnDiscards = () => {
+    const columnIndex = index;
+    const frontRowIndex = columnIndex * 2;
+    const backRowIndex = frontRowIndex + 1;
+    const frontPerson = playerState.personSlots[frontRowIndex];
+    const backPerson = playerState.personSlots[backRowIndex];
+
+    // Handle discards for destroyed cards
+    if (frontPerson && (frontPerson.isDamaged || frontPerson.isPunk) && addToDiscardPile) {
+      addToDiscardPile(frontPerson);
+    }
+
+    if (backPerson && (backPerson.isDamaged || backPerson.isPunk) && addToDiscardPile) {
+      addToDiscardPile(backPerson);
+    }
+  };
+
   const handleClick = () => {
     // Only proceed if interaction is allowed
     if (!isInteractable('camp', player, index)) return;
@@ -97,43 +118,143 @@ const CampSlot: React.FC<CampSlotProps> = ({
 
     // Handle damageColumnMode
     if (damageColumnMode && gameState.currentTurn !== player && card) {
-      console.log('Attempting to damage column with camp:', {
-        camp: card.name,
-        columnIndex: index,
-        isProtected: card.isProtected,
-      });
+      processColumnDiscards();
 
       // Get the column index (same as camp index)
       const columnIndex = index;
 
-      // Apply damage to all cards in this column
-      // First, the person cards (indices for front and back row)
+      // First, get references to all cards in this column
       const frontRowIndex = columnIndex * 2;
       const backRowIndex = frontRowIndex + 1;
-
       const frontPerson = playerState.personSlots[frontRowIndex];
       const backPerson = playerState.personSlots[backRowIndex];
+      const campCard = card;
 
-      // Damage front person if it exists
-      if (frontPerson && applyDamage) {
-        applyDamage(frontPerson, frontRowIndex, player === 'right');
-      }
+      // Apply damage to the entire column in a single state update
+      if (player === 'left') {
+        setPlayerState((prev) => {
+          // Create new arrays to avoid direct state mutation
+          const newPersonSlots = [...prev.personSlots];
+          const newCampSlots = [...prev.campSlots];
 
-      // Damage back person if it exists
-      if (backPerson && applyDamage) {
-        applyDamage(backPerson, backRowIndex, player === 'right');
-      }
+          // Process front row person
+          if (frontPerson) {
+            if (frontPerson.isDamaged || frontPerson.isPunk) {
+              // Destroy the person - discard is handled separately by processColumnDiscards
+              newPersonSlots[frontRowIndex] = null;
+            } else {
+              // Just mark as damaged
+              newPersonSlots[frontRowIndex] = { ...frontPerson, isDamaged: true, isReady: false };
+            }
+          }
 
-      // Damage the camp itself
-      if (card && applyDamage) {
-        applyDamage(card, columnIndex, player === 'right');
+          // Process back row person
+          if (backPerson) {
+            if (backPerson.isDamaged || backPerson.isPunk) {
+              // Destroy the person - discard is handled separately by processColumnDiscards
+              newPersonSlots[backRowIndex] = null;
+            } else {
+              // Just mark as damaged
+              newPersonSlots[backRowIndex] = { ...backPerson, isDamaged: true, isReady: false };
+            }
+          }
+
+          // Process camp card
+          if (campCard) {
+            if (campCard.isDamaged) {
+              // Destroy the camp
+              newCampSlots[columnIndex] = null;
+            } else {
+              // Just mark as damaged
+              newCampSlots[columnIndex] = { ...campCard, isDamaged: true };
+            }
+          }
+
+          // Update protection status
+          const updatedState = updateProtectionStatus
+            ? updateProtectionStatus(newPersonSlots, newCampSlots)
+            : { personSlots: newPersonSlots, campSlots: newCampSlots };
+
+          return {
+            ...prev,
+            ...updatedState,
+          };
+        });
+      } else {
+        // Similar process for right player
+        setPlayerState((prev) => {
+          // Create new arrays to avoid direct state mutation
+          const newPersonSlots = [...prev.personSlots];
+          const newCampSlots = [...prev.campSlots];
+
+          // Process front row person
+          if (frontPerson) {
+            if (frontPerson.isDamaged || frontPerson.isPunk) {
+              // Destroy the person
+              newPersonSlots[frontRowIndex] = null;
+
+              // Add to discard pile (handled elsewhere)
+              // if (typeof window !== 'undefined' && window.document) {
+              //   const gameBoard = document.getElementById('game-board');
+              //   if (gameBoard && gameBoard.addToDiscardPile) {
+              //     gameBoard.addToDiscardPile(frontPerson);
+              //   }
+              // }
+            } else {
+              // Just mark as damaged
+              newPersonSlots[frontRowIndex] = { ...frontPerson, isDamaged: true, isReady: false };
+            }
+          }
+
+          // Process back row person
+          if (backPerson) {
+            if (backPerson.isDamaged || backPerson.isPunk) {
+              // Destroy the person
+              newPersonSlots[backRowIndex] = null;
+
+              // Add to discard pile (handled elsewhere)
+              // if (typeof window !== 'undefined' && window.document) {
+              //   const gameBoard = document.getElementById('game-board');
+              //   if (gameBoard && gameBoard.addToDiscardPile) {
+              //     gameBoard.addToDiscardPile(backPerson);
+              //   }
+              // }
+            } else {
+              // Just mark as damaged
+              newPersonSlots[backRowIndex] = { ...backPerson, isDamaged: true, isReady: false };
+            }
+          }
+
+          // Process camp card
+          if (campCard) {
+            if (campCard.isDamaged) {
+              // Destroy the camp
+              newCampSlots[columnIndex] = null;
+            } else {
+              // Just mark as damaged
+              newCampSlots[columnIndex] = { ...campCard, isDamaged: true };
+            }
+          }
+
+          // Update protection status
+          const updatedState = updateProtectionStatus
+            ? updateProtectionStatus(newPersonSlots, newCampSlots)
+            : { personSlots: newPersonSlots, campSlots: newCampSlots };
+
+          return {
+            ...prev,
+            ...updatedState,
+          };
+        });
       }
 
       // Reset column damage mode
       if (setDamageColumnMode) setDamageColumnMode(false);
 
       alert(`Damaged all cards in column ${columnIndex + 1}!`);
-      return;
+      console.log('------- Column Damage Completed -------');
+
+      return true;
     }
 
     // Handle destroyCampMode

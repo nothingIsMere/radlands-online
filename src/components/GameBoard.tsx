@@ -1442,6 +1442,7 @@ const GameBoard = () => {
     setOpponentChoiceDamageMode,
     setRestorePersonReadyMode,
     setShowRestoreDoneButton,
+    setOpponentChoiceDamageSource,
   };
 
   useEffect(() => {
@@ -1457,6 +1458,13 @@ const GameBoard = () => {
   useEffect(() => {
     console.log('campDamageMode changed:', campDamageMode);
   }, [campDamageMode]);
+
+  useEffect(() => {
+    console.log(
+      'Discard pile contents:',
+      discardPile.map((card) => `${card.name} (${card.id})`)
+    );
+  }, [discardPile]);
 
   useEffect(() => {
     // Check if punk placement is complete and we need to execute a raid
@@ -1837,6 +1845,9 @@ const GameBoard = () => {
   };
 
   const destroyCard = (card: Card, slotIndex: number, isRightPlayer: boolean) => {
+    console.log(
+      `destroyCard called for: ${card.name} (${card.id}), slotIndex: ${slotIndex}, isRightPlayer: ${isRightPlayer}`
+    );
     // Get the correct player's state and setter
     const playerState = isRightPlayer ? rightPlayerState : leftPlayerState;
     const setPlayerState = isRightPlayer ? setRightPlayerState : setLeftPlayerState;
@@ -1933,7 +1944,16 @@ const GameBoard = () => {
   };
 
   const addToDiscardPile = (card: Card) => {
-    setDiscardPile((prev) => [...prev, card]);
+    console.log(`GameBoard: addToDiscardPile called for: ${card.name} (${card.id})`);
+    console.log(
+      'GameBoard: Current discard pile:',
+      discardPile.map((c) => c.name)
+    );
+    setDiscardPile((prev) => {
+      console.log('GameBoard: Setting discard pile, current length:', prev.length);
+      return [...prev, card];
+    });
+    console.log('GameBoard: setDiscardPile called');
   };
 
   const applyDamage = (target: Card, slotIndex: number, isRightPlayer: boolean) => {
@@ -3623,6 +3643,8 @@ const GameBoard = () => {
                     anyCardDamageMode={anyCardDamageMode}
                     opponentChoiceDamageMode={opponentChoiceDamageMode}
                     setDestroyCampMode={setDestroyCampMode}
+                    updateProtectionStatus={updateProtectionStatus}
+                    addToDiscardPile={addToDiscardPile}
                   />
                 </div>
                 {/* Column 2 */}
@@ -3807,6 +3829,8 @@ const GameBoard = () => {
                     anyCardDamageMode={anyCardDamageMode}
                     opponentChoiceDamageMode={opponentChoiceDamageMode}
                     setDestroyCampMode={setDestroyCampMode}
+                    updateProtectionStatus={updateProtectionStatus}
+                    addToDiscardPile={addToDiscardPile}
                   />
                 </div>
                 {/* Column 3 */}
@@ -3991,6 +4015,8 @@ const GameBoard = () => {
                     anyCardDamageMode={anyCardDamageMode}
                     opponentChoiceDamageMode={opponentChoiceDamageMode}
                     setDestroyCampMode={setDestroyCampMode}
+                    updateProtectionStatus={updateProtectionStatus}
+                    addToDiscardPile={addToDiscardPile}
                   />
                 </div>
               </div>
@@ -4926,6 +4952,8 @@ const GameBoard = () => {
                     anyCardDamageMode={anyCardDamageMode}
                     opponentChoiceDamageMode={opponentChoiceDamageMode}
                     setDestroyCampMode={setDestroyCampMode}
+                    updateProtectionStatus={updateProtectionStatus}
+                    addToDiscardPile={addToDiscardPile}
                   />
                 </div>
                 {/* Column 2 */}
@@ -5102,6 +5130,8 @@ const GameBoard = () => {
                     anyCardDamageMode={anyCardDamageMode}
                     opponentChoiceDamageMode={opponentChoiceDamageMode}
                     setDestroyCampMode={setDestroyCampMode}
+                    updateProtectionStatus={updateProtectionStatus}
+                    addToDiscardPile={addToDiscardPile}
                   />
                 </div>
                 {/* Column 3 */}
@@ -5278,6 +5308,8 @@ const GameBoard = () => {
                     anyCardDamageMode={anyCardDamageMode}
                     opponentChoiceDamageMode={opponentChoiceDamageMode}
                     setDestroyCampMode={setDestroyCampMode}
+                    updateProtectionStatus={updateProtectionStatus}
+                    addToDiscardPile={addToDiscardPile}
                   />
                 </div>
               </div>
