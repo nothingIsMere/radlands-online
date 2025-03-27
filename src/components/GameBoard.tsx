@@ -3416,9 +3416,17 @@ const GameBoard = () => {
                               }));
                               setDiscardPile((prev) => [...prev, card]);
                               setDiscardSelectionCount((prev) => prev - 1);
-                              // Check if we've discarded enough cards
                               if (discardSelectionCount <= 1) {
                                 setDiscardSelectionActive(false);
+                                // Add this line to complete the ability
+                                if (
+                                  AbilityService &&
+                                  AbilityService.isAbilityActive &&
+                                  AbilityService.isAbilityActive()
+                                ) {
+                                  console.log('Completing ability after discard');
+                                  AbilityService.completeAbility();
+                                }
                                 alert('Discard complete!');
                               }
                             }
