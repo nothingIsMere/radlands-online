@@ -358,7 +358,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         type: 'draw_then_discard',
       }
     ],
-    traits: ['start_ready', 'immediate_events'], // This trait should be checked regardless of ready status
+    traits: ['start_ready'], // This trait should be checked regardless of ready status
     junkEffect: 'gain_punk'
   },
   'vera-vosh': {
@@ -375,7 +375,7 @@ export const personCards: { [key: string]: Omit<Card, 'isDamaged' | 'isProtected
         value: 1
       }
     ],
-    traits: ['start_ready', 'keep_ready_first_ability'],
+    traits: ['start_ready'],
     junkEffect: 'gain_punk'  // Junk effect is gain_punk
   },
   'karli-blaze': {

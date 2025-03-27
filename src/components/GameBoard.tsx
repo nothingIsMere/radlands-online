@@ -1443,6 +1443,9 @@ const GameBoard = () => {
     setRestorePersonReadyMode,
     setShowRestoreDoneButton,
     setOpponentChoiceDamageSource,
+    setOpponentChoiceDamageValue,
+    setRestoreSource,
+    setSacrificeEffect,
   };
 
   useEffect(() => {
@@ -1896,7 +1899,11 @@ const GameBoard = () => {
       campSlots: prev.campSlots.map((c, i) => (i === slotIndex ? null : c)),
     }));
 
-    console.log(`Camp "${camp.name}" destroyed in slot ${slotIndex}`);
+    // Complete any pending ability
+    if (AbilityService && AbilityService.isAbilityActive && AbilityService.isAbilityActive()) {
+      console.log('Completing ability after destroying camp');
+      AbilityService.completeAbility();
+    }
   };
 
   const getColumnFromSlotIndex = (slotIndex: number) => {
@@ -1944,16 +1951,10 @@ const GameBoard = () => {
   };
 
   const addToDiscardPile = (card: Card) => {
-    console.log(`GameBoard: addToDiscardPile called for: ${card.name} (${card.id})`);
-    console.log(
-      'GameBoard: Current discard pile:',
-      discardPile.map((c) => c.name)
-    );
     setDiscardPile((prev) => {
       console.log('GameBoard: Setting discard pile, current length:', prev.length);
       return [...prev, card];
     });
-    console.log('GameBoard: setDiscardPile called');
   };
 
   const applyDamage = (target: Card, slotIndex: number, isRightPlayer: boolean) => {
@@ -2097,10 +2098,6 @@ const GameBoard = () => {
   };
 
   const executeJunkEffect = (card: Card) => {
-    console.log('executeJunkEffect called', {
-      cardName: card.name,
-      junkEffect: card.junkEffect,
-    });
     // Use the current turn to determine the player
     const currentPlayer = gameState.currentTurn;
     const playerState = currentPlayer === 'left' ? leftPlayerState : rightPlayerState;

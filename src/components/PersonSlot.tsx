@@ -355,12 +355,23 @@ const PersonSlot = ({
 
       // Reset injure mode
       if (setInjureMode) {
+        console.log('Setting injureMode to false');
         setInjureMode(false);
       }
 
       // Make sure the ability is completed
-      if (isAbilityActive()) {
-        completeAbility();
+      try {
+        console.log('Trying to complete ability using AbilityService');
+        // Use the imported AbilityService directly
+        if (AbilityService && AbilityService.isAbilityActive && AbilityService.isAbilityActive()) {
+          console.log('AbilityService.isAbilityActive() returned true');
+          AbilityService.completeAbility();
+          console.log('AbilityService.completeAbility() called successfully');
+        } else {
+          console.log('AbilityService not available or ability not active');
+        }
+      } catch (error) {
+        console.error('Error accessing AbilityService:', error);
       }
 
       return true;

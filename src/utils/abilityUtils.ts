@@ -381,6 +381,18 @@ export const applyDamageToTarget = (
   setRightCardsUsedAbility: (updater: (prev: string[]) => string[]) => void,
   hasVeraVoshActive: boolean
 ) => {
+
+  console.log('markCardUsedAbility called with:', {
+    cardName: card.name,
+    cardId: card.id,
+    locationType: location.type,
+    locationIndex: location.index,
+    player,
+    hasVeraVoshActive,
+    hasKeepReadyTrait: card.traits?.includes('keep_ready_first_ability')
+  });
+
+
   const playerState = player === 'left' ? leftPlayerState : rightPlayerState;
   const setPlayerState = player === 'left' ? setLeftPlayerState : setRightPlayerState;
   const cardsUsedAbility = player === 'left' ? leftCardsUsedAbility : rightCardsUsedAbility;

@@ -10,3 +10,5 @@ export const injureAbilityHandler = (context: AbilityContext): void => {
   // When injure is applied, AbilityService.completeAbility will be called
   // This will be handled in the handleInjure function or equivalent
 };
+
+

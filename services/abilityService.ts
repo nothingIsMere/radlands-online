@@ -50,7 +50,13 @@ export class AbilityService {
   }
 
   static completeAbility(): void {
-    
+    console.log('completeAbility called, currentContext:', 
+    this.currentContext ? {
+      sourceCard: this.currentContext.sourceCard?.name,
+      sourceLocation: this.currentContext.sourceLocation,
+      player: this.currentContext.player
+    } : 'null');
+
     // Clean up all ability-related states if we have a context
     if (this.currentContext) {
       // Mark the source card as not ready
@@ -58,6 +64,8 @@ export class AbilityService {
       
       // Then reset all ability-related states
       resetAllAbilityStates(this.currentContext.stateSetters);
+    }else {
+      console.log('No currentContext in completeAbility');
     }
 
     // Mark the ability as completed
@@ -92,6 +100,8 @@ export class AbilityService {
 
   // Add this new private method to handle marking the card as not ready
   private static markSourceCardNotReady(): void {
+    console.log("markSourceCardNotReady called for:", this.currentContext?.sourceCard?.name);
+    console.log("Card traits:", this.currentContext?.sourceCard?.traits);
     if (!this.currentContext) return;
     
     const { sourceCard, sourceLocation, player, playerState, stateSetters } = this.currentContext;

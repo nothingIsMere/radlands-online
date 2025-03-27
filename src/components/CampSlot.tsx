@@ -2,6 +2,7 @@
 'use client';
 import React from 'react';
 import { Card, PlayerState } from '@/types/game';
+import { AbilityService } from '../../services/abilityService';
 
 interface CampSlotProps {
   index: number;
@@ -260,7 +261,16 @@ const CampSlot: React.FC<CampSlotProps> = ({
     // Handle destroyCampMode
     if (destroyCampMode && gameState.currentTurn !== player && card) {
       alert(`${card.name} destroyed!`);
-      if (destroyCamp) destroyCamp(card, index, player === 'right');
+      if (destroyCamp) {
+        destroyCamp(card, index, player === 'right');
+      }
+
+      // Complete the ability after destroying the camp
+      // You might need to import AbilityService at the top of the file
+      if (typeof window !== 'undefined' && window.AbilityService && window.AbilityService.isAbilityActive()) {
+        window.AbilityService.completeAbility();
+      }
+
       return;
     }
 
