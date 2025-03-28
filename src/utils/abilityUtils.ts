@@ -483,4 +483,8 @@ export const applyDamageToTarget = (
   stateSetters.setSacrificeEffect(null);
   stateSetters.setSacrificeSource(null);
   stateSetters.setVanguardOriginalPlayer(null);
+  stateSetters.setMimicSelectionMode(false);
+  stateSetters.setMimicSourceCard(null);
+  stateSetters.setMimicSourceLocation(null);
+  stateSetters.setMimicTargetCard(null);
 };

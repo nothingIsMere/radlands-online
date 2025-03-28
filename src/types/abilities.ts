@@ -66,6 +66,7 @@ export interface StateSetters {
   setShowRestoreDoneButton: (show: boolean) => void;
   setSacrificeEffect: (effect: 'draw' | 'water' | 'restore' | null) => void;
   setSacrificeSource: (source: Card | null) => void;
+  
 }
 
 // Define the context that will be passed to ability handlers
@@ -79,4 +80,5 @@ export interface AbilityContext {
   opponentState: PlayerState;
   stateSetters: StateSetters;
   drawDeck: Card[];
+  
 }

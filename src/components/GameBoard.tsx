@@ -489,30 +489,6 @@ const GameBoard = () => {
       return false;
     }
 
-    if (mimicMode) {
-      // In mimic mode, a player can interact with either:
-      // 1. Their own ready person cards with abilities, or
-      // 2. Undamaged enemy person cards with abilities
-      if (element === 'person') {
-        const targetCard =
-          elementPlayer === 'left' ? leftPlayerState.personSlots[slotIndex] : rightPlayerState.personSlots[slotIndex];
-
-        // First check if card exists and has abilities (applies to both own and enemy cards)
-        if (!targetCard || targetCard.isPunk || !targetCard.abilities || targetCard.abilities.length === 0) {
-          return false; // No abilities to mimic
-        }
-
-        if (elementPlayer === gameState.currentTurn) {
-          // Own person cards - must be ready
-          return targetCard.isReady && targetCard.id !== mimicSourceCard?.id;
-        } else {
-          // Enemy person cards - must be undamaged
-          return !targetCard.isDamaged;
-        }
-      }
-      return false;
-    }
-
     if (restoreMode) {
       // For restore mode, a card is interactable if:
       // 1. It belongs to the restore player
@@ -1086,14 +1062,7 @@ const GameBoard = () => {
 
   const [leftPlayerState, setLeftPlayerState] = useState<PlayerState>({
     // Hand cards: several random people plus two with "gain_punk" junk effect
-    handCards: [
-      createPerson('magnus-karv'),
-      createPerson('karli-blaze'),
-      createPerson('vera-vosh'),
-      createPerson('zeto-kahn'),
-      createPerson('molgur-stang'),
-      createPerson('argo-yesky'),
-    ],
+    handCards: [createPerson('mimic'), createPerson('looter'), createPerson('scout'), createPerson('sniper')],
 
     // No people in person slots
     personSlots: [null, null, null, null, null, null],
@@ -1208,13 +1177,6 @@ const GameBoard = () => {
   const [vanguardPendingCounter, setVanguardPendingCounter] = useState(false);
   const [vanguardCounterActive, setVanguardCounterActive] = useState(false);
   const [vanguardOriginalPlayer, setVanguardOriginalPlayer] = useState<'left' | 'right' | null>(null);
-  // Mimic ability states
-  const [mimicMode, setMimicMode] = useState(false);
-  const [mimicSourceCard, setMimicSourceCard] = useState<Card | null>(null);
-  const [mimicSourceLocation, setMimicSourceLocation] = useState<{ type: 'person' | 'camp'; index: number } | null>(
-    null
-  );
-
   const [leftPlayedEventThisTurn, setLeftPlayedEventThisTurn] = useState(false);
   const [rightPlayedEventThisTurn, setRightPlayedEventThisTurn] = useState(false);
   const [leftCardsUsedAbility, setLeftCardsUsedAbility] = useState<string[]>([]);
@@ -1446,6 +1408,7 @@ const GameBoard = () => {
     setOpponentChoiceDamageValue,
     setRestoreSource,
     setSacrificeEffect,
+    setSacrificeSource,
   };
 
   useEffect(() => {
@@ -2889,14 +2852,6 @@ const GameBoard = () => {
         alert(`Select a damaged person to restore and make them ready`);
         break;
 
-      case 'mimic_ability':
-        // Enter mimic mode to select a card whose ability to copy
-        setMimicMode(true);
-        setMimicSourceCard(card);
-        setMimicSourceLocation(location);
-        alert('Select one of your ready person cards or an undamaged enemy person card to mimic its ability');
-        break;
-
       case 'gain_punk_ability':
         // Get a punk from the draw deck
         if (drawDeck.length > 0) {
@@ -3505,7 +3460,6 @@ const GameBoard = () => {
                     setSacrificePendingDamage={setSacrificePendingDamage}
                     setDamageMode={setDamageMode}
                     setDamageValue={setDamageValue}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -3574,7 +3528,6 @@ const GameBoard = () => {
                     setSacrificePendingDamage={setSacrificePendingDamage}
                     setDamageMode={setDamageMode}
                     setDamageValue={setDamageValue}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -3691,7 +3644,6 @@ const GameBoard = () => {
                     setSacrificePendingDamage={setSacrificePendingDamage}
                     setDamageMode={setDamageMode}
                     setDamageValue={setDamageValue}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -3760,7 +3712,6 @@ const GameBoard = () => {
                     setSacrificePendingDamage={setSacrificePendingDamage}
                     setDamageMode={setDamageMode}
                     setDamageValue={setDamageValue}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -3877,7 +3828,6 @@ const GameBoard = () => {
                     setSacrificePendingDamage={setSacrificePendingDamage}
                     setDamageMode={setDamageMode}
                     setDamageValue={setDamageValue}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -3946,7 +3896,6 @@ const GameBoard = () => {
                     setSacrificePendingDamage={setSacrificePendingDamage}
                     setDamageMode={setDamageMode}
                     setDamageValue={setDamageValue}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -4818,7 +4767,6 @@ const GameBoard = () => {
                     setReturnToHandMode={setReturnToHandMode}
                     damageColumnMode={damageColumnMode}
                     sacrificeMode={sacrificeMode}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -4883,7 +4831,6 @@ const GameBoard = () => {
                     setReturnToHandMode={setReturnToHandMode}
                     damageColumnMode={damageColumnMode}
                     sacrificeMode={sacrificeMode}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -4996,7 +4943,6 @@ const GameBoard = () => {
                     setReturnToHandMode={setReturnToHandMode}
                     damageColumnMode={damageColumnMode}
                     sacrificeMode={sacrificeMode}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -5061,7 +5007,6 @@ const GameBoard = () => {
                     setReturnToHandMode={setReturnToHandMode}
                     damageColumnMode={damageColumnMode}
                     sacrificeMode={sacrificeMode}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -5174,7 +5119,6 @@ const GameBoard = () => {
                     setReturnToHandMode={setReturnToHandMode}
                     damageColumnMode={damageColumnMode}
                     sacrificeMode={sacrificeMode}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}
@@ -5239,7 +5183,6 @@ const GameBoard = () => {
                     setReturnToHandMode={setReturnToHandMode}
                     damageColumnMode={damageColumnMode}
                     sacrificeMode={sacrificeMode}
-                    mimicMode={mimicMode}
                     restorePersonReadyMode={restorePersonReadyMode}
                     multiRestoreMode={multiRestoreMode}
                     sacrificeEffect={sacrificeEffect}

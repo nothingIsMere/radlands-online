@@ -23,7 +23,6 @@ import { destroyDamagedAllAbilityHandler } from '../../handlers/person/destroyDa
 import { destroyPersonAbilityHandler } from '../../handlers/person/destroyPersonAbilityHandler';
 import { drawThenDiscardAbilityHandler } from '../../handlers/person/drawThenDiscardAbilityHandler';
 import { injureAllAbilityHandler } from '../../handlers/person/injureAllAbilityHandler';
-import { mimicAbilityHandler } from '../../handlers/person/mimicAbilityHandler';
 import { mutantAbilityHandler } from '../../handlers/person/mutantAbilityHandler';
 import { punkDamageAbilityHandler } from '../../handlers/person/punkDamageAbilityHandler';
 import { returnToHandAbilityHandler } from '../../handlers/person/returnToHandAbilityHandler';
@@ -32,6 +31,8 @@ import { scientistAbilityHandler } from '../../handlers/person/scientistAbilityH
 import { sniperDamageAbilityHandler } from '../../handlers/person/sniperDamageAbilityHandler';
 import { vanguardDamageAbilityHandler } from '../../handlers/person/vanguardDamageAbilityHandler';
 import { destroyAnyCampAbilityHandler } from '../../handlers/person/destroyAnyCampAbilityHandler';
+
+
 
 // Import camp-specific abilities (commented out for now - will implement later)
 // import { advanceEventAbilityHandler } from '../handlers/camp/advanceEventAbilityHandler';
@@ -80,7 +81,6 @@ const initializePersonAbilities = () => {
   AbilityRegistry.register('destroy_person', destroyPersonAbilityHandler);
   AbilityRegistry.register('draw_then_discard', drawThenDiscardAbilityHandler);
   AbilityRegistry.register('injure_all', injureAllAbilityHandler);
-  AbilityRegistry.register('mimic_ability', mimicAbilityHandler);
   AbilityRegistry.register('mutant_ability', mutantAbilityHandler);
   AbilityRegistry.register('punk_damage', punkDamageAbilityHandler);
   AbilityRegistry.register('return_to_hand', returnToHandAbilityHandler);
@@ -89,6 +89,7 @@ const initializePersonAbilities = () => {
   AbilityRegistry.register('sniper_damage', sniperDamageAbilityHandler);
   AbilityRegistry.register('vanguard_damage', vanguardDamageAbilityHandler);
   AbilityRegistry.register('destroy_any_camp', destroyAnyCampAbilityHandler);
+ 
 };
 
 // Commented out for now - will implement later

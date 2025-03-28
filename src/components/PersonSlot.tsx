@@ -20,7 +20,7 @@ interface PersonSlotProps {
   setPunkPlacementMode?: (value: boolean) => void;
   setPunkCardToPlace?: (value: Card | null) => void;
   restoreMode?: boolean;
-  mimicMode?: boolean;
+
   restorePlayer?: 'left' | 'right' | null;
   setRestoreMode?: (value: boolean) => void;
   injureMode?: boolean;
@@ -124,7 +124,7 @@ const PersonSlot = ({
   setSelectedCard,
   setSelectedCardLocation,
   setIsAbilityModalOpen,
-  mimicMode = false,
+
   restorePersonReadyMode = false,
   multiRestoreMode = false,
   sacrificeEffect = null,
@@ -355,7 +355,6 @@ const PersonSlot = ({
 
       // Reset injure mode
       if (setInjureMode) {
-        console.log('Setting injureMode to false');
         setInjureMode(false);
       }
 
@@ -398,11 +397,6 @@ const PersonSlot = ({
 
     if (sacrificeMode && card && player === gameState.currentTurn) {
       handleSacrifice();
-      return true;
-    }
-
-    if (mimicMode && card) {
-      handleMimic();
       return true;
     }
 
@@ -477,17 +471,6 @@ const PersonSlot = ({
     }
   };
 
-  const handleMimic = () => {
-    alert(`Mimicking ${card.name}'s ability!`);
-
-    if (card.abilities && card.abilities.length > 0) {
-      if (setSelectedCard) setSelectedCard(card);
-      if (setSelectedCardLocation) setSelectedCardLocation({ type: 'person', index });
-      if (setIsAbilityModalOpen) setIsAbilityModalOpen(true);
-    } else {
-      alert('This card has no abilities to mimic!');
-    }
-  };
   return (
     <div
       className={`w-24 h-32 border-2 ${
@@ -502,7 +485,6 @@ const PersonSlot = ({
           (damageColumnMode && player !== gameState.currentTurn) ||
           (abilityRestoreMode && card?.isDamaged) ||
           (returnToHandMode && card && player === gameState.currentTurn) ||
-          (mimicMode && card) ||
           (damageMode && anyCardDamageMode && card && (sniperMode || !card.isProtected)) ||
           (opponentChoiceDamageMode && gameState.currentTurn !== player && card) ||
           // Construction Yard conditions
