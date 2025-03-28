@@ -72,17 +72,23 @@ export const AbilityProvider: React.FC<AbilityProviderProps> = ({
       waterCount: prev.waterCount - ability.cost,
     }));
 
-    // Mark the card as not ready (used)
-    if (location.type === 'person') {
-      setPlayerState((prev) => ({
-        ...prev,
-        personSlots: prev.personSlots.map((slot, idx) => (idx === location.index ? { ...slot, isReady: false } : slot)),
-      }));
-    } else if (location.type === 'camp') {
-      setPlayerState((prev) => ({
-        ...prev,
-        campSlots: prev.campSlots.map((slot, idx) => (idx === location.index ? { ...slot, isReady: false } : slot)),
-      }));
+    // For mimic_ability, we don't mark the card as not ready here
+    // We'll do that when the ability completes
+    if (ability.type !== 'mimic_ability') {
+      // Mark the card as not ready (used)
+      if (location.type === 'person') {
+        setPlayerState((prev) => ({
+          ...prev,
+          personSlots: prev.personSlots.map((slot, idx) =>
+            idx === location.index ? { ...slot, isReady: false } : slot
+          ),
+        }));
+      } else if (location.type === 'camp') {
+        setPlayerState((prev) => ({
+          ...prev,
+          campSlots: prev.campSlots.map((slot, idx) => (idx === location.index ? { ...slot, isReady: false } : slot)),
+        }));
+      }
     }
 
     const context: AbilityContext = {

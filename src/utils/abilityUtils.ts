@@ -379,31 +379,17 @@ export const applyDamageToTarget = (
   rightCardsUsedAbility: string[],
   setLeftCardsUsedAbility: (updater: (prev: string[]) => string[]) => void,
   setRightCardsUsedAbility: (updater: (prev: string[]) => string[]) => void,
-  hasVeraVoshActive: boolean
+  hasVeraVoshActive: boolean,
+  mimickedCardInfo?: { card: Card, index: number, player: 'left' | 'right' } // Add this parameter
 ) => {
+  // ... existing code ...
 
-  console.log('markCardUsedAbility called with:', {
-    cardName: card.name,
-    cardId: card.id,
-    locationType: location.type,
-    locationIndex: location.index,
-    player,
-    hasVeraVoshActive,
-    hasKeepReadyTrait: card.traits?.includes('keep_ready_first_ability')
-  });
-
-
-  const playerState = player === 'left' ? leftPlayerState : rightPlayerState;
-  const setPlayerState = player === 'left' ? setLeftPlayerState : setRightPlayerState;
-  const cardsUsedAbility = player === 'left' ? leftCardsUsedAbility : rightCardsUsedAbility;
-  const setCardsUsedAbility = player === 'left' ? setLeftCardsUsedAbility : setRightCardsUsedAbility;
+  // If this is a Mimic card, we need to handle it specially
+  const isMimic = card.name === 'Mimic';
   
-  // Check if this card has already used an ability this turn
-  const hasCardUsedAbility = cardsUsedAbility.includes(card.id);
-  
+  // Mark the card as not ready (unless it's protected by Vera Vosh)
   if (hasVeraVoshActive && !hasCardUsedAbility) {
     // First ability use with Vera Vosh active - card stays ready
-    // Vera Vosh's effect applies to both person and camp cards
     console.log(`${card.name} stays ready due to Vera Vosh's effect`);
     
     // Add card to list of cards that used abilities this turn
@@ -432,6 +418,21 @@ export const applyDamageToTarget = (
       
       // Add to list of cards that used abilities this turn
       setCardsUsedAbility((prev) => [...prev, card.id]);
+    }
+  }
+  
+  // If this is a mimicked card, reset it to ready state
+  if (mimickedCardInfo) {
+    const { card: mimickedCard, index: mimickedIndex, player: mimickedPlayer } = mimickedCardInfo;
+    const setMimickedPlayerState = mimickedPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+    
+    if (mimickedCard.type === 'person') {
+      setMimickedPlayerState((prev) => ({
+        ...prev,
+        personSlots: prev.personSlots.map((slot, idx) =>
+          idx === mimickedIndex ? { ...slot, isReady: true } : slot
+        ),
+      }));
     }
   }
 };

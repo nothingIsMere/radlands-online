@@ -31,6 +31,7 @@ import { scientistAbilityHandler } from '../../handlers/person/scientistAbilityH
 import { sniperDamageAbilityHandler } from '../../handlers/person/sniperDamageAbilityHandler';
 import { vanguardDamageAbilityHandler } from '../../handlers/person/vanguardDamageAbilityHandler';
 import { destroyAnyCampAbilityHandler } from '../../handlers/person/destroyAnyCampAbilityHandler';
+import { mimicAbilityHandler } from '../../handlers/person/mimicAbilityHandler';
 
 
 
@@ -89,6 +90,8 @@ const initializePersonAbilities = () => {
   AbilityRegistry.register('sniper_damage', sniperDamageAbilityHandler);
   AbilityRegistry.register('vanguard_damage', vanguardDamageAbilityHandler);
   AbilityRegistry.register('destroy_any_camp', destroyAnyCampAbilityHandler);
+  AbilityRegistry.register('mimic_ability', mimicAbilityHandler);
+
  
 };
 

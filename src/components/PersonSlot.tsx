@@ -498,7 +498,6 @@ const PersonSlot = ({
         // Only proceed if interaction is allowed
         if (!isInteractable('person', player, index)) return;
 
-        // Try each handler in sequence, stopping when one succeeds
         if (handleConstructionYard()) return;
         if (handleMultiRestore()) return;
         if (handlePunkPlacement()) return;

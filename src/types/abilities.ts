@@ -66,6 +66,10 @@ export interface StateSetters {
   setShowRestoreDoneButton: (show: boolean) => void;
   setSacrificeEffect: (effect: 'draw' | 'water' | 'restore' | null) => void;
   setSacrificeSource: (source: Card | null) => void;
+  setMimicSelectionMode: (active: boolean) => void;
+  setMimicSourceCard: (card: Card | null) => void;
+  setMimicSourceLocation: (location: { type: 'person' | 'camp'; index: number } | null) => void;
+  setMimicTargetCard: (card: Card | null) => void;
   
 }
 
