@@ -55,4 +55,68 @@ export class AbilityService {
       this.markSourceCardNotReady();
       
       // Reset all ability-related states
-      rese
+      resetAllAbilityStates(this.currentContext.stateSetters);
+    }
+    
+    // Clear the ability state
+    this.isActive = false;
+    this.isPendingAbility = false;
+    this.currentContext = null;
+  }
+
+  static cancelAbility(): void {
+    // Clean up all ability-related states if we have a context
+    if (this.currentContext) {
+      resetAllAbilityStates(this.currentContext.stateSetters);
+    }
+    
+    // Mark the ability as canceled
+    this.isActive = false;
+    this.isPendingAbility = false;
+    this.currentContext = null;
+  }
+
+  static isAbilityActive(): boolean {
+    return this.isActive;
+  }
+
+  static setPendingAbility(isPending: boolean): void {
+    this.isPendingAbility = isPending;
+  }
+
+  static getCurrentContext(): AbilityContext | null {
+    return this.currentContext;
+  }
+
+  static setCurrentContext(context: AbilityContext): void {
+    this.currentContext = context;
+  }
+
+  private static markSourceCardNotReady(): void {
+    if (!this.currentContext) return;
+    
+    const { sourceCard, sourceLocation, player, stateSetters } = this.currentContext;
+    
+    // Check if this is a card being mimicked
+    if (sourceCard.isMimicked) {
+      console.log(`Skipping markSourceCardNotReady for ${sourceCard.name} because it's being mimicked`);
+      return;
+    }
+    
+    // Only handle person cards
+    if (sourceLocation.type !== 'person') return;
+    
+    // Get the correct setState function based on the player
+    const setPlayerState = player === 'left' ?
+      stateSetters.setLeftPlayerState :
+      stateSetters.setRightPlayerState;
+    
+    // Update the card's ready state
+    setPlayerState(prev => ({
+      ...prev,
+      personSlots: prev.personSlots.map((card, idx) =>
+        idx === sourceLocation.index ? { ...card, isReady: false } : card
+      )
+    }));
+  }
+}

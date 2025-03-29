@@ -82,6 +82,7 @@ interface PersonSlotProps {
   } | null;
   onPersonSelected?: (card: Card, slotIndex: number, player: 'left' | 'right') => void;
   onDestinationSelected?: (slotIndex: number, player: 'left' | 'right') => void;
+  isAbilityModalOpen?: boolean;
 }
 
 const PersonSlot = ({
@@ -146,6 +147,7 @@ const PersonSlot = ({
   constructionYardSelectedPerson,
   onPersonSelected,
   onDestinationSelected,
+  isAbilityModalOpen = false,
 }: PersonSlotProps) => {
   const { isAbilityActive, completeAbility } = useAbility();
   React.useEffect(() => {
@@ -190,6 +192,44 @@ const PersonSlot = ({
     return false;
   };
 
+  // Add this useEffect to reset the target card after the modal closes
+  React.useEffect(() => {
+    const handleAbilityCompletion = () => {
+      if (window.executingMimickedAbility && !isAbilityModalOpen) {
+        console.log('Ability modal closed, checking if we need to reset target card');
+
+        // Clear the executing flag
+        window.executingMimickedAbility = false;
+
+        // Check if we have target info
+        if (window.mimicTargetCard && typeof window.mimicTargetIndex === 'number' && window.mimicTargetPlayer) {
+          console.log('Resetting target card:', window.mimicTargetCard.name);
+
+          // Get the correct player state setter
+          const setTargetPlayerState = window.mimicTargetPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+          // Reset the card to ready state
+          setTargetPlayerState((prev) => ({
+            ...prev,
+            personSlots: prev.personSlots.map((slot, i) =>
+              i === window.mimicTargetIndex ? { ...slot, isReady: true } : slot
+            ),
+          }));
+
+          // Clear the target info
+          window.mimicTargetCard = null;
+          window.mimicTargetIndex = null;
+          window.mimicTargetPlayer = null;
+        }
+      }
+    };
+
+    // Listen for changes to the ability modal state
+    if (!isAbilityModalOpen) {
+      handleAbilityCompletion();
+    }
+  }, [isAbilityModalOpen]);
+
   const handleCardAbilityActivation = () => {
     if (
       gameState.currentPhase === 'actions' &&
@@ -207,26 +247,20 @@ const PersonSlot = ({
       if (card.name === 'Mimic') {
         console.log('Mimic card activated');
 
-        // Mark Mimic as not ready
+        // Mark Mimic as not ready immediately
         setPlayerState((prev) => ({
           ...prev,
           personSlots: prev.personSlots.map((slot, i) => (i === index ? { ...slot, isReady: false } : slot)),
         }));
 
-        // Set global variables to track mimic operation
-        if (typeof window !== 'undefined') {
-          window.inMimicMode = true;
-          window.mimicSourceCard = card;
-          window.mimicSourceIndex = index;
-          window.mimicSourcePlayer = player;
-        }
+        // Set global window variable to indicate we're in mimic mode
+        window.inMimicMode = true;
 
-        // Show message
         alert('Select a card to mimic: either your own ready person or any undamaged enemy person');
         return true;
       }
 
-      // Handle Argo Yesky effect
+      // Regular ability handling for other cards
       let cardToUse = card;
       const hasArgoYeskyEffect = hasArgoYeskyTrait(playerState);
 
@@ -518,43 +552,24 @@ const PersonSlot = ({
         // Only proceed if interaction is allowed
         if (!isInteractable('person', player, index)) return;
 
-        // Check for mimic mode
-        if (typeof window !== 'undefined' && window.inMimicMode && card) {
-          console.log('Mimic mode active, clicked on target:', card.name);
-
+        // In PersonSlot's onClick handler, mimic mode section
+        if (window.inMimicMode && card) {
           const isCurrentPlayer = player === gameState.currentTurn;
           const isValidTarget = (isCurrentPlayer && card.isReady) || (!isCurrentPlayer && !card.isDamaged);
 
           if (isValidTarget && card.abilities && card.abilities.length > 0) {
-            // Get the ability to mimic
-            const abilityToMimic = card.abilities[0];
+            console.log('Valid mimic target:', card.name);
+
+            // Create a copy of the card with the isMimicked flag
+            const mimickedCard = { ...card, isMimicked: true };
 
             // Exit mimic mode
             window.inMimicMode = false;
 
-            // Store target card info for restoration later
-            const targetCard = card;
-            const targetIndex = index;
-            const targetPlayer = player;
-
-            // Open the ability modal with the target card's ability
-            if (setSelectedCard) setSelectedCard(targetCard);
-            if (setSelectedCardLocation) setSelectedCardLocation({ type: 'person', index: targetIndex });
+            // Open ability modal with the mimicked card
+            if (setSelectedCard) setSelectedCard(mimickedCard);
+            if (setSelectedCardLocation) setSelectedCardLocation({ type: 'person', index: index });
             if (setIsAbilityModalOpen) setIsAbilityModalOpen(true);
-
-            // Wait for the ability to complete, then reset the target card's ready state
-            setTimeout(() => {
-              console.log('Resetting target card to ready state:', targetCard.name);
-
-              // Get the correct player state setter
-              const setTargetPlayerState = targetPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
-
-              // Reset the card to ready state
-              setTargetPlayerState((prev) => ({
-                ...prev,
-                personSlots: prev.personSlots.map((slot, i) => (i === targetIndex ? { ...slot, isReady: true } : slot)),
-              }));
-            }, 1000); // Adjust this timeout if needed
 
             return true;
           } else {
@@ -564,7 +579,7 @@ const PersonSlot = ({
           }
         }
 
-        // Existing handlers
+        // Keep all your existing handlers
         if (handleConstructionYard()) return;
         if (handleMultiRestore()) return;
         if (handlePunkPlacement()) return;

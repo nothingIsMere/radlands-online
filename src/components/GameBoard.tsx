@@ -85,6 +85,10 @@ declare global {
     mimicSourceCard?: any;
     mimicSourceIndex?: number;
     mimicSourcePlayer?: 'left' | 'right';
+    mimicTargetCard?: any;
+    mimicTargetIndex?: number;
+    mimicTargetPlayer?: 'left' | 'right';
+    executingMimickedAbility?: boolean;
   }
 }
 
@@ -3500,6 +3504,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <PersonSlot
                     index={1}
@@ -3568,6 +3573,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <CampSlot
                     index={0}
@@ -3684,6 +3690,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <PersonSlot
                     index={3}
@@ -3752,6 +3759,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <CampSlot
                     index={1}
@@ -3868,6 +3876,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <PersonSlot
                     index={5}
@@ -3936,6 +3945,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <CampSlot
                     index={2}
@@ -4807,6 +4817,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <PersonSlot
                     index={1}
@@ -4871,6 +4882,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <CampSlot
                     index={0}
@@ -4983,6 +4995,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <PersonSlot
                     index={3}
@@ -5047,6 +5060,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <CampSlot
                     index={1}
@@ -5159,6 +5173,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <PersonSlot
                     index={5}
@@ -5223,6 +5238,7 @@ const GameBoard = () => {
                     constructionYardSelectedPerson={constructionYardSelectedPerson}
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
+                    isAbilityModalOpen={isAbilityModalOpen}
                   />
                   <CampSlot
                     index={2}

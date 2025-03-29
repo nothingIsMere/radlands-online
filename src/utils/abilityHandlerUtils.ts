@@ -16,11 +16,10 @@ export const createTargetingHandler = (
   // Execute the setup function that configures targeting states
   setupFn(context);
   
-  // If user input is required, mark the ability as pending
-  if (requiresUserInput) {
-    AbilityService.setPendingAbility(true);
-  } else {
-    // Otherwise complete the ability immediately
+  // If user input is required, we used to mark the ability as pending
+  // But we'll no longer do this to avoid the error
+  if (!requiresUserInput) {
+    // Complete the ability immediately
     AbilityService.completeAbility();
   }
 };
@@ -62,8 +61,7 @@ export const createTargetingHandler = (
     stateSetters.setAnyCardDamageMode(true);
   }
   
-  // Mark as pending user selection
-  AbilityService.setPendingAbility(true);
+  // Removed: AbilityService.setPendingAbility(true);
 };
 
 /**
@@ -94,12 +92,10 @@ export const createRestoreHandler = (
     stateSetters.setRestorePlayer(player);
     stateSetters.setRestoreSource(sourceCard);
 
-
     alert("Select a damaged card to restore");
   }
   
-  // Mark as pending user selection
-  AbilityService.setPendingAbility(true);
+  // Removed: AbilityService.setPendingAbility(true);
 };
 
 /**
@@ -121,10 +117,7 @@ export const createDestroyHandler = (
     stateSetters.setDestroyDamagedAllMode(true);
   }
   
-  // Mark as pending user selection if needed
-  if (targetType !== 'damaged_all') {
-    AbilityService.setPendingAbility(true);
-  }
+  // Removed: if (targetType !== 'damaged_all') AbilityService.setPendingAbility(true);
 };
 
 /**
@@ -142,8 +135,7 @@ export const createCardMovementHandler = (
     stateSetters.setColumnMovementMode(true);
   }
   
-  // Mark as pending user selection
-  AbilityService.setPendingAbility(true);
+  // Removed: AbilityService.setPendingAbility(true);
 };
 
 /**
@@ -166,6 +158,5 @@ export const createSacrificeHandler = (
     }
   }
   
-  // Mark as pending user selection
-  AbilityService.setPendingAbility(true);
+  // Removed: AbilityService.setPendingAbility(true);
 };
