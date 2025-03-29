@@ -433,6 +433,16 @@ const GameBoard = () => {
       return false;
     }
 
+    // Add proper Mimic mode handling
+    if (typeof window !== 'undefined' && window.inMimicMode && element === 'person') {
+      // Get the card to check if it's ready
+      const playerState = elementPlayer === 'left' ? leftPlayerState : rightPlayerState;
+      const personCard = playerState.personSlots[slotIndex];
+
+      // During mimic mode, any ready card is interactable
+      return personCard && personCard.isReady;
+    }
+
     if (omenClockActive) {
       // Only allow selecting events that can be advanced
       if (element === 'event') {
@@ -3505,6 +3515,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <PersonSlot
                     index={1}
@@ -3574,6 +3586,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <CampSlot
                     index={0}
@@ -3691,6 +3705,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <PersonSlot
                     index={3}
@@ -3760,6 +3776,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <CampSlot
                     index={1}
@@ -3877,6 +3895,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <PersonSlot
                     index={5}
@@ -3946,6 +3966,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <CampSlot
                     index={2}
@@ -4818,6 +4840,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <PersonSlot
                     index={1}
@@ -4883,6 +4907,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <CampSlot
                     index={0}
@@ -4996,6 +5022,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <PersonSlot
                     index={3}
@@ -5061,6 +5089,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <CampSlot
                     index={1}
@@ -5174,6 +5204,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <PersonSlot
                     index={5}
@@ -5239,6 +5271,8 @@ const GameBoard = () => {
                     onPersonSelected={handlePersonSelected}
                     onDestinationSelected={handleDestinationSelected}
                     isAbilityModalOpen={isAbilityModalOpen}
+                    setLeftPlayerState={setLeftPlayerState}
+                    setRightPlayerState={setRightPlayerState}
                   />
                   <CampSlot
                     index={2}

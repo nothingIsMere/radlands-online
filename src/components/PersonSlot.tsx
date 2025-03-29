@@ -83,6 +83,8 @@ interface PersonSlotProps {
   onPersonSelected?: (card: Card, slotIndex: number, player: 'left' | 'right') => void;
   onDestinationSelected?: (slotIndex: number, player: 'left' | 'right') => void;
   isAbilityModalOpen?: boolean;
+  setLeftPlayerState?: (updater: (prevState: PlayerState) => PlayerState) => void;
+  setRightPlayerState?: (updater: (prevState: PlayerState) => PlayerState) => void;
 }
 
 const PersonSlot = ({
@@ -148,6 +150,8 @@ const PersonSlot = ({
   onPersonSelected,
   onDestinationSelected,
   isAbilityModalOpen = false,
+  setLeftPlayerState,
+  setRightPlayerState,
 }: PersonSlotProps) => {
   const { isAbilityActive, completeAbility } = useAbility();
   React.useEffect(() => {
@@ -541,6 +545,8 @@ const PersonSlot = ({
           (returnToHandMode && card && player === gameState.currentTurn) ||
           (damageMode && anyCardDamageMode && card && (sniperMode || !card.isProtected)) ||
           (opponentChoiceDamageMode && gameState.currentTurn !== player && card) ||
+          // Mimic mode condition - add this line
+          (window.inMimicMode && card && card.isReady) ||
           // Construction Yard conditions
           (constructionYardSelectingPerson && card) ||
           (constructionYardSelectingDestination && constructionYardSelectedPerson?.player === player)) &&
@@ -553,9 +559,10 @@ const PersonSlot = ({
         if (!isInteractable('person', player, index)) return;
 
         // In PersonSlot's onClick handler, mimic mode section
+        // For handling a card clicked during mimic mode:
         if (window.inMimicMode && card) {
           const isCurrentPlayer = player === gameState.currentTurn;
-          const isValidTarget = (isCurrentPlayer && card.isReady) || (!isCurrentPlayer && !card.isDamaged);
+          const isValidTarget = (isCurrentPlayer && card.isReady) || (!isCurrentPlayer && card.isReady);
 
           if (isValidTarget && card.abilities && card.abilities.length > 0) {
             console.log('Valid mimic target:', card.name);
@@ -570,6 +577,23 @@ const PersonSlot = ({
             if (setSelectedCard) setSelectedCard(mimickedCard);
             if (setSelectedCardLocation) setSelectedCardLocation({ type: 'person', index: index });
             if (setIsAbilityModalOpen) setIsAbilityModalOpen(true);
+
+            // Store the target info for restoration
+            const targetIndex = index;
+            const targetPlayer = player;
+
+            // Wait for the ability to complete, then reset the target card to ready state
+            setTimeout(() => {
+              console.log("Resetting target card's ready state:", card.name, 'Player:', targetPlayer);
+
+              // Use the correct player state setter based on which player owns the card
+              const setTargetPlayerState = targetPlayer === 'left' ? setLeftPlayerState : setRightPlayerState;
+
+              setTargetPlayerState((prev) => ({
+                ...prev,
+                personSlots: prev.personSlots.map((slot, i) => (i === targetIndex ? { ...slot, isReady: true } : slot)),
+              }));
+            }, 1000); // Adjust timing as needed
 
             return true;
           } else {
