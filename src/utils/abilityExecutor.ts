@@ -35,6 +35,7 @@ import { mimicAbilityHandler } from '../../handlers/person/mimicAbilityHandler';
 
 
 
+
 // Import camp-specific abilities (commented out for now - will implement later)
 // import { advanceEventAbilityHandler } from '../handlers/camp/advanceEventAbilityHandler';
 // import { conditionalDamageAbilityHandler } from '../handlers/camp/conditionalDamageAbilityHandler';

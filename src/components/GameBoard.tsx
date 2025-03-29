@@ -79,6 +79,15 @@ const rightTestCards: Card[] = [
 
 const testEventCards: Card[] = [createEvent('ambush'), createEvent('attack')].filter(Boolean) as Card[];
 
+declare global {
+  interface Window {
+    inMimicMode?: boolean;
+    mimicSourceCard?: any;
+    mimicSourceIndex?: number;
+    mimicSourcePlayer?: 'left' | 'right';
+  }
+}
+
 const drawDeckCards: Card[] = [
   createPerson('scout'),
   createPerson('assassin'),
@@ -1218,12 +1227,6 @@ const GameBoard = () => {
     slotIndex: number;
     player: 'left' | 'right';
   } | null>(null);
-  const [mimicSelectionMode, setMimicSelectionMode] = useState(false);
-  const [mimicSourceCard, setMimicSourceCard] = useState<Card | null>(null);
-  const [mimicSourceLocation, setMimicSourceLocation] = useState<{ type: 'person' | 'camp'; index: number } | null>(
-    null
-  );
-  const [mimicTargetCard, setMimicTargetCard] = useState<Card | null>(null);
 
   const gameBoardRef = useRef(null);
 
@@ -1416,10 +1419,6 @@ const GameBoard = () => {
     setSacrificeEffect,
     setSacrificeSource,
     setVanguardOriginalPlayer,
-    setMimicSelectionMode,
-    setMimicSourceCard,
-    setMimicSourceLocation,
-    setMimicTargetCard,
   };
 
   useEffect(() => {
@@ -2459,20 +2458,6 @@ const GameBoard = () => {
       setRightCardsUsedAbility,
       hasVeraVoshEffect
     );
-
-    if (ability.type === 'mimic_ability') {
-      // Enter a special mimic mode
-      alert('Select a card to mimic: either your own ready person or any undamaged enemy person');
-
-      // Set a global state to indicate we're in mimic mode
-      window.mimicSourceCard = card;
-      window.mimicSourceIndex = index;
-      window.mimicSourcePlayer = player;
-      window.inMimicMode = true;
-
-      // We'll handle the rest when the user clicks on a target card
-      return;
-    }
 
     // Handle ability effects based on type
     switch (ability.type) {
