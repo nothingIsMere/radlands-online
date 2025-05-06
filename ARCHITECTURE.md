@@ -55,6 +55,7 @@ interface PersonCard extends BaseCard {
   traits: Trait[];         // Person traits (active while not damaged)
   isDamaged: boolean;      // Tracks if person is damaged
   isReady: boolean;        // Tracks if person can use abilities this turn
+  isPunk: boolean;         // Whether this card is played as a Punk (face-down)
 }
 
 #### Event Card
@@ -275,11 +276,13 @@ interface GameEvent {
   - If not approved within 30 seconds, request is automatically denied
 
 ### Visual Feedback
-- **Water Cost**: When hovering over cards or abilities, water cost is prominently displayed
-- **Valid Targets**: When an action requires targeting, valid targets pulse or glow
-- **Protection Status**: Visual indicator shows which cards are protected/unprotected
-- **Damage State**: Damaged cards have a red border/overlay to indicate their status
-- **Ready/Not Ready**: Visual indicator shows which person cards are ready for ability use
+- **State Indicators**: The following card states must be visually distinguishable:
+  - Damaged vs. undamaged cards
+  - Ready vs. not ready person cards
+  - Protected vs. unprotected cards
+  - Destroyed vs. undestroyed camps
+  - Regular person cards vs. Punks (which show a generic back instead of card face)
+- **Valid Targets**: When an action requires targeting, valid targets are highlighted
 
 ### Card Detail Views
 - **Hover Preview**: Briefly hovering over any card shows a larger preview without interrupting gameplay
