@@ -1,91 +1,46 @@
 import { useState } from 'react';
 import './App.css';
+import GameBoard from './components/gameBoard/GameBoard';
 import CardDisplay from './components/CardDisplay';
-import { CardType, TurnPhase, GameStatus } from './models';
 
 function App() {
-  const [showModelDetails, setShowModelDetails] = useState(false);
+  const [showGameBoard, setShowGameBoard] = useState(true);
+  const [showCardDisplay, setShowCardDisplay] = useState(false);
 
   return (
     <div className="app-container">
-      <header className="app-header">
-        <h1>Radlands Online</h1>
-        <p className="app-subtitle">A digital implementation of the post-apocalyptic card game</p>
-      </header>
-
-      <main>
-        <section className="info-section">
-          <p>
-            Radlands is a competitive, dueling card game set in a post-apocalyptic world where players 
-            aim to protect their camps while destroying their opponent's camps.
-          </p>
-          
+      <nav className="app-nav">
+        <div className="app-title">Radlands Online</div>
+        <div className="nav-buttons">
           <button 
-            className="toggle-button"
-            onClick={() => setShowModelDetails(!showModelDetails)}
+            className={`nav-button ${showGameBoard ? 'active' : ''}`}
+            onClick={() => setShowGameBoard(!showGameBoard)}
           >
-            {showModelDetails ? 'Hide' : 'Show'} Data Models
+            {showGameBoard ? 'Hide' : 'Show'} Game Board
           </button>
           
-          {showModelDetails && (
-            <div className="model-details">
-              <h2>Core Data Models</h2>
-              
-              <div className="model-grid">
-                <div className="model-section">
-                  <h3>Card Types</h3>
-                  <ul>
-                    {Object.entries(CardType)
-                      .filter(([key]) => isNaN(Number(key)))
-                      .map(([key, value]) => (
-                        <li key={key}>
-                          <strong>{key}:</strong> {value}
-                        </li>
-                      ))
-                    }
-                  </ul>
-                </div>
-                
-                <div className="model-section">
-                  <h3>Game Phases</h3>
-                  <ul>
-                    {Object.entries(TurnPhase)
-                      .filter(([key]) => isNaN(Number(key)))
-                      .map(([key, value]) => (
-                        <li key={key}>
-                          <strong>{key}:</strong> {value}
-                        </li>
-                      ))
-                    }
-                  </ul>
-                </div>
-                
-                <div className="model-section">
-                  <h3>Game Status</h3>
-                  <ul>
-                    {Object.entries(GameStatus)
-                      .filter(([key]) => isNaN(Number(key)))
-                      .map(([key, value]) => (
-                        <li key={key}>
-                          <strong>{key}:</strong> {value}
-                        </li>
-                      ))
-                    }
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
+          <button 
+            className={`nav-button ${showCardDisplay ? 'active' : ''}`}
+            onClick={() => setShowCardDisplay(!showCardDisplay)}
+          >
+            {showCardDisplay ? 'Hide' : 'Show'} Card Display
+          </button>
+        </div>
+      </nav>
 
-        <section className="cards-section">
-          <CardDisplay />
-        </section>
+      <main>
+        {showGameBoard && (
+          <section className="game-section">
+            <GameBoard />
+          </section>
+        )}
+
+        {showCardDisplay && (
+          <section className="cards-section">
+            <CardDisplay />
+          </section>
+        )}
       </main>
-
-      <footer>
-        <p>Radlands Online &copy; 2025 - A digital adaptation of the Radlands card game</p>
-      </footer>
     </div>
   );
 }
