@@ -162,6 +162,7 @@ html, body, #root {
   border-radius: 0.5rem;
   padding: 0.5rem;
   height: 100%;
+  position: relative;
 }
 
 .central-elements {
@@ -183,6 +184,23 @@ html, body, #root {
 
 .right-special-cards {
   align-items: flex-end;
+}
+
+/* Add color-coded borders to special cards */
+.left-special-cards .card-slot {
+  border-left: 3px solid var(--secondary-color, #ff006e); /* Left player color */
+  margin-left: -5px; /* Shift slightly toward left player */
+}
+
+.right-special-cards .card-slot {
+  border-right: 3px solid var(--primary-color, #4a6fa5); /* Right player color */
+  margin-right: -5px; /* Shift slightly toward right player */
+}
+
+/* Make the slots slightly larger to accommodate borders */
+.raiders-slot .card-slot,
+.water-silo-slot .card-slot {
+  width: calc(var(--card-width) + 6px);
 }
 
 /* Player header */
