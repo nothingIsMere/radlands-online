@@ -68,6 +68,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0; /* Important for Firefox */
 }
 
 /* Navigation */
@@ -82,7 +83,7 @@ body {
   top: 0;
   z-index: 100;
   flex: 0 0 auto;
-  height: var(--nav-height);
+  height: 2.5rem; /* Reduced height */
 }
 
 .app-title {
@@ -125,8 +126,9 @@ main {
   padding: 0;
   display: flex;
   width: 100%;
-  height: calc(100vh - var(--nav-height));
+  height: calc(100vh - 2.5rem);
   overflow: hidden;
+  min-height: 0; /* Important for Firefox */
 }
 
 .game-section {
@@ -146,10 +148,15 @@ main {
   .app-container {
     padding: 0;
   }
+
+  /* Remove nav on smaller screens for more space */
+  .app-nav {
+    height: 2rem;
+    padding: 0.15rem 0.35rem;
+  }
   
-  :root {
-    --card-width: min(6rem, 14vw);
-    --card-height: min(8.5rem, 20vw);
+  main {
+    height: calc(100vh - 2rem);
   }
 }
 
