@@ -1,0 +1,175 @@
+/* CardDisplay.css */
+
+.card-display {
+  margin-top: 30px;
+  padding: 25px;
+  border-radius: 10px;
+  background-color: #f0f0f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card-display h2 {
+  font-size: 1.8rem;
+  color: #333;
+  margin-bottom: 20px;
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.card-display h2:after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 3px;
+  background: linear-gradient(90deg, #646cff, #646cff80);
+  border-radius: 3px;
+}
+
+.card-list {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin: 30px 0;
+  flex-wrap: wrap;
+}
+
+.card-item {
+  width: 180px;
+  height: 250px;
+  border: none;
+  border-radius: 15px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: white;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-item:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #646cff, #9089fc);
+}
+
+.card-item:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 15px 30px rgba(100, 108, 255, 0.2);
+}
+
+.card-item h3 {
+  margin: 0 0 15px 0;
+  font-size: 1.4rem;
+  color: #333;
+  text-align: center;
+}
+
+.card-type {
+  font-size: 0.9rem;
+  background-color: #646cff;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  margin-top: auto;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.card-details {
+  margin: 30px auto;
+  padding: 25px;
+  border: none;
+  border-radius: 12px;
+  background-color: white;
+  max-width: 450px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  position: relative;
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-details h3 {
+  margin-top: 0;
+  color: #333;
+  font-size: 1.6rem;
+  text-align: center;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.card-details p {
+  color: #555;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.card-details strong {
+  color: #646cff;
+  font-weight: 600;
+}
+
+.card-details button {
+  margin-top: 20px;
+  width: 100%;
+  background: linear-gradient(90deg, #646cff, #9089fc);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.card-details button:hover {
+  background: linear-gradient(90deg, #535bd7, #7c76d7);
+  transform: translateY(-2px);
+}
+
+/* Different colors for different card types */
+.card-item[data-card-type="camp"] .card-type {
+  background-color: #3a86ff;
+}
+
+.card-item[data-card-type="person"] .card-type {
+  background-color: #8338ec;
+}
+
+.card-item[data-card-type="event"] .card-type {
+  background-color: #ff006e;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .card-list {
+    gap: 15px;
+  }
+  
+  .card-item {
+    width: 150px;
+    height: 200px;
+  }
+}

@@ -253,9 +253,35 @@ interface GameEvent {
 
 ## Player Interactions
 
-### Card Manipulation
-- **Card Selection**: Single click to select a card; highlighted border indicates selection
-- **Card Placement**: After selecting a person card, valid columns are highlighted for placement
+interface InteractionState {
+  activePlayerIndex: 0 | 1;      // Which player can currently interact
+  interactionType: InteractionType;  // What type of interaction is expected
+  validTargets: string[];        // IDs of elements that can be interacted with
+  waitingForResponse: boolean;   // Indicates system is waiting for player input
+  pendingEffect?: Effect;        // Effect that will be applied after interaction
+  timeoutDuration?: number;      // Optional timeout for interactions
+}
+
+enum InteractionType {
+  NORMAL_TURN = 'normalTurn',    // Regular turn actions
+  TARGET_SELECTION = 'targetSelection',  // Selecting targets for an ability
+  RAID_RESPONSE = 'raidResponse', // Opponent choosing a camp for raid damage
+  ABILITY_RESPONSE = 'abilityResponse', // Response to opponent's ability
+  CAMP_SELECTION = 'campSelection' // Initial camp selection
+}
+
+### Card Interaction Methods
+
+- **Card Modal Interface**:
+  - Clicking on any card opens a centered modal with large card view
+  - Modal includes context-appropriate action buttons based on card type and location
+  - For hand cards, horizontal scrolling allows viewing all cards in hand
+    - **Two-Step Card Placement**:
+    - When player selects "Play" on a person card in the modal
+    - Modal minimizes but remains partially visible
+    - Game board highlights valid placement locations
+    - Player clicks on a valid column slot to complete the placement
+    - Similar approach for abilities that require targeting
 - **Ability Activation**: 
   - Click on a card with an available ability
   - System highlights ability if enough water and card is ready
@@ -285,15 +311,95 @@ interface GameEvent {
 - **Valid Targets**: When an action requires targeting, valid targets are highlighted
 
 ### Card Detail Views
-- **Hover Preview**: Briefly hovering over any card shows a larger preview without interrupting gameplay
-- **Context Menu**: Right-clicking cards opens a modal with large card view and context-appropriate action buttons:
-  - Hand cards: Play, Junk, Close
-  - Person cards in play: Use Ability, Close
-  - Camp cards: Use Ability, Close
-  - Event cards in queue: Close (informational only)
+- **Card Modal Interface**:
+  - Clicking on any card (in hand or on board) opens a centered modal with large card view
+  - Modal includes context-appropriate action buttons based on card type and location:
+    - Hand cards: Play, Junk, Close
+    - Person cards in play: Use Ability, Close
+    - Camp cards: Use Ability, Close
+    - Event cards in queue: Close (informational only)
+  - When viewing hand cards, arrow buttons or horizontal swiping allows scrolling through all hand cards without closing the modal
+  - For board cards, the modal shows only the selected card
 
 ### Contextual Help
 - **Rules Reference**: Accessible reference showing relevant game rules
+
+## Game Flow
+
+### Game Setup
+- Create game and initialize decks
+- Players join and are assigned positions
+- Deal 6 camp cards to each player
+- Players select 3 camps each
+- Calculate starting hand size based on camps
+- Deal appropriate cards to each player
+- Set up Water Silo and Raiders cards
+- Randomly determine first player (digital equivalent of flipping a water token)
+- Begin first turn with special water token rule (first player gets 1 water)
+
+### Turn Sequence
+1. **Events Phase**
+   - Resolve events in position 1
+   - Move all other events forward
+   
+2. **Replenish Phase**
+   - Draw a card
+   - Replenish water tokens (1 for first player on first turn, 3 otherwise)
+   
+3. **Actions Phase**
+   - Players can take any number of actions while they have resources
+   - Actions include playing cards, using abilities, and junking cards
+   
+4. **End Turn**
+   - Pass turn to opponent
+   - If both players have taken a turn, advance turn counter
+
+## Application Flow
+
+### App Launch & Main Menu
+- Splash Screen
+  - Animated logo
+  - Transition to main menu
+- Main Menu
+  - New Game option
+  - Join Game option (via code)
+  - Rules
+  - Settings (volume, animation speed)
+  - Exit button
+- New Game Flow
+  - Game code generation
+  - Waiting screen with shareable link
+  - Opponent join notification
+
+### Game Setup Sequence
+- Connection confirmation screen
+- Camp selection interface
+  - Each player selects 3 camps from their 6 options
+  - When both players have selected, camps are revealed to both players
+- First player determination animation (water token flip)
+- Transition to game board
+  - Initial hand dealt based on camp values
+  - First player starts with 1 water token
+
+### Game End Flow
+- Victory/Defeat Screen
+  - Dynamic announcement
+  - Victory animation
+  - Game statistics display
+- Post-Game Options
+  - Play Again button
+  - Return to Main Menu button
+  - Exit Game button
+
+### State Transitions
+enum ApplicationState {
+  SPLASH_SCREEN,
+  MAIN_MENU,
+  WAITING_FOR_OPPONENT,
+  CAMP_SELECTION,
+  GAME_IN_PROGRESS,
+  GAME_OVER
+}
 
 ## Next Steps
 
