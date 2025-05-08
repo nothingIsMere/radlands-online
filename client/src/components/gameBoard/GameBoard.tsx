@@ -18,6 +18,7 @@ import CampCardComponent from '../CampCard';
 import PersonCardComponent from '../PersonCard';
 import EventCardComponent from '../EventCard';
 import WaterSiloComponent from '../WaterSilo';
+import CardModal from '../CardModal';
 
 // Initial test game state
 const createInitialGameState = (): GameState => {
@@ -399,6 +400,7 @@ interface GameBoardProps {
 
 const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   const [gameState, setGameState] = useState<GameState>(initialState || createInitialGameState());
+  const [showCardModal, setShowCardModal] = useState<boolean>(false);
 
   // Fixed player positions - Player 1 on right, Player 2 on left
   const player1 = gameState.players[0]; // Will always be on the right
@@ -407,6 +409,11 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   // Determine which player is active based on the currentPlayerIndex
   const isPlayer1Active = gameState.currentPlayerIndex === 0;
   const isPlayer2Active = gameState.currentPlayerIndex === 1;
+  
+  // Get active player's cards and water
+  const activePlayer = isPlayer1Active ? player1 : player2;
+  const activePlayerCards = activePlayer.hand;
+  const activePlayerWater = activePlayer.water;
 
   // Handle end turn button click
   const handleEndTurn = () => {
@@ -476,9 +483,51 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       <div className="water-count">{count}</div>
     </div>
   );
+  
+  // Card modal handlers
+  const handleOpenCardModal = () => {
+    setShowCardModal(true);
+  };
+  
+  const handleCloseCardModal = () => {
+    setShowCardModal(false);
+  };
+  
+  const handlePlayCard = (card: PersonCard | EventCard | WaterSiloCard) => {
+    // This would implement the logic to play the card
+    console.log('Playing card:', card);
+    
+    // Close the modal after playing
+    setShowCardModal(false);
+    
+    // This is a placeholder for actual card playing logic
+    // In a real implementation, you would update the game state
+    // based on the card type and its effects
+  };
+  
+  const handleJunkCard = (card: PersonCard | EventCard | WaterSiloCard) => {
+    // This would implement the logic to junk the card
+    console.log('Junking card:', card);
+    
+    // Close the modal after junking
+    setShowCardModal(false);
+    
+    // This is a placeholder for actual card junking logic
+    // In a real implementation, you would remove the card from
+    // the player's hand and possibly give them water
+  };
 
   return (
     <div className="game-board">
+      {showCardModal && (
+        <CardModal
+          cards={activePlayerCards}
+          water={activePlayerWater}
+          onClose={handleCloseCardModal}
+          onPlayCard={handlePlayCard}
+          onJunkCard={handleJunkCard}
+        />
+      )}
       <div className="game-board-inner">
         {/* Game controls and info */}
         <div className="game-info-panel">
@@ -734,7 +783,12 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
             <div className="slot-label">Hand</div>
             <div className="hand-cards">
               {player1.hand.map(card => (
-                <div key={card.id} className="hand-card-slot">
+                <div 
+                  key={card.id} 
+                  className="hand-card-slot"
+                  onClick={isPlayer1Active ? handleOpenCardModal : undefined}
+                  style={isPlayer1Active ? { cursor: 'pointer' } : {}}
+                >
                   {'waterCost' in card ? (
                     card.type === CardType.PERSON ? (
                       <PersonCardComponent person={card as PersonCard} />
