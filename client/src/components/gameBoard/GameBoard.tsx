@@ -401,6 +401,9 @@ interface GameBoardProps {
 const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   const [gameState, setGameState] = useState<GameState>(initialState || createInitialGameState());
   const [showCardModal, setShowCardModal] = useState<boolean>(false);
+  const [selectedCard, setSelectedCard] = useState<PersonCard | EventCard | WaterSiloCard | null>(null);
+  const [isPlacementMode, setIsPlacementMode] = useState<boolean>(false);
+  const [selectedColumnIndex, setSelectedColumnIndex] = useState<number | null>(null);
 
   // Fixed player positions - Player 1 on right, Player 2 on left
   const player1 = gameState.players[0]; // Will always be on the right
@@ -485,36 +488,217 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   );
   
   // Card modal handlers
-  const handleOpenCardModal = () => {
+  const handleOpenCardModal = (card?: PersonCard | EventCard | WaterSiloCard) => {
     setShowCardModal(true);
+    // If a specific card is clicked, we could start with that one selected
+    if (card) {
+      setSelectedCard(card);
+    }
   };
   
   const handleCloseCardModal = () => {
     setShowCardModal(false);
+    setSelectedCard(null);
+    setIsPlacementMode(false);
+    setSelectedColumnIndex(null);
   };
   
   const handlePlayCard = (card: PersonCard | EventCard | WaterSiloCard) => {
-    // This would implement the logic to play the card
-    console.log('Playing card:', card);
+    // Set the selected card and enable placement mode
+    setSelectedCard(card);
     
-    // Close the modal after playing
+    // Close the modal
     setShowCardModal(false);
     
-    // This is a placeholder for actual card playing logic
-    // In a real implementation, you would update the game state
-    // based on the card type and its effects
+    // For a person card, we need to enter placement mode
+    if ('type' in card && card.type === CardType.PERSON) {
+      setIsPlacementMode(true);
+      return;
+    }
+    
+    // For event cards and water silo, we can place them immediately
+    if ('type' in card && card.type === CardType.EVENT) {
+      placeEventCard(card as EventCard);
+    } else if ('type' in card && card.type === 'waterSilo') {
+      placeWaterSilo(card as WaterSiloCard);
+    }
+  };
+  
+  const placeEventCard = (card: EventCard) => {
+    // Implementation for placing an event card in the queue
+    console.log('Placing event card:', card);
+    
+    setGameState(prevState => {
+      const currentPlayerIndex = prevState.currentPlayerIndex;
+      const updatedPlayers = [...prevState.players];
+      const updatedPlayer = {...updatedPlayers[currentPlayerIndex]};
+      
+      // Find the first empty slot in the event queue
+      let slotName: 'slot1' | 'slot2' | 'slot3' | null = null;
+      if (!updatedPlayer.eventQueue.slot1) slotName = 'slot1';
+      else if (!updatedPlayer.eventQueue.slot2) slotName = 'slot2';
+      else if (!updatedPlayer.eventQueue.slot3) slotName = 'slot3';
+      
+      if (slotName) {
+        // Place the card in the event queue
+        updatedPlayer.eventQueue = {
+          ...updatedPlayer.eventQueue,
+          [slotName]: card
+        };
+        
+        // Remove card from hand
+        updatedPlayer.hand = updatedPlayer.hand.filter(c => c.id !== card.id);
+        
+        // Spend water
+        updatedPlayer.water -= card.waterCost;
+        
+        updatedPlayers[currentPlayerIndex] = updatedPlayer;
+        
+        return {
+          ...prevState,
+          players: updatedPlayers
+        };
+      }
+      
+      return prevState;
+    });
+    
+    // Reset placement state
+    setSelectedCard(null);
+    setIsPlacementMode(false);
+  };
+  
+  const placeWaterSilo = (card: WaterSiloCard) => {
+    // Implementation for placing the water silo
+    console.log('Placing water silo:', card);
+    
+    setGameState(prevState => {
+      const currentPlayerIndex = prevState.currentPlayerIndex;
+      const updatedPlayers = [...prevState.players];
+      const updatedPlayer = {...updatedPlayers[currentPlayerIndex]};
+      
+      // Place the water silo in the player area
+      updatedPlayer.waterSiloInPlayerArea = true;
+      
+      // Remove card from hand
+      updatedPlayer.hand = updatedPlayer.hand.filter(c => c.id !== card.id);
+      
+      updatedPlayers[currentPlayerIndex] = updatedPlayer;
+      
+      return {
+        ...prevState,
+        players: updatedPlayers
+      };
+    });
+    
+    // Reset placement state
+    setSelectedCard(null);
+    setIsPlacementMode(false);
   };
   
   const handleJunkCard = (card: PersonCard | EventCard | WaterSiloCard) => {
-    // This would implement the logic to junk the card
     console.log('Junking card:', card);
+    
+    // Implement junking logic - remove from hand and gain 1 water
+    setGameState(prevState => {
+      const currentPlayerIndex = prevState.currentPlayerIndex;
+      const updatedPlayers = [...prevState.players];
+      const updatedPlayer = {...updatedPlayers[currentPlayerIndex]};
+      
+      // Remove card from hand
+      updatedPlayer.hand = updatedPlayer.hand.filter(c => c.id !== card.id);
+      
+      // Gain 1 water
+      updatedPlayer.water += 1;
+      
+      updatedPlayers[currentPlayerIndex] = updatedPlayer;
+      
+      return {
+        ...prevState,
+        players: updatedPlayers
+      };
+    });
     
     // Close the modal after junking
     setShowCardModal(false);
+    setSelectedCard(null);
+  };
+  
+  const handleSlotSelect = (columnIndex: number, slotPosition: 'top' | 'bottom') => {
+    // Only process if we're in placement mode and have a person card selected
+    if (!isPlacementMode || !selectedCard || !('type' in selectedCard) || selectedCard.type !== CardType.PERSON) {
+      return;
+    }
     
-    // This is a placeholder for actual card junking logic
-    // In a real implementation, you would remove the card from
-    // the player's hand and possibly give them water
+    const personCard = selectedCard as PersonCard;
+    
+    // Place the person card in the selected slot
+    setGameState(prevState => {
+      const currentPlayerIndex = prevState.currentPlayerIndex;
+      const updatedPlayers = [...prevState.players];
+      const updatedPlayer = {...updatedPlayers[currentPlayerIndex]};
+      const updatedColumns = [...updatedPlayer.columns];
+      const targetColumn = {...updatedColumns[columnIndex]};
+      
+      // Get current people in the column
+      const currentPeople = [...targetColumn.people];
+      
+      // Add the new person to the appropriate position
+      if (slotPosition === 'bottom') {
+        // If there's already someone in bottom slot, shift them up if top is empty
+        if (currentPeople.length === 1) {
+          currentPeople.push(personCard); // Add to top (index 1)
+        } else {
+          currentPeople.unshift(personCard); // Add to bottom (index 0)
+        }
+      } else { // top slot
+        if (currentPeople.length === 0) {
+          // If column is empty, we need to add a person to bottom first
+          return prevState;
+        }
+        currentPeople.push(personCard); // Add to top (index 1)
+      }
+      
+      // Update the column with new people
+      targetColumn.people = currentPeople;
+      updatedColumns[columnIndex] = targetColumn;
+      
+      // Remove card from hand and spend water
+      updatedPlayer.hand = updatedPlayer.hand.filter(c => c.id !== personCard.id);
+      updatedPlayer.water -= personCard.waterCost;
+      updatedPlayer.columns = updatedColumns;
+      
+      updatedPlayers[currentPlayerIndex] = updatedPlayer;
+      
+      return {
+        ...prevState,
+        players: updatedPlayers
+      };
+    });
+    
+    // Reset placement state
+    setSelectedCard(null);
+    setIsPlacementMode(false);
+    setSelectedColumnIndex(null);
+  };
+  
+  // Determine if a slot is a valid placement target
+  const isValidPlacementTarget = (columnIndex: number, slotPosition: 'top' | 'bottom'): boolean => {
+    if (!isPlacementMode || !selectedCard || !('type' in selectedCard) || selectedCard.type !== CardType.PERSON) {
+      return false;
+    }
+    
+    const activePlayerColumns = isPlayer1Active ? player1.columns : player2.columns;
+    const column = activePlayerColumns[columnIndex];
+    
+    // Rules for valid placement:
+    // 1. Bottom slot: Can always place if empty
+    // 2. Top slot: Can only place if bottom slot has a person
+    if (slotPosition === 'bottom') {
+      return column.people.length === 0 || column.people.length === 1;
+    } else { // top slot
+      return column.people.length === 1; // Can only place on top if bottom has someone
+    }
   };
 
   return (
@@ -527,6 +711,15 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
           onPlayCard={handlePlayCard}
           onJunkCard={handleJunkCard}
         />
+      )}
+      
+      {isPlacementMode && selectedCard && 'type' in selectedCard && selectedCard.type === CardType.PERSON && (
+        <div className="placement-mode-indicator">
+          <div className="placement-message">
+            Select a slot to place <strong>{(selectedCard as PersonCard).name}</strong>
+          </div>
+          <button className="cancel-placement" onClick={handleCloseCardModal}>Cancel</button>
+        </div>
       )}
       <div className="game-board-inner">
         {/* Game controls and info */}
@@ -729,12 +922,20 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
           <div className="player-tableau">
             {/* Column 1 */}
             <div className="column">
-              <div className="person-slot top-slot">
+              <div 
+                className={`person-slot top-slot ${isValidPlacementTarget(0, 'top') ? 'valid-target' : ''}`}
+                onClick={() => isValidPlacementTarget(0, 'top') && handleSlotSelect(0, 'top')}
+                style={isValidPlacementTarget(0, 'top') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+              >
                 {player1.columns[0].people.length > 1 && 
                   <PersonCardComponent person={player1.columns[0].people[1]} />
                 }
               </div>
-              <div className="person-slot bottom-slot">
+              <div 
+                className={`person-slot bottom-slot ${isValidPlacementTarget(0, 'bottom') ? 'valid-target' : ''}`}
+                onClick={() => isValidPlacementTarget(0, 'bottom') && handleSlotSelect(0, 'bottom')}
+                style={isValidPlacementTarget(0, 'bottom') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+              >
                 {player1.columns[0].people.length > 0 && 
                   <PersonCardComponent person={player1.columns[0].people[0]} />
                 }
@@ -746,12 +947,20 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
             
             {/* Column 2 */}
             <div className="column">
-              <div className="person-slot top-slot">
+              <div 
+                className={`person-slot top-slot ${isValidPlacementTarget(1, 'top') ? 'valid-target' : ''}`}
+                onClick={() => isValidPlacementTarget(1, 'top') && handleSlotSelect(1, 'top')}
+                style={isValidPlacementTarget(1, 'top') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+              >
                 {player1.columns[1].people.length > 1 && 
                   <PersonCardComponent person={player1.columns[1].people[1]} />
                 }
               </div>
-              <div className="person-slot bottom-slot">
+              <div 
+                className={`person-slot bottom-slot ${isValidPlacementTarget(1, 'bottom') ? 'valid-target' : ''}`}
+                onClick={() => isValidPlacementTarget(1, 'bottom') && handleSlotSelect(1, 'bottom')}
+                style={isValidPlacementTarget(1, 'bottom') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+              >
                 {player1.columns[1].people.length > 0 && 
                   <PersonCardComponent person={player1.columns[1].people[0]} />
                 }
@@ -763,12 +972,20 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
             
             {/* Column 3 */}
             <div className="column">
-              <div className="person-slot top-slot">
+              <div 
+                className={`person-slot top-slot ${isValidPlacementTarget(2, 'top') ? 'valid-target' : ''}`}
+                onClick={() => isValidPlacementTarget(2, 'top') && handleSlotSelect(2, 'top')}
+                style={isValidPlacementTarget(2, 'top') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+              >
                 {player1.columns[2].people.length > 1 && 
                   <PersonCardComponent person={player1.columns[2].people[1]} />
                 }
               </div>
-              <div className="person-slot bottom-slot">
+              <div 
+                className={`person-slot bottom-slot ${isValidPlacementTarget(2, 'bottom') ? 'valid-target' : ''}`}
+                onClick={() => isValidPlacementTarget(2, 'bottom') && handleSlotSelect(2, 'bottom')}
+                style={isValidPlacementTarget(2, 'bottom') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+              >
                 {player1.columns[2].people.length > 0 && 
                   <PersonCardComponent person={player1.columns[2].people[0]} />
                 }
@@ -786,7 +1003,7 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
                 <div 
                   key={card.id} 
                   className="hand-card-slot"
-                  onClick={isPlayer1Active ? handleOpenCardModal : undefined}
+                  onClick={isPlayer1Active ? () => handleOpenCardModal(card) : undefined}
                   style={isPlayer1Active ? { cursor: 'pointer' } : {}}
                 >
                   {'waterCost' in card ? (

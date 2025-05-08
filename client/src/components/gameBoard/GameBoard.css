@@ -545,3 +545,54 @@ html, body, #root {
     flex: 1 0 30%;
   }
 }
+
+/* Card placement mode */
+.placement-mode-indicator {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--secondary-color);
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  animation: fade-in 0.3s ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.placement-message {
+  font-size: 0.9rem;
+}
+
+.cancel-placement {
+  background-color: var(--accent-color);
+  border: none;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.cancel-placement:hover {
+  background-color: #ff5252;
+}
+
+/* Valid target slot highlighting */
+.person-slot.valid-target {
+  transition: all 0.2s ease;
+}
+
+.person-slot.valid-target:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 3px #4caf50 !important;
+}
