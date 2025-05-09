@@ -435,16 +435,30 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     return `[Pos 1: ${slot1}] [Pos 2: ${slot2}] [Pos 3: ${slot3}]`;
   };
   
-  // Simplified Events Phase Processing without animations
+  /**
+   * Process the Events Phase
+   * 
+   * This function handles the movement and resolution of events in the event queue
+   * according to the Radlands game rules. It follows these steps:
+   * 
+   * 1. First, get a snapshot of the current events in each position
+   * 2. Clear all event slots to prevent double movement
+   * 3. Resolve the event in position 1 (add to discard pile)
+   * 4. Move the event from position 2 to position 1
+   * 5. Move the event from position 3 to position 2
+   * 
+   * The function includes guard conditions to ensure it only runs once per turn
+   * and cannot be re-entered while already processing.
+   */
   const processEventsPhase = () => {
-    // First guard: Check if we're already processing events
+    // GUARD #1: Prevent concurrent execution - don't run if already processing events
     if (processingEvents) {
       console.warn(`[${new Date().toLocaleTimeString()}] GUARD TRIGGERED: Already processing events, skipping this call`);
       console.trace('Call stack that tried to process events again:');
       return;
     }
     
-    // Second guard: Check if we've already processed events this turn
+    // GUARD #2: Prevent multiple executions in one turn
     if (eventsProcessedThisTurn) {
       console.warn(`[${new Date().toLocaleTimeString()}] GUARD TRIGGERED: Events already processed this turn! Current call count: ${eventsPhaseCallCount}`);
       console.trace('Call stack that tried to process events twice in one turn:');
@@ -452,8 +466,8 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     }
     
     // Set both guard flags
-    setProcessingEvents(true);
-    setEventsProcessedThisTurn(true);
+    setProcessingEvents(true);       // Prevents concurrent execution
+    setEventsProcessedThisTurn(true); // Prevents multiple executions in one turn
     
     // Increment and log the call counter for debugging
     const newCallCount = eventsPhaseCallCount + 1;
@@ -463,7 +477,7 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     const startTime = Date.now();
     const startTimeString = new Date().toLocaleTimeString();
     
-    console.log(`❗❗❗ [${startTimeString}] STARTING EVENT PROCESSING #${newCallCount} - THIS SHOULD HAPPEN ONCE PER TURN ONLY ❗❗❗`);
+    console.log(`[${startTimeString}] STARTING EVENT PROCESSING - Current player's turn`);
     
     // Set step indicator for debugging overlay
     setProcessingStep(1);
@@ -475,37 +489,22 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       const updatedPlayers = [...prevState.players];
       const updatedPlayer = {...currentPlayer};
       
-      // Log detailed initial state
-      console.log(`[${new Date().toLocaleTimeString()}] Current player: ${updatedPlayer.name} (index: ${currentPlayerIndex})`);
-      console.log(`[${new Date().toLocaleTimeString()}] Current turn: ${prevState.turnNumber}, Phase: ${prevState.turnPhase}`);
-      
-      const initialEventState = {
-        slot1: updatedPlayer.eventQueue.slot1 ? `${updatedPlayer.eventQueue.slot1.name} (#${updatedPlayer.eventQueue.slot1.eventNumber})` : 'empty',
-        slot2: updatedPlayer.eventQueue.slot2 ? `${updatedPlayer.eventQueue.slot2.name} (#${updatedPlayer.eventQueue.slot2.eventNumber})` : 'empty',
-        slot3: updatedPlayer.eventQueue.slot3 ? `${updatedPlayer.eventQueue.slot3.name} (#${updatedPlayer.eventQueue.slot3.eventNumber})` : 'empty'
-      };
-      
-      console.log(`[${new Date().toLocaleTimeString()}] INITIAL EVENT QUEUE: `, JSON.stringify(initialEventState, null, 2));
+      // Log initial state
+      console.log(`[${new Date().toLocaleTimeString()}] Processing events for ${updatedPlayer.name}`);
       
       // Create log entry for initial state
       const queueStateBeforeMsg = `Event queue before processing: ${logEventQueueState(updatedPlayer)}`;
       const newLogEntries = [...prevState.log, {
-        message: `❗ EVENTS PHASE #${newCallCount} START: ${queueStateBeforeMsg}`,
+        message: `EVENTS PHASE: ${queueStateBeforeMsg}`,
         timestamp: new Date().toISOString()
       }];
       
-      // CRITICAL: Create temporary copies of current events
+      // STEP 1: Create temporary copies of current events
       const event1 = updatedPlayer.eventQueue.slot1 ? {...updatedPlayer.eventQueue.slot1} : null;
       const event2 = updatedPlayer.eventQueue.slot2 ? {...updatedPlayer.eventQueue.slot2} : null;
       const event3 = updatedPlayer.eventQueue.slot3 ? {...updatedPlayer.eventQueue.slot3} : null;
       
-      console.log(`[${new Date().toLocaleTimeString()}] COPIED EVENT REFERENCES:`);
-      console.log(`  Slot1: ${event1 ? event1.name : 'null'}`);
-      console.log(`  Slot2: ${event2 ? event2.name : 'null'}`);
-      console.log(`  Slot3: ${event3 ? event3.name : 'null'}`);
-      
-      // CRITICAL: Clear all slots FIRST - prevents double movement
-      console.log(`[${new Date().toLocaleTimeString()}] CLEARING ALL EVENT SLOTS`);
+      // STEP 2: Clear all slots FIRST - this is critical to prevent double movement
       updatedPlayer.eventQueue = {
         slot1: null,
         slot2: null,
@@ -514,9 +513,9 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       
       let updatedDiscardPile = [...prevState.discardPile];
       
-      // Process event in position 1 (add to discard)
+      // STEP 3: Process event in position 1 (add to discard)
       if (event1) {
-        console.log(`[${new Date().toLocaleTimeString()}] RESOLVING EVENT: ${event1.name} from position 1`);
+        console.log(`[${new Date().toLocaleTimeString()}] Resolving event: ${event1.name} from position 1`);
         
         const resolutionMsg = `${updatedPlayer.name}'s event "${event1.name}" (#${event1.eventNumber}) resolved from position 1. Effect: ${event1.description}`;
         newLogEntries.push({
@@ -527,16 +526,15 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
         // Add to discard pile
         updatedDiscardPile.push(event1);
       } else {
-        console.log(`[${new Date().toLocaleTimeString()}] No event in position 1 to resolve`);
         newLogEntries.push({
           message: `No event in position 1 to resolve.`,
           timestamp: new Date().toISOString()
         });
       }
       
-      // Move event from position 2 to position 1
+      // STEP 4: Move event from position 2 to position 1
       if (event2) {
-        console.log(`[${new Date().toLocaleTimeString()}] MOVING EVENT: ${event2.name} from position 2 to position 1`);
+        console.log(`[${new Date().toLocaleTimeString()}] Moving event: ${event2.name} from position 2 to position 1`);
         
         const movementMsg = `${updatedPlayer.name}'s event "${event2.name}" (#${event2.eventNumber}) advanced from position 2 to position 1`;
         newLogEntries.push({
@@ -546,13 +544,11 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
         
         // Move to slot 1
         updatedPlayer.eventQueue.slot1 = event2;
-      } else {
-        console.log(`[${new Date().toLocaleTimeString()}] No event in position 2 to move`);
       }
       
-      // Move event from position 3 to position 2
+      // STEP 5: Move event from position 3 to position 2
       if (event3) {
-        console.log(`[${new Date().toLocaleTimeString()}] MOVING EVENT: ${event3.name} from position 3 to position 2`);
+        console.log(`[${new Date().toLocaleTimeString()}] Moving event: ${event3.name} from position 3 to position 2`);
         
         const movementMsg = `${updatedPlayer.name}'s event "${event3.name}" (#${event3.eventNumber}) advanced from position 3 to position 2`;
         newLogEntries.push({
@@ -562,26 +558,15 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
         
         // Move to slot 2
         updatedPlayer.eventQueue.slot2 = event3;
-      } else {
-        console.log(`[${new Date().toLocaleTimeString()}] No event in position 3 to move`);
       }
       
       // Update the player in the players array
       updatedPlayers[currentPlayerIndex] = updatedPlayer;
       
-      // Log the final state for debugging
-      const finalEventState = {
-        slot1: updatedPlayer.eventQueue.slot1 ? `${updatedPlayer.eventQueue.slot1.name} (#${updatedPlayer.eventQueue.slot1.eventNumber})` : 'empty',
-        slot2: updatedPlayer.eventQueue.slot2 ? `${updatedPlayer.eventQueue.slot2.name} (#${updatedPlayer.eventQueue.slot2.eventNumber})` : 'empty',
-        slot3: updatedPlayer.eventQueue.slot3 ? `${updatedPlayer.eventQueue.slot3.name} (#${updatedPlayer.eventQueue.slot3.eventNumber})` : 'empty'
-      };
-      
-      console.log(`[${new Date().toLocaleTimeString()}] FINAL EVENT QUEUE: `, JSON.stringify(finalEventState, null, 2));
-      
       // Add a summary to the game log
       const queueStateAfterMsg = `Event queue after processing: ${logEventQueueState(updatedPlayer)}`;
       newLogEntries.push({
-        message: `❗ EVENTS PHASE #${newCallCount} COMPLETE: ${queueStateAfterMsg}`,
+        message: `EVENTS PHASE COMPLETE: ${queueStateAfterMsg}`,
         timestamp: new Date().toISOString()
       });
       
@@ -594,25 +579,21 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       };
     });
     
-    // CRITICAL: Schedule cleanup with a shorter delay - no animations to wait for
-    // This function will ONLY run after event processing is complete
+    // Cleanup after processing is complete
     setTimeout(() => {
       const endTime = Date.now();
       const processingTime = endTime - startTime;
       
-      console.log(`❗❗❗ [${new Date().toLocaleTimeString()}] FINISHED EVENT PROCESSING #${newCallCount} after ${processingTime}ms ❗❗❗`);
+      console.log(`[${new Date().toLocaleTimeString()}] FINISHED EVENT PROCESSING after ${processingTime}ms`);
       
       // Reset the processing step
       setProcessingStep(0);
       
-      // VERY IMPORTANT: Only now do we clear the processing flag
-      // This must happen after all state updates are complete
+      // IMPORTANT: Clear the processing flag to allow phase transitions to proceed
+      // The eventsProcessedThisTurn flag remains true until end of turn
       setProcessingEvents(false);
       
-      // The eventsProcessedThisTurn flag will be cleared only at the end of the turn
-      console.log(`[${new Date().toLocaleTimeString()}] Processing flags updated: processingEvents=false, eventsProcessedThisTurn=true`);
-      
-    }, 250); // Shorter timeout since we don't have animations to wait for
+    }, 250);
   };
   
   // Setup test events
@@ -684,6 +665,22 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
           canBeExecuted: () => true
         },
         eventNumber: 1
+      },
+      // This is an immediate effect event (event number 0)
+      {
+        id: 'test-event-0',
+        name: 'Test Event 0 (Immediate)',
+        type: CardType.EVENT,
+        description: 'IMMEDIATE EFFECT: This event resolves immediately when played.',
+        imageUrl: '/events/test0.png',
+        traits: [],
+        waterCost: 2,
+        effect: {
+          type: 'immediate',
+          execute: () => { console.log('Immediate event executed'); },
+          canBeExecuted: () => true
+        },
+        eventNumber: 0
       }
     ];
     
@@ -699,11 +696,21 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
           slot1: testEvents[0], // Event #1 in slot1
           slot2: testEvents[1], // Event #2 in slot2
           slot3: testEvents[2]  // Event #3 in slot3
-        }
+        },
+        // Add the immediate effect event to player 1's hand
+        hand: [
+          ...updatedPlayers[0].hand,
+          testEvents[4] // Add the immediate effect event (Event #0)
+        ]
       };
       
       updatedLog.push({
         message: 'Player 1 event queue setup: Event #1 in position 1, Event #2 in position 2, Event #3 in position 3',
+        timestamp: new Date().toISOString()
+      });
+      
+      updatedLog.push({
+        message: 'Added immediate effect card to Player 1\'s hand. Event #0 cards resolve immediately when played.',
         timestamp: new Date().toISOString()
       });
       
@@ -815,22 +822,38 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     }, 1000);
   };
   
-  // Handle end turn button click - fixed to prevent multiple event processing
+  /**
+   * Handle End Turn Button Click
+   * 
+   * This function manages the turn transition process from one player to the next.
+   * The sequence of operations is:
+   * 
+   * 1. Reset the events processing flags for the new turn
+   * 2. Update game state to make the next player active and set phase to EVENTS
+   * 3. Call processEventsPhase() to move events through the event queue
+   * 4. Phase transitions after events processing are handled by the useEffect below
+   * 
+   * Note: The useEffect watching for events processing completion will
+   * automatically transition through REPLENISH -> ACTIONS phases.
+   */
   const handleEndTurn = () => {
     console.log(`[${new Date().toLocaleTimeString()}] END TURN triggered - starting turn transition`);
     
-    // IMPORTANT: Reset the events processed flag for the new turn
-    // We must do this before setting the new turn state
+    // STEP 1: Reset the events processed flags for the new turn
+    // This must happen before setting the new turn state to ensure
+    // the events processing can run for the new player
     setEventsProcessedThisTurn(false);
     setEventsPhaseCallCount(0);
     
-    // First, update the game state to the next player's turn and set phase to EVENTS
+    // STEP 2: Update the game state to the next player's turn
     setGameState(prevState => {
-      // Switch to the next player
+      // Get the next player index (alternate between 0 and 1)
       const newPlayerIndex = prevState.currentPlayerIndex === 0 ? 1 : 0;
+      
+      // Increment turn number if it's back to player 1
       const newTurnNumber = newPlayerIndex === 0 ? prevState.turnNumber + 1 : prevState.turnNumber;
       
-      // Reset turn history
+      // Reset turn history tracking
       const newTurnHistory = {
         peoplePlayedThisTurn: [],
         abilitiesUsedThisTurn: []
@@ -852,6 +875,7 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       
       console.log(`[${new Date().toLocaleTimeString()}] NEW TURN: Player ${newPlayerIndex + 1} (${updatedPlayers[newPlayerIndex].name}), Turn ${newTurnNumber}`);
       
+      // Return the updated state with the new active player
       return {
         ...prevState,
         currentPlayerIndex: newPlayerIndex,
@@ -863,20 +887,45 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       };
     });
     
-    // CRITICAL: We need a longer delay before processing events to ensure the state update above completes
-    console.log(`[${new Date().toLocaleTimeString()}] Scheduling events phase to start after state update completes`);
-    
-    // Process the events phase after a substantial delay
+    // STEP 3: Process events after a short delay to ensure state update completes
+    // This delay ensures that processEventsPhase runs with the updated game state
     setTimeout(() => {
-      console.log(`[${new Date().toLocaleTimeString()}] TURN TRANSITION: Now calling processEventsPhase()`);
-      processEventsPhase(); // This will only run once due to our guard conditions
+      console.log(`[${new Date().toLocaleTimeString()}] TURN TRANSITION: Calling processEventsPhase()`);
       
-      // Wait for events processing to complete before changing phases
-      // This is a much longer timeout to ensure events processing is completely done
-      setTimeout(() => {
-        console.log(`[${new Date().toLocaleTimeString()}] TURN TRANSITION: Changing to REPLENISH phase`);
-        
-        // After processing events, transition to REPLENISH phase
+      // Process events phase ONCE - guard conditions prevent multiple executions
+      processEventsPhase();
+      
+      // STEP 4: Phase transitions after events processing are handled by the useEffect
+      // that watches for the completion of event processing
+    }, 100);
+  };
+  
+  /**
+   * This useEffect handles the phase transitions after events processing completes.
+   * It's responsible for transitioning from EVENTS -> REPLENISH -> ACTIONS phases
+   * in the correct sequence and with appropriate timing.
+   * 
+   * The phase transition sequence is:
+   * 1. EVENTS phase (when turn ends) - Events are processed here
+   * 2. REPLENISH phase - Any replenishment actions happen here
+   * 3. ACTIONS phase - The active player can take actions
+   * 
+   * The effect is triggered when the events processing is complete, as indicated by:
+   * - We're in the EVENTS phase
+   * - We're not currently processing events
+   * - Events have been processed this turn
+   */
+  useEffect(() => {
+    // Only proceed when all three conditions are met:
+    if (
+      gameState.turnPhase === TurnPhase.EVENTS && // 1. We're in the EVENTS phase
+      !processingEvents &&                        // 2. We're not currently processing events
+      eventsProcessedThisTurn                     // 3. Events have been processed this turn
+    ) {
+      console.log(`[${new Date().toLocaleTimeString()}] PHASE TRANSITION: Events processing complete, transitioning to REPLENISH phase`);
+      
+      // STEP 1: Transition to REPLENISH after a short delay
+      const replenishTimer = setTimeout(() => {
         setGameState(prevState => {
           const timestamp = new Date().toISOString();
           const updatedLog = [...prevState.log, {
@@ -891,9 +940,9 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
           };
         });
         
-        // Then transition to ACTIONS phase after another delay
-        setTimeout(() => {
-          console.log(`[${new Date().toLocaleTimeString()}] TURN TRANSITION: Changing to ACTIONS phase`);
+        // STEP 2: Then transition to ACTIONS phase after another delay
+        const actionsTimer = setTimeout(() => {
+          console.log(`[${new Date().toLocaleTimeString()}] PHASE TRANSITION: Changing to ACTIONS phase`);
           
           setGameState(prevState => {
             const timestamp = new Date().toISOString();
@@ -910,12 +959,20 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
           });
           
           console.log(`[${new Date().toLocaleTimeString()}] TURN TRANSITION COMPLETE: Now in ACTIONS phase`);
-        }, 1500); // Longer delay for better visual separation
+        }, 1000);
         
-      }, 4000); // Much longer delay to ensure events processing is complete
+        // Clean up action timer if the component unmounts
+        return () => {
+          clearTimeout(actionsTimer);
+        };
+      }, 1000);
       
-    }, 1000); // Longer delay to ensure state update completes
-  };
+      // Clean up replenish timer if the component unmounts
+      return () => {
+        clearTimeout(replenishTimer);
+      };
+    }
+  }, [gameState.turnPhase, processingEvents, eventsProcessedThisTurn]);
 
   // Get phase display name
   const getPhaseDisplayName = (phase: TurnPhase): string => {
@@ -992,10 +1049,65 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     }
   };
   
+  /**
+   * Place an event card according to its event number
+   * 
+   * Event cards have different placement rules based on their event number:
+   * - Event #0: Resolve immediately (doesn't go into the event queue)
+   * - Event #1: Goes into position 1 if available, otherwise position 2, then 3
+   * - Event #2: Goes into position 2 if available, otherwise position 3
+   * - Event #3: Only goes into position 3
+   * 
+   * @param card The event card to place
+   */
   const placeEventCard = (card: EventCard) => {
-    // Implementation for placing an event card in the queue according to its event number
     console.log('Placing event card:', card);
     
+    // If the event has event number 0, it should resolve immediately
+    if (card.eventNumber === 0) {
+      console.log(`Event #0 "${card.name}" - resolving immediately`);
+      
+      // Log the immediate resolution
+      const timestamp = new Date().toISOString();
+      const logEntry = {
+        message: `${gameState.players[gameState.currentPlayerIndex].name} played and immediately resolved event "${card.name}" (Immediate effect). Effect: ${card.description}`,
+        timestamp
+      };
+      
+      setGameState(prevState => {
+        const currentPlayerIndex = prevState.currentPlayerIndex;
+        const updatedPlayers = [...prevState.players];
+        const updatedPlayer = {...updatedPlayers[currentPlayerIndex]};
+        
+        // Remove card from hand
+        updatedPlayer.hand = updatedPlayer.hand.filter(c => c.id !== card.id);
+        
+        // Spend water
+        updatedPlayer.water -= card.waterCost;
+        
+        updatedPlayers[currentPlayerIndex] = updatedPlayer;
+        
+        // Add to discard pile
+        const updatedDiscardPile = [...prevState.discardPile, card];
+        
+        return {
+          ...prevState,
+          players: updatedPlayers,
+          discardPile: updatedDiscardPile,
+          log: [...prevState.log, logEntry]
+        };
+      });
+      
+      // In the future, we would execute the card's effect here
+      console.log('Event number 0 would execute its effect immediately if implemented');
+      
+      // Reset placement state
+      setSelectedCard(null);
+      setIsPlacementMode(false);
+      return;
+    }
+    
+    // For events with numbers 1-3, use the queue placement logic
     setGameState(prevState => {
       const currentPlayerIndex = prevState.currentPlayerIndex;
       const updatedPlayers = [...prevState.players];
