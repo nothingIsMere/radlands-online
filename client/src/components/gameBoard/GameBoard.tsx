@@ -522,17 +522,22 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     // Close the modal
     setShowCardModal(false);
     
+    // Water Silo can't be played directly - it should only be junked
+    if ('type' in card && card.type === 'waterSilo') {
+      console.warn('Attempted to play Water Silo, which is not allowed by game rules');
+      setSelectedCard(null);
+      return;
+    }
+    
     // For a person card, we need to enter placement mode
     if ('type' in card && card.type === CardType.PERSON) {
       setIsPlacementMode(true);
       return;
     }
     
-    // For event cards and water silo, we can place them immediately
+    // For event cards, we can place them immediately
     if ('type' in card && card.type === CardType.EVENT) {
       placeEventCard(card as EventCard);
-    } else if ('type' in card && card.type === 'waterSilo') {
-      placeWaterSilo(card as WaterSiloCard);
     }
   };
   
@@ -581,29 +586,14 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   };
   
   const placeWaterSilo = (card: WaterSiloCard) => {
-    // Implementation for placing the water silo
-    console.log('Placing water silo:', card);
+    // Water Silo can't be played directly - it should only be junked
+    // This function is here for completeness but should never be called
+    // The CardModal has been updated to hide the Play button for Water Silo
     
-    setGameState(prevState => {
-      const currentPlayerIndex = prevState.currentPlayerIndex;
-      const updatedPlayers = [...prevState.players];
-      const updatedPlayer = {...updatedPlayers[currentPlayerIndex]};
-      
-      // Place the water silo in the player area
-      updatedPlayer.waterSiloInPlayerArea = true;
-      
-      // Remove card from hand
-      updatedPlayer.hand = updatedPlayer.hand.filter(c => c.id !== card.id);
-      
-      updatedPlayers[currentPlayerIndex] = updatedPlayer;
-      
-      return {
-        ...prevState,
-        players: updatedPlayers
-      };
-    });
+    console.warn('Attempted to play Water Silo, which is not allowed by game rules');
     
-    // Reset placement state
+    // Just close the modal instead of placing
+    setShowCardModal(false);
     setSelectedCard(null);
     setIsPlacementMode(false);
   };
@@ -611,7 +601,9 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   const handleJunkCard = (card: PersonCard | EventCard | WaterSiloCard) => {
     console.log('Junking card:', card);
     
-    // Implement junking logic - remove from hand and gain 1 water
+    // Check if this is the Water Silo which has special junking behavior
+    const isWaterSilo = 'type' in card && card.type === 'waterSilo';
+    
     setGameState(prevState => {
       const currentPlayerIndex = prevState.currentPlayerIndex;
       const updatedPlayers = [...prevState.players];
@@ -623,12 +615,43 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       // Gain 1 water
       updatedPlayer.water += 1;
       
-      updatedPlayers[currentPlayerIndex] = updatedPlayer;
-      
-      return {
-        ...prevState,
-        players: updatedPlayers
-      };
+      // Special handling for Water Silo
+      if (isWaterSilo) {
+        // Instead of going to discard, Water Silo returns to its place in the tableau
+        updatedPlayer.waterSiloInPlayerArea = true;
+        
+        // Add to log
+        const updatedLog = [...prevState.log, {
+          message: `${updatedPlayer.name} junked Water Silo and gained 1 water token. Water Silo returned to tableau.`,
+          timestamp: new Date().toISOString()
+        }];
+        
+        updatedPlayers[currentPlayerIndex] = updatedPlayer;
+        
+        return {
+          ...prevState,
+          players: updatedPlayers,
+          log: updatedLog
+        };
+      } else {
+        // Normal junking flow - add to discard pile
+        const updatedDiscardPile = [...prevState.discardPile, card];
+        
+        // Add to log
+        const updatedLog = [...prevState.log, {
+          message: `${updatedPlayer.name} junked ${('name' in card) ? card.name : 'a card'} and gained 1 water token.`,
+          timestamp: new Date().toISOString()
+        }];
+        
+        updatedPlayers[currentPlayerIndex] = updatedPlayer;
+        
+        return {
+          ...prevState,
+          players: updatedPlayers,
+          discardPile: updatedDiscardPile,
+          log: updatedLog
+        };
+      }
     });
     
     // Close the modal after junking

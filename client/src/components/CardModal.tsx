@@ -62,10 +62,11 @@ const CardModal: React.FC<CardModalProps> = ({
     onJunkCard(currentCard);
   };
 
-  // Check if card is playable based on water cost
+  // Check if card is playable based on water cost and card type
   const isPlayable = () => {
+    // Water Silo is never playable - it can only be junked
     if ('type' in currentCard && currentCard.type === 'waterSilo') {
-      return true; // Water Silo has no water cost
+      return false; // Water Silo cannot be played, only junked
     }
     
     if ('waterCost' in currentCard) {
@@ -73,6 +74,11 @@ const CardModal: React.FC<CardModalProps> = ({
     }
     
     return false;
+  };
+  
+  // Check if current card is a Water Silo
+  const isWaterSilo = () => {
+    return 'type' in currentCard && currentCard.type === 'waterSilo';
   };
 
   // Render card details based on card type
@@ -84,6 +90,10 @@ const CardModal: React.FC<CardModalProps> = ({
           <p className="card-description">
             Provides extra water each turn when placed in your play area.
           </p>
+          <div className="card-instructions">
+            <strong>Special Card:</strong> The Water Silo can only be junked, not played. 
+            When junked, it returns to its slot and gives you 1 water token.
+          </div>
         </div>
       );
     }
@@ -166,19 +176,22 @@ const CardModal: React.FC<CardModalProps> = ({
         </div>
         
         <div className="card-actions">
-          <button 
-            className="play-button" 
-            onClick={handlePlayCard}
-            disabled={!isPlayable()}
-          >
-            Play Card {!isPlayable() && '(Not enough water)'}
-          </button>
+          {/* Only show Play button if not Water Silo */}
+          {!isWaterSilo() && (
+            <button 
+              className="play-button" 
+              onClick={handlePlayCard}
+              disabled={!isPlayable()}
+            >
+              Play Card {!isPlayable() && '(Not enough water)'}
+            </button>
+          )}
           
           <button 
-            className="junk-button"
+            className={`junk-button ${isWaterSilo() ? 'junk-water-silo' : ''}`}
             onClick={handleJunkCard}
           >
-            Junk Card
+            {isWaterSilo() ? 'Junk & Return Water Silo' : 'Junk Card'}
           </button>
         </div>
       </div>

@@ -238,6 +238,26 @@
   background-color: #ff5252;
 }
 
+/* Special styling for Water Silo junk button */
+.junk-button.junk-water-silo {
+  background-color: var(--water-color, #2e86de);
+  width: 100%; /* Full width when it's the only button */
+}
+
+.junk-button.junk-water-silo:hover {
+  background-color: #1c73c5;
+}
+
+/* Style for the card instructions */
+.card-instructions {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  margin-top: auto;
+  font-size: 0.85rem;
+  border-left: 3px solid var(--water-color, #2e86de);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .card-modal-content {
