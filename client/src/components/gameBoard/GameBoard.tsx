@@ -636,9 +636,47 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     setSelectedCard(null);
   };
   
+  // Function to handle the actual card placement after any confirmations
   const handleSlotSelect = (columnIndex: number, slotPosition: 'top' | 'bottom') => {
     // Only process if we're in placement mode and have a person card selected
     if (!isPlacementMode || !selectedCard || !('type' in selectedCard) || selectedCard.type !== CardType.PERSON) {
+      return;
+    }
+    
+    const placementType = getPlacementType(columnIndex, slotPosition);
+    
+    if (placementType === 'invalid') {
+      return;
+    }
+    
+    const personCard = selectedCard as PersonCard;
+    
+    // For replacement, we need to confirm with the user first
+    if (placementType === 'replace') {
+      const activePlayerColumns = isPlayer1Active ? player1.columns : player2.columns;
+      const column = activePlayerColumns[columnIndex];
+      const slotIndex = slotPosition === 'bottom' ? 0 : 1;
+      const existingCard = column.people[slotIndex];
+      
+      // Store the replacement data for when the user confirms
+      setReplacementData({
+        columnIndex,
+        slotPosition,
+        existingCard
+      });
+      
+      // Show confirmation dialog
+      setShowReplaceConfirmation(true);
+      return;
+    }
+    
+    // For normal placement or move, proceed with the placement
+    placePersonCard(columnIndex, slotPosition, placementType);
+  };
+  
+  // Function to handle the actual placement after confirmation if needed
+  const placePersonCard = (columnIndex: number, slotPosition: 'top' | 'bottom', placementType: PlacementType) => {
+    if (!selectedCard || !('type' in selectedCard) || selectedCard.type !== CardType.PERSON) {
       return;
     }
     
@@ -653,22 +691,46 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       const targetColumn = {...updatedColumns[columnIndex]};
       
       // Get current people in the column
-      const currentPeople = [...targetColumn.people];
+      let currentPeople = [...targetColumn.people];
+      let discardedCard = null;
       
-      // Add the new person to the appropriate position
-      if (slotPosition === 'bottom') {
-        // If there's already someone in bottom slot, shift them up if top is empty
-        if (currentPeople.length === 1) {
-          currentPeople.push(personCard); // Add to top (index 1)
-        } else {
-          currentPeople.unshift(personCard); // Add to bottom (index 0)
-        }
-      } else { // top slot
-        if (currentPeople.length === 0) {
-          // If column is empty, we need to add a person to bottom first
-          return prevState;
-        }
-        currentPeople.push(personCard); // Add to top (index 1)
+      switch (placementType) {
+        case 'normal':
+          // Simple placement in an empty slot
+          if (slotPosition === 'bottom') {
+            if (currentPeople.length === 0) {
+              currentPeople = [personCard]; // Add to bottom for empty column
+            } else {
+              currentPeople = [personCard, currentPeople[0]]; // Replace bottom, keep top
+            }
+          } else { // top slot
+            currentPeople.push(personCard); // Add to top position
+          }
+          break;
+          
+        case 'move':
+          // Move existing card to other slot and place new card in selected slot
+          if (slotPosition === 'bottom') {
+            // Move the current bottom card to top, place new card at bottom
+            const existingPerson = currentPeople[0];
+            currentPeople = [personCard, existingPerson];
+          } else {
+            // This shouldn't happen with our current logic but handle it anyway
+            const existingPerson = currentPeople[0];
+            currentPeople = [existingPerson, personCard];
+          }
+          break;
+          
+        case 'replace':
+          // Replace the card in the selected slot
+          if (slotPosition === 'bottom') {
+            discardedCard = currentPeople[0];
+            currentPeople = [personCard, currentPeople[1]]; // Replace bottom, keep top
+          } else {
+            discardedCard = currentPeople[1];
+            currentPeople = [currentPeople[0], personCard]; // Keep bottom, replace top
+          }
+          break;
       }
       
       // Update the column with new people
@@ -680,11 +742,38 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       updatedPlayer.water -= personCard.waterCost;
       updatedPlayer.columns = updatedColumns;
       
+      // Add discarded card to discard pile if there was one
+      if (discardedCard) {
+        const updatedDiscardPile = [...prevState.discardPile, discardedCard];
+        
+        // Add to log
+        const updatedLog = [...prevState.log, {
+          message: `${updatedPlayer.name} replaced ${discardedCard.name} with ${personCard.name}`,
+          timestamp: new Date().toISOString()
+        }];
+        
+        updatedPlayers[currentPlayerIndex] = updatedPlayer;
+        
+        return {
+          ...prevState,
+          players: updatedPlayers,
+          discardPile: updatedDiscardPile,
+          log: updatedLog
+        };
+      }
+      
+      // Add to log
+      const updatedLog = [...prevState.log, {
+        message: `${updatedPlayer.name} played ${personCard.name} to ${slotPosition} position of column ${columnIndex + 1}`,
+        timestamp: new Date().toISOString()
+      }];
+      
       updatedPlayers[currentPlayerIndex] = updatedPlayer;
       
       return {
         ...prevState,
-        players: updatedPlayers
+        players: updatedPlayers,
+        log: updatedLog
       };
     });
     
@@ -692,25 +781,81 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     setSelectedCard(null);
     setIsPlacementMode(false);
     setSelectedColumnIndex(null);
+    setShowReplaceConfirmation(false);
+    setReplacementData(null);
   };
   
-  // Determine if a slot is a valid placement target
-  const isValidPlacementTarget = (columnIndex: number, slotPosition: 'top' | 'bottom'): boolean => {
+  // Function to handle confirmation of replacement
+  const handleConfirmReplacement = () => {
+    if (replacementData) {
+      placePersonCard(
+        replacementData.columnIndex, 
+        replacementData.slotPosition, 
+        'replace'
+      );
+    }
+  };
+  
+  // Function to cancel replacement
+  const handleCancelReplacement = () => {
+    setShowReplaceConfirmation(false);
+    setReplacementData(null);
+    // Stay in placement mode
+  };
+  
+  // Placement types for visual and functional differentiation
+  type PlacementType = 'normal' | 'move' | 'replace' | 'invalid';
+  
+  // This state will track if we're in the confirmation dialog for replacing a card
+  const [showReplaceConfirmation, setShowReplaceConfirmation] = useState<boolean>(false);
+  const [replacementData, setReplacementData] = useState<{
+    columnIndex: number;
+    slotPosition: 'top' | 'bottom';
+    existingCard: PersonCard;
+  } | null>(null);
+  
+  // Determine if a slot is a valid placement target and what type of placement it would be
+  const getPlacementType = (columnIndex: number, slotPosition: 'top' | 'bottom'): PlacementType => {
     if (!isPlacementMode || !selectedCard || !('type' in selectedCard) || selectedCard.type !== CardType.PERSON) {
-      return false;
+      return 'invalid';
     }
     
     const activePlayerColumns = isPlayer1Active ? player1.columns : player2.columns;
     const column = activePlayerColumns[columnIndex];
     
-    // Rules for valid placement:
-    // 1. Bottom slot: Can always place if empty
-    // 2. Top slot: Can only place if bottom slot has a person
-    if (slotPosition === 'bottom') {
-      return column.people.length === 0 || column.people.length === 1;
-    } else { // top slot
-      return column.people.length === 1; // Can only place on top if bottom has someone
+    // Column is empty - can only place in bottom slot
+    if (column.people.length === 0) {
+      return slotPosition === 'bottom' ? 'normal' : 'invalid';
     }
+    
+    // Column has 1 person
+    if (column.people.length === 1) {
+      const existingPersonPosition = 'bottom'; // In Radlands, first person is always in bottom slot
+      
+      // If clicking on empty slot, it's a normal placement
+      if (slotPosition !== existingPersonPosition) {
+        return 'normal';
+      }
+      
+      // If clicking on occupied slot, it will move the existing person
+      return 'move';
+    }
+    
+    // Column has 2 people - replacing an existing card
+    if (column.people.length === 2) {
+      const slotIndex = slotPosition === 'bottom' ? 0 : 1;
+      if (column.people[slotIndex]) {
+        return 'replace';
+      }
+    }
+    
+    return 'invalid';
+  };
+  
+  // Determine if a slot is a valid placement target (simplified check for highlighting)
+  const isValidPlacementTarget = (columnIndex: number, slotPosition: 'top' | 'bottom'): boolean => {
+    const placementType = getPlacementType(columnIndex, slotPosition);
+    return placementType !== 'invalid';
   };
 
   return (
@@ -732,6 +877,26 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
             Select a slot to place <strong>{(selectedCard as PersonCard).name}</strong>
           </div>
           <button className="cancel-placement" onClick={handleCloseCardModal}>Cancel</button>
+        </div>
+      )}
+      
+      {showReplaceConfirmation && replacementData && (
+        <div className="replacement-confirmation-overlay">
+          <div className="replacement-confirmation-dialog">
+            <h3>Replace Person Card?</h3>
+            <p>
+              This will destroy <strong>{replacementData.existingCard.name}</strong> and replace it with <strong>{selectedCard?.name}</strong>.
+            </p>
+            <p>The destroyed card will be sent to the discard pile.</p>
+            <div className="replacement-actions">
+              <button className="confirm-replacement" onClick={handleConfirmReplacement}>
+                Confirm Replacement
+              </button>
+              <button className="cancel-replacement" onClick={handleCancelReplacement}>
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <div className="game-board-inner">
@@ -938,20 +1103,66 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
               <div 
                 className={`person-slot top-slot ${isValidPlacementTarget(0, 'top') ? 'valid-target' : ''}`}
                 onClick={() => isValidPlacementTarget(0, 'top') && handleSlotSelect(0, 'top')}
-                style={isValidPlacementTarget(0, 'top') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+                style={
+                  isValidPlacementTarget(0, 'top') 
+                    ? { 
+                        cursor: 'pointer', 
+                        boxShadow: `0 0 0 2px ${
+                          getPlacementType(0, 'top') === 'normal' ? '#4caf50' : 
+                          getPlacementType(0, 'top') === 'move' ? '#2196f3' : 
+                          '#f44336'
+                        }`,
+                        position: 'relative'
+                      } 
+                    : {}
+                }
+                title={
+                  getPlacementType(0, 'top') === 'normal' ? 'Place person here' :
+                  getPlacementType(0, 'top') === 'move' ? 'Place person here and move existing person' :
+                  getPlacementType(0, 'top') === 'replace' ? 'Replace existing person (will be destroyed)' : ''
+                }
               >
                 {player1.columns[0].people.length > 1 && 
                   <PersonCardComponent person={player1.columns[0].people[1]} />
                 }
+                {isPlacementMode && getPlacementType(0, 'top') === 'move' && (
+                  <div className="move-indicator">⤴</div>
+                )}
+                {isPlacementMode && getPlacementType(0, 'top') === 'replace' && (
+                  <div className="replace-indicator">⚠️</div>
+                )}
               </div>
               <div 
                 className={`person-slot bottom-slot ${isValidPlacementTarget(0, 'bottom') ? 'valid-target' : ''}`}
                 onClick={() => isValidPlacementTarget(0, 'bottom') && handleSlotSelect(0, 'bottom')}
-                style={isValidPlacementTarget(0, 'bottom') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+                style={
+                  isValidPlacementTarget(0, 'bottom') 
+                    ? { 
+                        cursor: 'pointer', 
+                        boxShadow: `0 0 0 2px ${
+                          getPlacementType(0, 'bottom') === 'normal' ? '#4caf50' : 
+                          getPlacementType(0, 'bottom') === 'move' ? '#2196f3' : 
+                          '#f44336'
+                        }`,
+                        position: 'relative'
+                      } 
+                    : {}
+                }
+                title={
+                  getPlacementType(0, 'bottom') === 'normal' ? 'Place person here' :
+                  getPlacementType(0, 'bottom') === 'move' ? 'Place person here and move existing person' :
+                  getPlacementType(0, 'bottom') === 'replace' ? 'Replace existing person (will be destroyed)' : ''
+                }
               >
                 {player1.columns[0].people.length > 0 && 
                   <PersonCardComponent person={player1.columns[0].people[0]} />
                 }
+                {isPlacementMode && getPlacementType(0, 'bottom') === 'move' && (
+                  <div className="move-indicator">⤴</div>
+                )}
+                {isPlacementMode && getPlacementType(0, 'bottom') === 'replace' && (
+                  <div className="replace-indicator">⚠️</div>
+                )}
               </div>
               <div className="camp-slot">
                 <CampCardComponent camp={player1.camps[0]} />
@@ -963,20 +1174,66 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
               <div 
                 className={`person-slot top-slot ${isValidPlacementTarget(1, 'top') ? 'valid-target' : ''}`}
                 onClick={() => isValidPlacementTarget(1, 'top') && handleSlotSelect(1, 'top')}
-                style={isValidPlacementTarget(1, 'top') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+                style={
+                  isValidPlacementTarget(1, 'top') 
+                    ? { 
+                        cursor: 'pointer', 
+                        boxShadow: `0 0 0 2px ${
+                          getPlacementType(1, 'top') === 'normal' ? '#4caf50' : 
+                          getPlacementType(1, 'top') === 'move' ? '#2196f3' : 
+                          '#f44336'
+                        }`,
+                        position: 'relative'
+                      } 
+                    : {}
+                }
+                title={
+                  getPlacementType(1, 'top') === 'normal' ? 'Place person here' :
+                  getPlacementType(1, 'top') === 'move' ? 'Place person here and move existing person' :
+                  getPlacementType(1, 'top') === 'replace' ? 'Replace existing person (will be destroyed)' : ''
+                }
               >
                 {player1.columns[1].people.length > 1 && 
                   <PersonCardComponent person={player1.columns[1].people[1]} />
                 }
+                {isPlacementMode && getPlacementType(1, 'top') === 'move' && (
+                  <div className="move-indicator">⤴</div>
+                )}
+                {isPlacementMode && getPlacementType(1, 'top') === 'replace' && (
+                  <div className="replace-indicator">⚠️</div>
+                )}
               </div>
               <div 
                 className={`person-slot bottom-slot ${isValidPlacementTarget(1, 'bottom') ? 'valid-target' : ''}`}
                 onClick={() => isValidPlacementTarget(1, 'bottom') && handleSlotSelect(1, 'bottom')}
-                style={isValidPlacementTarget(1, 'bottom') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+                style={
+                  isValidPlacementTarget(1, 'bottom') 
+                    ? { 
+                        cursor: 'pointer', 
+                        boxShadow: `0 0 0 2px ${
+                          getPlacementType(1, 'bottom') === 'normal' ? '#4caf50' : 
+                          getPlacementType(1, 'bottom') === 'move' ? '#2196f3' : 
+                          '#f44336'
+                        }`,
+                        position: 'relative'
+                      } 
+                    : {}
+                }
+                title={
+                  getPlacementType(1, 'bottom') === 'normal' ? 'Place person here' :
+                  getPlacementType(1, 'bottom') === 'move' ? 'Place person here and move existing person' :
+                  getPlacementType(1, 'bottom') === 'replace' ? 'Replace existing person (will be destroyed)' : ''
+                }
               >
                 {player1.columns[1].people.length > 0 && 
                   <PersonCardComponent person={player1.columns[1].people[0]} />
                 }
+                {isPlacementMode && getPlacementType(1, 'bottom') === 'move' && (
+                  <div className="move-indicator">⤴</div>
+                )}
+                {isPlacementMode && getPlacementType(1, 'bottom') === 'replace' && (
+                  <div className="replace-indicator">⚠️</div>
+                )}
               </div>
               <div className="camp-slot">
                 <CampCardComponent camp={player1.camps[1]} />
@@ -988,20 +1245,66 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
               <div 
                 className={`person-slot top-slot ${isValidPlacementTarget(2, 'top') ? 'valid-target' : ''}`}
                 onClick={() => isValidPlacementTarget(2, 'top') && handleSlotSelect(2, 'top')}
-                style={isValidPlacementTarget(2, 'top') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+                style={
+                  isValidPlacementTarget(2, 'top') 
+                    ? { 
+                        cursor: 'pointer', 
+                        boxShadow: `0 0 0 2px ${
+                          getPlacementType(2, 'top') === 'normal' ? '#4caf50' : 
+                          getPlacementType(2, 'top') === 'move' ? '#2196f3' : 
+                          '#f44336'
+                        }`,
+                        position: 'relative'
+                      } 
+                    : {}
+                }
+                title={
+                  getPlacementType(2, 'top') === 'normal' ? 'Place person here' :
+                  getPlacementType(2, 'top') === 'move' ? 'Place person here and move existing person' :
+                  getPlacementType(2, 'top') === 'replace' ? 'Replace existing person (will be destroyed)' : ''
+                }
               >
                 {player1.columns[2].people.length > 1 && 
                   <PersonCardComponent person={player1.columns[2].people[1]} />
                 }
+                {isPlacementMode && getPlacementType(2, 'top') === 'move' && (
+                  <div className="move-indicator">⤴</div>
+                )}
+                {isPlacementMode && getPlacementType(2, 'top') === 'replace' && (
+                  <div className="replace-indicator">⚠️</div>
+                )}
               </div>
               <div 
                 className={`person-slot bottom-slot ${isValidPlacementTarget(2, 'bottom') ? 'valid-target' : ''}`}
                 onClick={() => isValidPlacementTarget(2, 'bottom') && handleSlotSelect(2, 'bottom')}
-                style={isValidPlacementTarget(2, 'bottom') ? { cursor: 'pointer', boxShadow: '0 0 0 2px #4caf50' } : {}}
+                style={
+                  isValidPlacementTarget(2, 'bottom') 
+                    ? { 
+                        cursor: 'pointer', 
+                        boxShadow: `0 0 0 2px ${
+                          getPlacementType(2, 'bottom') === 'normal' ? '#4caf50' : 
+                          getPlacementType(2, 'bottom') === 'move' ? '#2196f3' : 
+                          '#f44336'
+                        }`,
+                        position: 'relative'
+                      } 
+                    : {}
+                }
+                title={
+                  getPlacementType(2, 'bottom') === 'normal' ? 'Place person here' :
+                  getPlacementType(2, 'bottom') === 'move' ? 'Place person here and move existing person' :
+                  getPlacementType(2, 'bottom') === 'replace' ? 'Replace existing person (will be destroyed)' : ''
+                }
               >
                 {player1.columns[2].people.length > 0 && 
                   <PersonCardComponent person={player1.columns[2].people[0]} />
                 }
+                {isPlacementMode && getPlacementType(2, 'bottom') === 'move' && (
+                  <div className="move-indicator">⤴</div>
+                )}
+                {isPlacementMode && getPlacementType(2, 'bottom') === 'replace' && (
+                  <div className="replace-indicator">⚠️</div>
+                )}
               </div>
               <div className="camp-slot">
                 <CampCardComponent camp={player1.camps[2]} />
