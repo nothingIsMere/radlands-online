@@ -1440,32 +1440,34 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
         </div>
       )}
       
-      {/* Events Processing Debug Overlay */}
-      <div className="events-processing-debugger">
-        <div className="debug-title">Events Phase Debugger</div>
-        <div className="debug-entry">
-          <span className="debug-label">Call count:</span>
-          <span className="debug-value">{eventsPhaseCallCount}</span>
-          <span className="debug-counter">{eventsPhaseCallCount}</span>
-        </div>
-        <div className="debug-entry">
-          <span className="debug-label">Processing:</span>
-          <span className="debug-value">{processingEvents ? 'Yes' : 'No'}</span>
-        </div>
-        <div className="debug-entry">
-          <span className="debug-label">Processed this turn:</span>
-          <span className="debug-value">{eventsProcessedThisTurn ? 'Yes' : 'No'}</span>
-        </div>
-        <div className="debug-entry">
-          <span className="debug-label">Step:</span>
-          <span className="debug-value">{processingStep}</span>
-        </div>
-        {eventsProcessedThisTurn && eventsPhaseCallCount > 1 && (
-          <div className="debug-warning">
-            WARNING: Events phase was called multiple times in the same turn!
+      {/* Events Processing Debug Overlay - only shown during active events processing or when call count > 0 */}
+      {(processingEvents || eventsPhaseCallCount > 0) && (
+        <div className="events-processing-debugger">
+          <div className="debug-title">Events Phase Debugger</div>
+          <div className="debug-entry">
+            <span className="debug-label">Call count:</span>
+            <span className="debug-value">{eventsPhaseCallCount}</span>
+            <span className="debug-counter">{eventsPhaseCallCount}</span>
           </div>
-        )}
-      </div>
+          <div className="debug-entry">
+            <span className="debug-label">Processing:</span>
+            <span className="debug-value">{processingEvents ? 'Yes' : 'No'}</span>
+          </div>
+          <div className="debug-entry">
+            <span className="debug-label">Processed this turn:</span>
+            <span className="debug-value">{eventsProcessedThisTurn ? 'Yes' : 'No'}</span>
+          </div>
+          <div className="debug-entry">
+            <span className="debug-label">Step:</span>
+            <span className="debug-value">{processingStep}</span>
+          </div>
+          {eventsProcessedThisTurn && eventsPhaseCallCount > 1 && (
+            <div className="debug-warning">
+              WARNING: Events phase was called multiple times in the same turn!
+            </div>
+          )}
+        </div>
+      )}
       <div className="game-board-inner">
         {/* Game controls and info */}
         <div className="game-info-panel">
