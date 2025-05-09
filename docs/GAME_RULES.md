@@ -25,9 +25,9 @@ GENERAL SET-UP
 Players sit on opposite sides of the table facing each other. In the center of the table,
 accessible to both players:
 
-1. Shuffle and place the camp deck A .
-2. Place the extra water discs (black) B .
-3. Shuffle and place the draw deck, leaving space for a discard pile beside it C .
+1. Shuffle and place the camp deck.
+2. Place the extra water discs (black).
+3. Shuffle and place the draw deck, leaving space for a discard pile beside it.
 
 
 PLAY AREA SETUP

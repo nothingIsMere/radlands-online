@@ -1,4 +1,4 @@
-import { useState, FC } from 'react';
+import { useState, FC, useEffect } from 'react';
 import './GameBoard.css';
 import { 
   GameState, 
@@ -19,6 +19,8 @@ import PersonCardComponent from '../PersonCard';
 import EventCardComponent from '../EventCard';
 import WaterSiloComponent from '../WaterSilo';
 import CardModal from '../CardModal';
+import TestControls from '../TestControls';
+import GameLog from '../GameLog';
 
 // Initial test game state
 const createInitialGameState = (): GameState => {
@@ -405,6 +407,14 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   const [selectedCardIndex, setSelectedCardIndex] = useState<number>(0);
   const [isPlacementMode, setIsPlacementMode] = useState<boolean>(false);
   const [selectedColumnIndex, setSelectedColumnIndex] = useState<number | null>(null);
+  const [isGameLogVisible, setIsGameLogVisible] = useState<boolean>(false);
+  const [processingEvents, setProcessingEvents] = useState<boolean>(false);
+  const [resolvedCardId, setResolvedCardId] = useState<string | null>(null);
+  const [movingCardIds, setMovingCardIds] = useState<string[]>([]);
+  // Add debugging and guard flags
+  const [eventsPhaseCallCount, setEventsPhaseCallCount] = useState<number>(0);
+  const [eventsProcessedThisTurn, setEventsProcessedThisTurn] = useState<boolean>(false);
+  const [processingStep, setProcessingStep] = useState<number>(0); // 0: none, 1: resolve, 2: move 3->2, 3: move 2->1
 
   // Fixed player positions - Player 1 on right, Player 2 on left
   const player1 = gameState.players[0]; // Will always be on the right
@@ -419,10 +429,421 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   const activePlayerCards = activePlayer.hand;
   const activePlayerWater = activePlayer.water;
 
-  // Handle end turn button click
-  const handleEndTurn = () => {
+  // Debugging helper to stringify the event queue state
+  const logEventQueueState = (player: Player): string => {
+    const slot1 = player.eventQueue.slot1 ? `${player.eventQueue.slot1.name} (#${player.eventQueue.slot1.eventNumber})` : 'empty';
+    const slot2 = player.eventQueue.slot2 ? `${player.eventQueue.slot2.name} (#${player.eventQueue.slot2.eventNumber})` : 'empty';
+    const slot3 = player.eventQueue.slot3 ? `${player.eventQueue.slot3.name} (#${player.eventQueue.slot3.eventNumber})` : 'empty';
+    return `[Pos 1: ${slot1}] [Pos 2: ${slot2}] [Pos 3: ${slot3}]`;
+  };
+  
+  // Bulletproof Events Phase Processing with extensive debugging
+  const processEventsPhase = () => {
+    // First guard: Check if we're already processing events
+    if (processingEvents) {
+      console.warn(`[${new Date().toLocaleTimeString()}] GUARD TRIGGERED: Already processing events, skipping this call`);
+      console.trace('Call stack that tried to process events again:');
+      return;
+    }
+    
+    // Second guard: Check if we've already processed events this turn
+    if (eventsProcessedThisTurn) {
+      console.warn(`[${new Date().toLocaleTimeString()}] GUARD TRIGGERED: Events already processed this turn! Current call count: ${eventsPhaseCallCount}`);
+      console.trace('Call stack that tried to process events twice in one turn:');
+      return;
+    }
+    
+    // Set both guard flags
+    setProcessingEvents(true);
+    setEventsProcessedThisTurn(true);
+    
+    // Increment and log the call counter for debugging
+    const newCallCount = eventsPhaseCallCount + 1;
+    setEventsPhaseCallCount(newCallCount);
+    
+    // Save processing start time for debugging
+    const startTime = Date.now();
+    const startTimeString = new Date().toLocaleTimeString();
+    
+    console.log(`❗❗❗ [${startTimeString}] STARTING EVENT PROCESSING #${newCallCount} - THIS SHOULD HAPPEN ONCE PER TURN ONLY ❗❗❗`);
+    
+    // Process events in a single, atomic update
     setGameState(prevState => {
-      // Switch to Events phase for the next player
+      const currentPlayerIndex = prevState.currentPlayerIndex;
+      const currentPlayer = prevState.players[currentPlayerIndex];
+      const updatedPlayers = [...prevState.players];
+      const updatedPlayer = {...currentPlayer};
+      
+      // Log detailed initial state
+      console.log(`[${new Date().toLocaleTimeString()}] Current player: ${updatedPlayer.name} (index: ${currentPlayerIndex})`);
+      console.log(`[${new Date().toLocaleTimeString()}] Current turn: ${prevState.turnNumber}, Phase: ${prevState.turnPhase}`);
+      
+      const initialEventState = {
+        slot1: updatedPlayer.eventQueue.slot1 ? `${updatedPlayer.eventQueue.slot1.name} (#${updatedPlayer.eventQueue.slot1.eventNumber})` : 'empty',
+        slot2: updatedPlayer.eventQueue.slot2 ? `${updatedPlayer.eventQueue.slot2.name} (#${updatedPlayer.eventQueue.slot2.eventNumber})` : 'empty',
+        slot3: updatedPlayer.eventQueue.slot3 ? `${updatedPlayer.eventQueue.slot3.name} (#${updatedPlayer.eventQueue.slot3.eventNumber})` : 'empty'
+      };
+      
+      console.log(`[${new Date().toLocaleTimeString()}] INITIAL EVENT QUEUE: `, JSON.stringify(initialEventState, null, 2));
+      
+      // Create log entry for initial state
+      const queueStateBeforeMsg = `Event queue before processing: ${logEventQueueState(updatedPlayer)}`;
+      const newLogEntries = [...prevState.log, {
+        message: `❗ EVENTS PHASE #${newCallCount} START: ${queueStateBeforeMsg}`,
+        timestamp: new Date().toISOString()
+      }];
+      
+      // CRITICAL: Create temporary copies of current events
+      const event1 = updatedPlayer.eventQueue.slot1 ? {...updatedPlayer.eventQueue.slot1} : null;
+      const event2 = updatedPlayer.eventQueue.slot2 ? {...updatedPlayer.eventQueue.slot2} : null;
+      const event3 = updatedPlayer.eventQueue.slot3 ? {...updatedPlayer.eventQueue.slot3} : null;
+      
+      console.log(`[${new Date().toLocaleTimeString()}] COPIED EVENT REFERENCES:`);
+      console.log(`  Slot1: ${event1 ? event1.name : 'null'}`);
+      console.log(`  Slot2: ${event2 ? event2.name : 'null'}`);
+      console.log(`  Slot3: ${event3 ? event3.name : 'null'}`);
+      
+      // CRITICAL: Clear all slots FIRST - prevents double movement
+      console.log(`[${new Date().toLocaleTimeString()}] CLEARING ALL EVENT SLOTS`);
+      updatedPlayer.eventQueue = {
+        slot1: null,
+        slot2: null,
+        slot3: null
+      };
+      
+      // Track which cards are resolved or moved for animations
+      let resolvedCardId: string | null = null;
+      const movingCards: string[] = [];
+      
+      let updatedDiscardPile = [...prevState.discardPile];
+      
+      // Process event in position 1 (add to discard)
+      if (event1) {
+        console.log(`[${new Date().toLocaleTimeString()}] RESOLVING EVENT: ${event1.name} from position 1`);
+        resolvedCardId = event1.id;
+        
+        const resolutionMsg = `${updatedPlayer.name}'s event "${event1.name}" (#${event1.eventNumber}) resolved from position 1. Effect: ${event1.description}`;
+        newLogEntries.push({
+          message: resolutionMsg,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Add to discard pile
+        updatedDiscardPile.push(event1);
+      } else {
+        console.log(`[${new Date().toLocaleTimeString()}] No event in position 1 to resolve`);
+        newLogEntries.push({
+          message: `No event in position 1 to resolve.`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Move event from position 2 to position 1
+      if (event2) {
+        console.log(`[${new Date().toLocaleTimeString()}] MOVING EVENT: ${event2.name} from position 2 to position 1`);
+        movingCards.push(event2.id);
+        
+        const movementMsg = `${updatedPlayer.name}'s event "${event2.name}" (#${event2.eventNumber}) advanced from position 2 to position 1`;
+        newLogEntries.push({
+          message: movementMsg,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Move to slot 1
+        updatedPlayer.eventQueue.slot1 = event2;
+      } else {
+        console.log(`[${new Date().toLocaleTimeString()}] No event in position 2 to move`);
+      }
+      
+      // Move event from position 3 to position 2
+      if (event3) {
+        console.log(`[${new Date().toLocaleTimeString()}] MOVING EVENT: ${event3.name} from position 3 to position 2`);
+        movingCards.push(event3.id);
+        
+        const movementMsg = `${updatedPlayer.name}'s event "${event3.name}" (#${event3.eventNumber}) advanced from position 3 to position 2`;
+        newLogEntries.push({
+          message: movementMsg,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Move to slot 2
+        updatedPlayer.eventQueue.slot2 = event3;
+      } else {
+        console.log(`[${new Date().toLocaleTimeString()}] No event in position 3 to move`);
+      }
+      
+      // Update the player in the players array
+      updatedPlayers[currentPlayerIndex] = updatedPlayer;
+      
+      // Log the final state for debugging
+      const finalEventState = {
+        slot1: updatedPlayer.eventQueue.slot1 ? `${updatedPlayer.eventQueue.slot1.name} (#${updatedPlayer.eventQueue.slot1.eventNumber})` : 'empty',
+        slot2: updatedPlayer.eventQueue.slot2 ? `${updatedPlayer.eventQueue.slot2.name} (#${updatedPlayer.eventQueue.slot2.eventNumber})` : 'empty',
+        slot3: updatedPlayer.eventQueue.slot3 ? `${updatedPlayer.eventQueue.slot3.name} (#${updatedPlayer.eventQueue.slot3.eventNumber})` : 'empty'
+      };
+      
+      console.log(`[${new Date().toLocaleTimeString()}] FINAL EVENT QUEUE: `, JSON.stringify(finalEventState, null, 2));
+      
+      // Add a summary to the game log
+      const queueStateAfterMsg = `Event queue after processing: ${logEventQueueState(updatedPlayer)}`;
+      newLogEntries.push({
+        message: `❗ EVENTS PHASE #${newCallCount} COMPLETE: ${queueStateAfterMsg}`,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Set animation state variables
+      setResolvedCardId(resolvedCardId);
+      setMovingCardIds(movingCards);
+      setProcessingStep(1); // Set to a state that indicates processing
+      
+      // Return the updated state
+      return {
+        ...prevState,
+        players: updatedPlayers,
+        discardPile: updatedDiscardPile,
+        log: newLogEntries
+      };
+    });
+    
+    // CRITICAL: Schedule cleanup with a longer delay to ensure all renders complete
+    // This function will ONLY run after event processing is complete
+    setTimeout(() => {
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      
+      console.log(`❗❗❗ [${new Date().toLocaleTimeString()}] FINISHED EVENT PROCESSING #${newCallCount} after ${processingTime}ms ❗❗❗`);
+      
+      // Clear animation flags
+      setResolvedCardId(null);
+      setMovingCardIds([]);
+      setProcessingStep(0);
+      
+      // VERY IMPORTANT: Only now do we clear the processing flag
+      // This must happen after all animations and state updates are complete
+      setProcessingEvents(false);
+      
+      // The eventsProcessedThisTurn flag will be cleared only at the end of the turn
+      console.log(`[${new Date().toLocaleTimeString()}] Processing flags updated: processingEvents=false, eventsProcessedThisTurn=true`);
+      
+    }, 3000); // Longer timeout to ensure all animations and renders complete
+  };
+  
+  // Setup test events
+  const setupEventsTest = () => {
+    // Reset the event processing flags to ensure they can be processed
+    setEventsProcessedThisTurn(false);
+    setEventsPhaseCallCount(0);
+    setProcessingStep(0);
+    
+    // Create test events
+    const testEvents: EventCard[] = [
+      {
+        id: 'test-event-1',
+        name: 'Test Event 1 (Event #1)',
+        type: CardType.EVENT,
+        description: 'This would damage an enemy card if implemented',
+        imageUrl: '/events/test1.png',
+        traits: [],
+        waterCost: 1,
+        effect: {
+          type: 'damage',
+          execute: () => { console.log('Event 1 executed'); },
+          canBeExecuted: () => true
+        },
+        eventNumber: 1
+      },
+      {
+        id: 'test-event-2',
+        name: 'Test Event 2 (Event #2)',
+        type: CardType.EVENT,
+        description: 'This would restore a card if implemented',
+        imageUrl: '/events/test2.png',
+        traits: [],
+        waterCost: 2,
+        effect: {
+          type: 'restore',
+          execute: () => { console.log('Event 2 executed'); },
+          canBeExecuted: () => true
+        },
+        eventNumber: 2
+      },
+      {
+        id: 'test-event-3',
+        name: 'Test Event 3 (Event #3)',
+        type: CardType.EVENT,
+        description: 'This would draw cards if implemented',
+        imageUrl: '/events/test3.png',
+        traits: [],
+        waterCost: 1,
+        effect: {
+          type: 'draw',
+          execute: () => { console.log('Event 3 executed'); },
+          canBeExecuted: () => true
+        },
+        eventNumber: 3
+      },
+      // This event has number 1, so it would normally go into slot 1
+      {
+        id: 'test-event-4',
+        name: 'Test Event 4 (Event #1)',
+        type: CardType.EVENT,
+        description: 'This would deal damage to all cards if implemented',
+        imageUrl: '/events/test4.png',
+        traits: [],
+        waterCost: 3,
+        effect: {
+          type: 'damage_all',
+          execute: () => { console.log('Event 4 executed'); },
+          canBeExecuted: () => true
+        },
+        eventNumber: 1
+      }
+    ];
+    
+    setGameState(prevState => {
+      const updatedPlayers = [...prevState.players];
+      const updatedLog = [...prevState.log];
+      
+      // Setup Player 1's event queue - demonstrate proper placement based on event numbers
+      // Event #1 goes in slot1, Event #2 goes in slot2, Event #3 goes in slot3
+      updatedPlayers[0] = {
+        ...updatedPlayers[0],
+        eventQueue: {
+          slot1: testEvents[0], // Event #1 in slot1
+          slot2: testEvents[1], // Event #2 in slot2
+          slot3: testEvents[2]  // Event #3 in slot3
+        }
+      };
+      
+      updatedLog.push({
+        message: 'Player 1 event queue setup: Event #1 in position 1, Event #2 in position 2, Event #3 in position 3',
+        timestamp: new Date().toISOString()
+      });
+      
+      // Setup Player 2's event queue - demonstrate event number placement rules
+      // Event #1 (test-event-4) would go in slot1, but that's taken, so it goes in slot2
+      // Another Event #2 can't be placed because slots 2 and 3 are occupied
+      updatedPlayers[1] = {
+        ...updatedPlayers[1],
+        eventQueue: {
+          slot1: { // Event #1 in slot1
+            ...testEvents[0],
+            id: 'player2-event-1'
+          },
+          slot2: { // Another Event #1 in slot2 (moved forward because slot1 is taken)
+            ...testEvents[3],
+            id: 'player2-event-2'
+          },
+          slot3: { // Event #3 in slot3
+            ...testEvents[2],
+            id: 'player2-event-3'
+          }
+        }
+      };
+      
+      updatedLog.push({
+        message: 'Player 2 event queue setup: Event #1 in position 1, Event #1 in position 2 (slot1 was occupied), Event #3 in position 3',
+        timestamp: new Date().toISOString()
+      });
+      
+      updatedLog.push({
+        message: 'Test events setup complete. Both players now have events in their queues according to event number placement rules. Event processing flags have been reset.',
+        timestamp: new Date().toISOString()
+      });
+      
+      return {
+        ...prevState,
+        players: updatedPlayers,
+        log: updatedLog,
+        turnPhase: TurnPhase.EVENTS // Set to events phase to allow immediate testing
+      };
+    });
+    
+    // Show the game log
+    setIsGameLogVisible(true);
+  };
+  
+  // Reset the game state
+  const resetGameState = () => {
+    // Reset all event processing flags
+    setEventsProcessedThisTurn(false);
+    setEventsPhaseCallCount(0);
+    setProcessingStep(0);
+    setProcessingEvents(false);
+    setResolvedCardId(null);
+    setMovingCardIds([]);
+    
+    setGameState(createInitialGameState());
+    
+    // Add a log entry
+    const timestamp = new Date().toISOString();
+    setGameState(prevState => ({
+      ...prevState,
+      log: [...prevState.log, {
+        message: 'Game state has been reset to initial state. All event processing flags have been reset.',
+        timestamp
+      }]
+    }));
+    
+    // Show a reminder about the new event processing logic
+    console.log('REMINDER: Events processing now follows the correct sequence of clearing all slots first, then moving cards forward.');
+  };
+  
+  // Toggle game log visibility
+  const toggleGameLog = () => {
+    setIsGameLogVisible(!isGameLogVisible);
+  };
+  
+  // Force the game into Events phase with better debugging
+  const forceEventsPhase = () => {
+    console.log(`[${new Date().toLocaleTimeString()}] FORCE EVENTS PHASE triggered`);
+    
+    // Reset all event processing flags to ensure a clean state
+    setEventsProcessedThisTurn(false);
+    setEventsPhaseCallCount(0);
+    setProcessingEvents(false);
+    setProcessingStep(0);
+    setResolvedCardId(null);
+    setMovingCardIds([]);
+    
+    console.log(`[${new Date().toLocaleTimeString()}] All event processing flags reset to initial state`);
+    
+    // First update the game phase
+    setGameState(prevState => {
+      const timestamp = new Date().toISOString();
+      const updatedLog = [...prevState.log, {
+        message: '⚠️ Game phase FORCED to EVENTS phase. All event processing flags have been reset.',
+        timestamp
+      }];
+      
+      return {
+        ...prevState,
+        turnPhase: TurnPhase.EVENTS,
+        log: updatedLog
+      };
+    });
+    
+    // Give state update time to complete before running processEventsPhase
+    console.log(`[${new Date().toLocaleTimeString()}] Scheduling event processing to start after state update`);
+    
+    setTimeout(() => {
+      console.log(`[${new Date().toLocaleTimeString()}] Now calling processEventsPhase() after force`);
+      processEventsPhase();
+    }, 1000);
+  };
+  
+  // Handle end turn button click - fixed to prevent multiple event processing
+  const handleEndTurn = () => {
+    console.log(`[${new Date().toLocaleTimeString()}] END TURN triggered - starting turn transition`);
+    
+    // IMPORTANT: Reset the events processed flag for the new turn
+    // We must do this before setting the new turn state
+    setEventsProcessedThisTurn(false);
+    setEventsPhaseCallCount(0);
+    
+    // First, update the game state to the next player's turn and set phase to EVENTS
+    setGameState(prevState => {
+      // Switch to the next player
       const newPlayerIndex = prevState.currentPlayerIndex === 0 ? 1 : 0;
       const newTurnNumber = newPlayerIndex === 0 ? prevState.turnNumber + 1 : prevState.turnNumber;
       
@@ -439,31 +860,78 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
         water: 3
       };
       
+      // Add a log entry
+      const timestamp = new Date().toISOString();
+      const updatedLog = [...prevState.log, {
+        message: `Turn ended. Now ${updatedPlayers[newPlayerIndex].name}'s turn (turn ${newTurnNumber}).`,
+        timestamp
+      }];
+      
+      console.log(`[${new Date().toLocaleTimeString()}] NEW TURN: Player ${newPlayerIndex + 1} (${updatedPlayers[newPlayerIndex].name}), Turn ${newTurnNumber}`);
+      
       return {
         ...prevState,
         currentPlayerIndex: newPlayerIndex,
-        turnPhase: TurnPhase.EVENTS,
+        turnPhase: TurnPhase.EVENTS, // Start in events phase
         turnNumber: newTurnNumber,
         turnHistory: newTurnHistory,
-        players: updatedPlayers
+        players: updatedPlayers,
+        log: updatedLog
       };
     });
-
-    // Simulate events phase completion after a short delay
+    
+    // CRITICAL: We need a longer delay before processing events to ensure the state update above completes
+    console.log(`[${new Date().toLocaleTimeString()}] Scheduling events phase to start after state update completes`);
+    
+    // Process the events phase after a substantial delay
     setTimeout(() => {
-      setGameState(prevState => ({
-        ...prevState,
-        turnPhase: TurnPhase.REPLENISH
-      }));
+      console.log(`[${new Date().toLocaleTimeString()}] TURN TRANSITION: Now calling processEventsPhase()`);
+      processEventsPhase(); // This will only run once due to our guard conditions
       
-      // Simulate replenish phase completion after another short delay
+      // Wait for events processing to complete before changing phases
+      // This is a much longer timeout to ensure events processing is completely done
       setTimeout(() => {
-        setGameState(prevState => ({
-          ...prevState,
-          turnPhase: TurnPhase.ACTIONS
-        }));
-      }, 1000);
-    }, 1000);
+        console.log(`[${new Date().toLocaleTimeString()}] TURN TRANSITION: Changing to REPLENISH phase`);
+        
+        // After processing events, transition to REPLENISH phase
+        setGameState(prevState => {
+          const timestamp = new Date().toISOString();
+          const updatedLog = [...prevState.log, {
+            message: `Phase changed to REPLENISH.`,
+            timestamp
+          }];
+          
+          return {
+            ...prevState,
+            turnPhase: TurnPhase.REPLENISH,
+            log: updatedLog
+          };
+        });
+        
+        // Then transition to ACTIONS phase after another delay
+        setTimeout(() => {
+          console.log(`[${new Date().toLocaleTimeString()}] TURN TRANSITION: Changing to ACTIONS phase`);
+          
+          setGameState(prevState => {
+            const timestamp = new Date().toISOString();
+            const updatedLog = [...prevState.log, {
+              message: `Phase changed to ACTIONS.`,
+              timestamp
+            }];
+            
+            return {
+              ...prevState,
+              turnPhase: TurnPhase.ACTIONS,
+              log: updatedLog
+            };
+          });
+          
+          console.log(`[${new Date().toLocaleTimeString()}] TURN TRANSITION COMPLETE: Now in ACTIONS phase`);
+        }, 1500); // Longer delay for better visual separation
+        
+      }, 4000); // Much longer delay to ensure events processing is complete
+      
+    }, 1000); // Longer delay to ensure state update completes
   };
 
   // Get phase display name
@@ -542,7 +1010,7 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   };
   
   const placeEventCard = (card: EventCard) => {
-    // Implementation for placing an event card in the queue
+    // Implementation for placing an event card in the queue according to its event number
     console.log('Placing event card:', card);
     
     setGameState(prevState => {
@@ -550,18 +1018,49 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       const updatedPlayers = [...prevState.players];
       const updatedPlayer = {...updatedPlayers[currentPlayerIndex]};
       
-      // Find the first empty slot in the event queue
-      let slotName: 'slot1' | 'slot2' | 'slot3' | null = null;
-      if (!updatedPlayer.eventQueue.slot1) slotName = 'slot1';
-      else if (!updatedPlayer.eventQueue.slot2) slotName = 'slot2';
-      else if (!updatedPlayer.eventQueue.slot3) slotName = 'slot3';
+      // Get the event number (1, 2, or 3)
+      const eventNumber = card.eventNumber;
       
+      // Determine which slot to place the event in based on its event number
+      // Events must go in their numbered slot if available, or the next available slot
+      let slotName: 'slot1' | 'slot2' | 'slot3' | null = null;
+      
+      // Handle event number 1
+      if (eventNumber === 1) {
+        if (!updatedPlayer.eventQueue.slot1) slotName = 'slot1';
+        else if (!updatedPlayer.eventQueue.slot2) slotName = 'slot2';
+        else if (!updatedPlayer.eventQueue.slot3) slotName = 'slot3';
+      }
+      // Handle event number 2
+      else if (eventNumber === 2) {
+        if (!updatedPlayer.eventQueue.slot2) slotName = 'slot2';
+        else if (!updatedPlayer.eventQueue.slot3) slotName = 'slot3';
+      }
+      // Handle event number 3
+      else if (eventNumber === 3) {
+        if (!updatedPlayer.eventQueue.slot3) slotName = 'slot3';
+      }
+      // Handle any other event number (for future expansion)
+      else {
+        // For any other event number, place in the first available slot
+        if (!updatedPlayer.eventQueue.slot1) slotName = 'slot1';
+        else if (!updatedPlayer.eventQueue.slot2) slotName = 'slot2';
+        else if (!updatedPlayer.eventQueue.slot3) slotName = 'slot3';
+      }
+      
+      // If we found a valid slot, place the card
       if (slotName) {
         // Place the card in the event queue
         updatedPlayer.eventQueue = {
           ...updatedPlayer.eventQueue,
           [slotName]: card
         };
+        
+        // Add a log entry
+        const updatedLog = [...prevState.log, {
+          message: `${updatedPlayer.name} played event "${card.name}" (Event #${card.eventNumber}) to ${slotName.replace('slot', 'position ')}.`,
+          timestamp: new Date().toISOString()
+        }];
         
         // Remove card from hand
         updatedPlayer.hand = updatedPlayer.hand.filter(c => c.id !== card.id);
@@ -573,11 +1072,21 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
         
         return {
           ...prevState,
-          players: updatedPlayers
+          players: updatedPlayers,
+          log: updatedLog
+        };
+      } else {
+        // No valid slot found, add a log entry explaining why
+        const updatedLog = [...prevState.log, {
+          message: `Cannot play event "${card.name}" (Event #${card.eventNumber}) - no valid slots available.`,
+          timestamp: new Date().toISOString()
+        }];
+        
+        return {
+          ...prevState,
+          log: updatedLog
         };
       }
-      
-      return prevState;
     });
     
     // Reset placement state
@@ -883,6 +1392,22 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
 
   return (
     <div className="game-board">
+      {/* Test Controls */}
+      <TestControls
+        onSetupEventsTest={setupEventsTest}
+        onProcessEventsPhase={processEventsPhase}
+        onResetGameState={resetGameState}
+        onToggleGameLog={toggleGameLog}
+        onForceEventsPhase={forceEventsPhase}
+        isGameLogVisible={isGameLogVisible}
+      />
+      
+      {/* Game Log */}
+      <GameLog 
+        entries={gameState.log} 
+        isVisible={isGameLogVisible}
+      />
+      
       {showCardModal && (
         <CardModal
           cards={activePlayerCards}
@@ -922,6 +1447,42 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
           </div>
         </div>
       )}
+      
+      {/* Phase Indicator */}
+      {processingEvents && (
+        <div className="phase-processing-indicator">
+          <div className="processing-message">
+            Processing Events Phase...
+          </div>
+        </div>
+      )}
+      
+      {/* Events Processing Debug Overlay */}
+      <div className="events-processing-debugger">
+        <div className="debug-title">Events Phase Debugger</div>
+        <div className="debug-entry">
+          <span className="debug-label">Call count:</span>
+          <span className="debug-value">{eventsPhaseCallCount}</span>
+          <span className="debug-counter">{eventsPhaseCallCount}</span>
+        </div>
+        <div className="debug-entry">
+          <span className="debug-label">Processing:</span>
+          <span className="debug-value">{processingEvents ? 'Yes' : 'No'}</span>
+        </div>
+        <div className="debug-entry">
+          <span className="debug-label">Processed this turn:</span>
+          <span className="debug-value">{eventsProcessedThisTurn ? 'Yes' : 'No'}</span>
+        </div>
+        <div className="debug-entry">
+          <span className="debug-label">Step:</span>
+          <span className="debug-value">{processingStep}</span>
+        </div>
+        {eventsProcessedThisTurn && eventsPhaseCallCount > 1 && (
+          <div className="debug-warning">
+            WARNING: Events phase was called multiple times in the same turn!
+          </div>
+        )}
+      </div>
       <div className="game-board-inner">
         {/* Game controls and info */}
         <div className="game-info-panel">
@@ -958,19 +1519,19 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
             <div className="event-slots">
               <div className="event-slot">
                 <div className="queue-position">1</div>
-                <div className="card-slot">
+                <div className={`card-slot ${isPlayer2Active && player2.eventQueue.slot1 && resolvedCardId === player2.eventQueue.slot1.id ? 'resolving-card' : ''}`}>
                   {player2.eventQueue.slot1 && <EventCardComponent event={player2.eventQueue.slot1} />}
                 </div>
               </div>
               <div className="event-slot">
                 <div className="queue-position">2</div>
-                <div className="card-slot">
+                <div className={`card-slot ${isPlayer2Active && player2.eventQueue.slot2 && movingCardIds.includes(player2.eventQueue.slot2.id) ? 'moving-card' : ''}`}>
                   {player2.eventQueue.slot2 && <EventCardComponent event={player2.eventQueue.slot2} />}
                 </div>
               </div>
               <div className="event-slot">
                 <div className="queue-position">3</div>
-                <div className="card-slot">
+                <div className={`card-slot ${isPlayer2Active && player2.eventQueue.slot3 && movingCardIds.includes(player2.eventQueue.slot3.id) ? 'moving-card' : ''}`}>
                   {player2.eventQueue.slot3 && <EventCardComponent event={player2.eventQueue.slot3} />}
                 </div>
               </div>
@@ -1100,19 +1661,19 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
             <div className="event-slots">
               <div className="event-slot">
                 <div className="queue-position">1</div>
-                <div className="card-slot">
+                <div className={`card-slot ${isPlayer1Active && player1.eventQueue.slot1 && resolvedCardId === player1.eventQueue.slot1.id ? 'resolving-card' : ''}`}>
                   {player1.eventQueue.slot1 && <EventCardComponent event={player1.eventQueue.slot1} />}
                 </div>
               </div>
               <div className="event-slot">
                 <div className="queue-position">2</div>
-                <div className="card-slot">
+                <div className={`card-slot ${isPlayer1Active && player1.eventQueue.slot2 && movingCardIds.includes(player1.eventQueue.slot2.id) ? 'moving-card' : ''}`}>
                   {player1.eventQueue.slot2 && <EventCardComponent event={player1.eventQueue.slot2} />}
                 </div>
               </div>
               <div className="event-slot">
                 <div className="queue-position">3</div>
-                <div className="card-slot">
+                <div className={`card-slot ${isPlayer1Active && player1.eventQueue.slot3 && movingCardIds.includes(player1.eventQueue.slot3.id) ? 'moving-card' : ''}`}>
                   {player1.eventQueue.slot3 && <EventCardComponent event={player1.eventQueue.slot3} />}
                 </div>
               </div>

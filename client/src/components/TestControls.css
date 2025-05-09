@@ -1,0 +1,72 @@
+.test-controls {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 0.5rem;
+  z-index: 100;
+  width: 15rem;
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.3);
+  color: white;
+  font-size: 0.9rem;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+}
+
+.test-controls-header {
+  padding: 0.5rem 1rem;
+  background-color: rgba(70, 130, 180, 0.8);
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.test-controls-content {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.test-button {
+  background-color: rgba(70, 130, 180, 0.5);
+  border: none;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s ease;
+}
+
+.test-button:hover {
+  background-color: rgba(70, 130, 180, 0.8);
+}
+
+.test-button.active {
+  background-color: #4CAF50;
+}
+
+.test-button.active:hover {
+  background-color: #388E3C;
+}
+
+.test-controls-info {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #ccc;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.event-rule {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border-left: 2px solid #f0ad4e;
+  background-color: rgba(240, 173, 78, 0.1);
+  font-style: italic;
+}
