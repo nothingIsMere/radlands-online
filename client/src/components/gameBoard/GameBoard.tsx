@@ -409,12 +409,10 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   const [selectedColumnIndex, setSelectedColumnIndex] = useState<number | null>(null);
   const [isGameLogVisible, setIsGameLogVisible] = useState<boolean>(false);
   const [processingEvents, setProcessingEvents] = useState<boolean>(false);
-  const [resolvedCardId, setResolvedCardId] = useState<string | null>(null);
-  const [movingCardIds, setMovingCardIds] = useState<string[]>([]);
   // Add debugging and guard flags
   const [eventsPhaseCallCount, setEventsPhaseCallCount] = useState<number>(0);
   const [eventsProcessedThisTurn, setEventsProcessedThisTurn] = useState<boolean>(false);
-  const [processingStep, setProcessingStep] = useState<number>(0); // 0: none, 1: resolve, 2: move 3->2, 3: move 2->1
+  const [processingStep, setProcessingStep] = useState<number>(0); // 0: none, 1: processing
 
   // Fixed player positions - Player 1 on right, Player 2 on left
   const player1 = gameState.players[0]; // Will always be on the right
@@ -437,7 +435,7 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     return `[Pos 1: ${slot1}] [Pos 2: ${slot2}] [Pos 3: ${slot3}]`;
   };
   
-  // Bulletproof Events Phase Processing with extensive debugging
+  // Simplified Events Phase Processing without animations
   const processEventsPhase = () => {
     // First guard: Check if we're already processing events
     if (processingEvents) {
@@ -466,6 +464,9 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     const startTimeString = new Date().toLocaleTimeString();
     
     console.log(`❗❗❗ [${startTimeString}] STARTING EVENT PROCESSING #${newCallCount} - THIS SHOULD HAPPEN ONCE PER TURN ONLY ❗❗❗`);
+    
+    // Set step indicator for debugging overlay
+    setProcessingStep(1);
     
     // Process events in a single, atomic update
     setGameState(prevState => {
@@ -511,16 +512,11 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
         slot3: null
       };
       
-      // Track which cards are resolved or moved for animations
-      let resolvedCardId: string | null = null;
-      const movingCards: string[] = [];
-      
       let updatedDiscardPile = [...prevState.discardPile];
       
       // Process event in position 1 (add to discard)
       if (event1) {
         console.log(`[${new Date().toLocaleTimeString()}] RESOLVING EVENT: ${event1.name} from position 1`);
-        resolvedCardId = event1.id;
         
         const resolutionMsg = `${updatedPlayer.name}'s event "${event1.name}" (#${event1.eventNumber}) resolved from position 1. Effect: ${event1.description}`;
         newLogEntries.push({
@@ -541,7 +537,6 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       // Move event from position 2 to position 1
       if (event2) {
         console.log(`[${new Date().toLocaleTimeString()}] MOVING EVENT: ${event2.name} from position 2 to position 1`);
-        movingCards.push(event2.id);
         
         const movementMsg = `${updatedPlayer.name}'s event "${event2.name}" (#${event2.eventNumber}) advanced from position 2 to position 1`;
         newLogEntries.push({
@@ -558,7 +553,6 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       // Move event from position 3 to position 2
       if (event3) {
         console.log(`[${new Date().toLocaleTimeString()}] MOVING EVENT: ${event3.name} from position 3 to position 2`);
-        movingCards.push(event3.id);
         
         const movementMsg = `${updatedPlayer.name}'s event "${event3.name}" (#${event3.eventNumber}) advanced from position 3 to position 2`;
         newLogEntries.push({
@@ -591,11 +585,6 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
         timestamp: new Date().toISOString()
       });
       
-      // Set animation state variables
-      setResolvedCardId(resolvedCardId);
-      setMovingCardIds(movingCards);
-      setProcessingStep(1); // Set to a state that indicates processing
-      
       // Return the updated state
       return {
         ...prevState,
@@ -605,7 +594,7 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       };
     });
     
-    // CRITICAL: Schedule cleanup with a longer delay to ensure all renders complete
+    // CRITICAL: Schedule cleanup with a shorter delay - no animations to wait for
     // This function will ONLY run after event processing is complete
     setTimeout(() => {
       const endTime = Date.now();
@@ -613,19 +602,17 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
       
       console.log(`❗❗❗ [${new Date().toLocaleTimeString()}] FINISHED EVENT PROCESSING #${newCallCount} after ${processingTime}ms ❗❗❗`);
       
-      // Clear animation flags
-      setResolvedCardId(null);
-      setMovingCardIds([]);
+      // Reset the processing step
       setProcessingStep(0);
       
       // VERY IMPORTANT: Only now do we clear the processing flag
-      // This must happen after all animations and state updates are complete
+      // This must happen after all state updates are complete
       setProcessingEvents(false);
       
       // The eventsProcessedThisTurn flag will be cleared only at the end of the turn
       console.log(`[${new Date().toLocaleTimeString()}] Processing flags updated: processingEvents=false, eventsProcessedThisTurn=true`);
       
-    }, 3000); // Longer timeout to ensure all animations and renders complete
+    }, 250); // Shorter timeout since we don't have animations to wait for
   };
   
   // Setup test events
@@ -770,8 +757,6 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     setEventsPhaseCallCount(0);
     setProcessingStep(0);
     setProcessingEvents(false);
-    setResolvedCardId(null);
-    setMovingCardIds([]);
     
     setGameState(createInitialGameState());
     
@@ -803,8 +788,6 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
     setEventsPhaseCallCount(0);
     setProcessingEvents(false);
     setProcessingStep(0);
-    setResolvedCardId(null);
-    setMovingCardIds([]);
     
     console.log(`[${new Date().toLocaleTimeString()}] All event processing flags reset to initial state`);
     
@@ -1519,19 +1502,19 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
             <div className="event-slots">
               <div className="event-slot">
                 <div className="queue-position">1</div>
-                <div className={`card-slot ${isPlayer2Active && player2.eventQueue.slot1 && resolvedCardId === player2.eventQueue.slot1.id ? 'resolving-card' : ''}`}>
+                <div className="card-slot event-card-container">
                   {player2.eventQueue.slot1 && <EventCardComponent event={player2.eventQueue.slot1} />}
                 </div>
               </div>
               <div className="event-slot">
                 <div className="queue-position">2</div>
-                <div className={`card-slot ${isPlayer2Active && player2.eventQueue.slot2 && movingCardIds.includes(player2.eventQueue.slot2.id) ? 'moving-card' : ''}`}>
+                <div className="card-slot event-card-container">
                   {player2.eventQueue.slot2 && <EventCardComponent event={player2.eventQueue.slot2} />}
                 </div>
               </div>
               <div className="event-slot">
                 <div className="queue-position">3</div>
-                <div className={`card-slot ${isPlayer2Active && player2.eventQueue.slot3 && movingCardIds.includes(player2.eventQueue.slot3.id) ? 'moving-card' : ''}`}>
+                <div className="card-slot event-card-container">
                   {player2.eventQueue.slot3 && <EventCardComponent event={player2.eventQueue.slot3} />}
                 </div>
               </div>
@@ -1661,19 +1644,19 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
             <div className="event-slots">
               <div className="event-slot">
                 <div className="queue-position">1</div>
-                <div className={`card-slot ${isPlayer1Active && player1.eventQueue.slot1 && resolvedCardId === player1.eventQueue.slot1.id ? 'resolving-card' : ''}`}>
+                <div className="card-slot event-card-container">
                   {player1.eventQueue.slot1 && <EventCardComponent event={player1.eventQueue.slot1} />}
                 </div>
               </div>
               <div className="event-slot">
                 <div className="queue-position">2</div>
-                <div className={`card-slot ${isPlayer1Active && player1.eventQueue.slot2 && movingCardIds.includes(player1.eventQueue.slot2.id) ? 'moving-card' : ''}`}>
+                <div className="card-slot event-card-container">
                   {player1.eventQueue.slot2 && <EventCardComponent event={player1.eventQueue.slot2} />}
                 </div>
               </div>
               <div className="event-slot">
                 <div className="queue-position">3</div>
-                <div className={`card-slot ${isPlayer1Active && player1.eventQueue.slot3 && movingCardIds.includes(player1.eventQueue.slot3.id) ? 'moving-card' : ''}`}>
+                <div className="card-slot event-card-container">
                   {player1.eventQueue.slot3 && <EventCardComponent event={player1.eventQueue.slot3} />}
                 </div>
               </div>
