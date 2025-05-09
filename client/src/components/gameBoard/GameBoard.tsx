@@ -402,6 +402,7 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   const [gameState, setGameState] = useState<GameState>(initialState || createInitialGameState());
   const [showCardModal, setShowCardModal] = useState<boolean>(false);
   const [selectedCard, setSelectedCard] = useState<PersonCard | EventCard | WaterSiloCard | null>(null);
+  const [selectedCardIndex, setSelectedCardIndex] = useState<number>(0);
   const [isPlacementMode, setIsPlacementMode] = useState<boolean>(false);
   const [selectedColumnIndex, setSelectedColumnIndex] = useState<number | null>(null);
 
@@ -490,9 +491,20 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
   // Card modal handlers
   const handleOpenCardModal = (card?: PersonCard | EventCard | WaterSiloCard) => {
     setShowCardModal(true);
-    // If a specific card is clicked, we could start with that one selected
+    
+    // If a specific card is clicked, find its index in the active player's hand
     if (card) {
       setSelectedCard(card);
+      
+      // Find the index of the clicked card in the active player's hand
+      const cardIndex = activePlayerCards.findIndex(c => c.id === card.id);
+      if (cardIndex !== -1) {
+        setSelectedCardIndex(cardIndex);
+      } else {
+        setSelectedCardIndex(0); // Default to first card if not found
+      }
+    } else {
+      setSelectedCardIndex(0); // Default to first card if no card specified
     }
   };
   
@@ -707,6 +719,7 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
         <CardModal
           cards={activePlayerCards}
           water={activePlayerWater}
+          initialCardIndex={selectedCardIndex}
           onClose={handleCloseCardModal}
           onPlayCard={handlePlayCard}
           onJunkCard={handleJunkCard}
@@ -999,7 +1012,7 @@ const GameBoard: FC<GameBoardProps> = ({ initialState }) => {
           <div className="player-hand">
             <div className="slot-label">Hand</div>
             <div className="hand-cards">
-              {player1.hand.map(card => (
+              {player1.hand.map((card, index) => (
                 <div 
                   key={card.id} 
                   className="hand-card-slot"

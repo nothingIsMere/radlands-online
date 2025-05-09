@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PersonCard, EventCard, WaterSiloCard, CardType } from '../models';
 import './CardModal.css';
 
@@ -7,6 +7,7 @@ type Card = PersonCard | EventCard | WaterSiloCard;
 interface CardModalProps {
   cards: Card[];
   water: number;
+  initialCardIndex?: number;
   onClose: () => void;
   onPlayCard: (card: Card) => void;
   onJunkCard: (card: Card) => void;
@@ -15,17 +16,31 @@ interface CardModalProps {
 const CardModal: React.FC<CardModalProps> = ({ 
   cards, 
   water, 
+  initialCardIndex = 0,
   onClose, 
   onPlayCard, 
   onJunkCard 
 }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(initialCardIndex);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   if (cards.length === 0) {
     return null;
   }
 
   const currentCard = cards[currentIndex];
+  
+  // Effect to set initial scroll position to show the clicked card
+  useEffect(() => {
+    // Ensure initialCardIndex is valid
+    if (initialCardIndex >= 0 && initialCardIndex < cards.length) {
+      setCurrentIndex(initialCardIndex);
+
+      // Apply any specific scroll positioning if needed
+      // For our current structure, this isn't needed as we're showing one card at a time
+      // But this could be useful if we had a carousel-like UI with multiple cards visible
+    }
+  }, [initialCardIndex, cards.length]);
   
   const handlePrevCard = () => {
     setCurrentIndex((prevIndex) => 
@@ -124,7 +139,7 @@ const CardModal: React.FC<CardModalProps> = ({
       <div className="card-modal-content" onClick={(e) => e.stopPropagation()}>
         <button className="close-button" onClick={onClose}>×</button>
         
-        <div className="card-scroll-container">
+        <div className="card-scroll-container" ref={scrollContainerRef}>
           <button 
             className="scroll-button prev-button" 
             onClick={handlePrevCard}

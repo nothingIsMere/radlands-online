@@ -58,6 +58,8 @@
   justify-content: space-between;
   width: 100%;
   gap: 1rem;
+  position: relative;
+  overflow: hidden; /* Hide overflow to prevent horizontal scrolling of the container itself */
 }
 
 /* Card Display */
@@ -70,6 +72,18 @@
   flex-direction: column;
   transition: all 0.3s ease;
   box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.2);
+  animation: card-appear 0.3s ease-out;
+}
+
+@keyframes card-appear {
+  from { 
+    opacity: 0; 
+    transform: scale(0.9);
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1);
+  }
 }
 
 /* Card Type Styling */
